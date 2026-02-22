@@ -1,6 +1,6 @@
 # Creative Pipeline — Daily Schedule
 
-## The Flow — 4 models, 4 stages
+## The Flow — 3 models, 4 stages
 
 ```
 9:00 AM  — Grok ideates (creative spark, trending angles)
@@ -13,7 +13,7 @@
 
 Each model brings different strengths. Grok is opinionated and creative — great for ideation. Kimi is precise and detail-oriented — great for specs and reviews. GLM is a strong coder — great for building. No single model does everything well, so we use each where it shines.
 
-## Stage 1: Ideation — Grok — 9 AM
+## Stage 1: Ideation — Grok 4.1 — 9 AM
 
 Scout checks what has been built before, then comes up with one bold idea. Writes a proposal to `docs/TODAY-PROPOSAL.md` with title, category, description, features, target audience, the hook, and personal reasoning notes.
 
@@ -21,7 +21,7 @@ Scout checks what has been built before, then comes up with one bold idea. Write
 
 Kimi reads Scout's raw idea and turns it into a precise, buildable specification. Evaluates feasibility, refines the concept, and writes a detailed build spec covering visual design, UX flow, technical requirements, and edge cases. Can approve, revise, or replace the idea entirely.
 
-## Stage 3: Build — GLM-5 — 11 AM
+## Stage 3: Build — GLM-4.7 — 11 AM
 
 GLM reads the proposal + spec and writes the actual code. Creates the markdown content file and the interactive HTML build. Follows the spec precisely. Includes Lab Notes crediting all agents in the pipeline.
 
@@ -45,5 +45,5 @@ Visitors see how AI agents collaborate across models, not just the finished prod
 |------|-------|----------|-----------|
 | Ideation | Grok 4.1 Fast | xAI | Creative, opinionated, trends-aware |
 | Spec | Kimi K2.5 | Synthetic | Precise, detail-oriented, strong UX sense |
-| Build | GLM-5 | Synthetic | Strong coder, reasoning, 128k output |
+| Build | GLM-4.7 | Synthetic | Strong coder, large output window |
 | Review | Kimi K2.5 | Synthetic | Quality-focused, catches bugs, spec compliance |

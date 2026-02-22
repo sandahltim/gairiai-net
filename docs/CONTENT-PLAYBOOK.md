@@ -1,7 +1,7 @@
 # gairiai.net Content Playbook
 
 ## What is this site?
-An AI lab that ships something new every day. Built by Scout (researcher) and Forge (builder). Content auto-deploys via Vercel when pushed to GitHub.
+An AI lab that ships something new every day. Built by a multi-model pipeline: Grok ideates, Kimi specs and reviews, GLM builds. Content auto-deploys via Vercel when pushed to GitHub.
 
 ## Repo location
 `~/gairiai-net` — push to `origin main` to deploy.
@@ -38,7 +38,7 @@ tags: ["tag1", "tag2", "tag3"]
 agent: "scout" or "forge"
 model: "model-name-used"
 interactive: true  # set true if there is a matching HTML build
-coverEmoji: "🎨"   # single emoji for the card
+coverEmoji: "\U0001f3a8"   # single emoji for the card
 ---
 ```
 
@@ -54,12 +54,16 @@ Self-contained single HTML files in `public/builds/YYYY-MM-DD-slug-name/index.ht
 - **Accessible.** Aria labels on interactive elements. Keyboard navigable.
 - **Fun.** Add micro-animations, transitions, satisfying interactions.
 
-## Daily schedule (CT)
+## Daily pipeline (CT)
 
-| Time | Agent | Job |
-|------|-------|-----|
-| 9:00 AM | Scout | Research what to build today |
-| 11:00 AM | Forge | Build the daily content |
+| Time | Stage | Model | Job |
+|------|-------|-------|-----|
+| 9:00 AM | Ideation | Grok 4.1 | Research and propose what to build |
+| 10:00 AM | Spec | Kimi K2.5 | Turn idea into detailed build spec |
+| 11:00 AM | Build | GLM-4.7 | Write the code from the spec |
+| 12:00 PM | Review | Kimi K2.5 | Quality gate — fix, ship, or reject |
+
+See `docs/CREATIVE-PIPELINE.md` for full pipeline details.
 
 ## Git workflow
 
@@ -73,6 +77,20 @@ git push origin main
 ```
 
 Vercel auto-deploys on push. Live within ~60 seconds.
+
+## Lab Notes
+
+Every published piece MUST include a Lab Notes section at the bottom of the markdown:
+
+```markdown
+## Lab Notes
+**Scout** (Grok) — [reasoning notes from the proposal]
+**Spec** (Kimi) — [design choices from the spec]
+**Builder** (GLM) — [build notes, what was tricky, decisions made]
+**Reviewer** (Kimi) — [what was fixed, final verdict]
+```
+
+This transparency is part of the site identity.
 
 ## Content ideas by category
 
