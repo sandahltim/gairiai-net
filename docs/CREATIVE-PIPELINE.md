@@ -1,39 +1,49 @@
 # Creative Pipeline — Daily Schedule
 
-## The Flow
+## The Flow — 4 models, 4 stages
 
 ```
-9:00 AM  — Scout researches and proposes what to build
-10:00 AM — Critic reviews the proposal (different model, fresh eyes)
-11:00 AM — Forge builds it, incorporating critic feedback, ships to production
+9:00 AM  — Grok ideates (creative spark, trending angles)
+10:00 AM — Kimi specs it (detailed UX, visual design, technical spec)
+11:00 AM — GLM builds it (writes the actual code from the spec)
+12:00 PM — Kimi reviews it (quality gate, fixes issues, ships or rejects)
 ```
 
-## How it works
+## Why multiple models?
 
-### 9 AM: Scout Proposes
-Scout checks what has been built before, picks a category, researches ideas, and writes a proposal to `docs/TODAY-PROPOSAL.md` with title, description, features, audience, and reasoning notes.
+Each model brings different strengths. Grok is opinionated and creative — great for ideation. Kimi is precise and detail-oriented — great for specs and reviews. GLM is a strong coder — great for building. No single model does everything well, so we use each where it shines.
 
-### 10 AM: Critic Reviews
-A fresh session with Kimi K2.5 reads the proposal with no knowledge of why Scout chose it. It evaluates honestly:
-- **BUILD** — good to go, maybe with a twist
-- **REVISE** — promising but needs changes, provides revised feature list
-- **SCRAP** — not interesting enough, proposes alternative
+## Stage 1: Ideation — Grok — 9 AM
 
-The critic appends its review to `TODAY-PROPOSAL.md`.
+Scout checks what has been built before, then comes up with one bold idea. Writes a proposal to `docs/TODAY-PROPOSAL.md` with title, category, description, features, target audience, the hook, and personal reasoning notes.
 
-### 11 AM: Forge Builds
-Forge reads the proposal + critic review and builds accordingly:
-- SCRAP: builds the critic's alternative
-- REVISE: incorporates feedback
-- BUILD: proceeds, cherry-picks good "spice it up" suggestions
+## Stage 2: Spec — Kimi K2.5 — 10 AM
 
-Forge writes the markdown content, builds the interactive HTML, includes Lab Notes showing the full creative process, commits, and pushes. Vercel auto-deploys.
+Kimi reads Scout's raw idea and turns it into a precise, buildable specification. Evaluates feasibility, refines the concept, and writes a detailed build spec covering visual design, UX flow, technical requirements, and edge cases. Can approve, revise, or replace the idea entirely.
 
-## Lab Notes — visible on every page
+## Stage 3: Build — GLM-5 — 11 AM
 
-Each published piece includes a Lab Notes section at the bottom showing:
-- **Scout** — why this idea was proposed
-- **Critic** — the review verdict and key feedback
-- **Forge** — build decisions, what was tricky, what changed from the proposal
+GLM reads the proposal + spec and writes the actual code. Creates the markdown content file and the interactive HTML build. Follows the spec precisely. Includes Lab Notes crediting all agents in the pipeline.
 
-This transparency is part of the site's identity. Visitors see the AI creative process, not just the output.
+## Stage 4: Review — Kimi K2.5 — 12 PM
+
+Kimi reviews the built code against the original spec. Checks for bugs, spec compliance, mobile-friendliness, accessibility. Fixes issues directly if possible. Ships by pushing to main, which triggers Vercel auto-deploy. If fundamentally broken, rejects and documents why.
+
+## Lab Notes — visible on every published page
+
+Each piece includes a Lab Notes section showing the full creative process:
+- **Scout** (Grok) — why this idea was proposed
+- **Spec** (Kimi) — what design choices were made
+- **Builder** (GLM) — build decisions, what was tricky
+- **Reviewer** (Kimi) — what was fixed, final verdict
+
+Visitors see how AI agents collaborate across models, not just the finished product.
+
+## Models
+
+| Role | Model | Provider | Strengths |
+|------|-------|----------|-----------|
+| Ideation | Grok 4.1 Fast | xAI | Creative, opinionated, trends-aware |
+| Spec | Kimi K2.5 | Synthetic | Precise, detail-oriented, strong UX sense |
+| Build | GLM-5 | Synthetic | Strong coder, reasoning, 128k output |
+| Review | Kimi K2.5 | Synthetic | Quality-focused, catches bugs, spec compliance |
