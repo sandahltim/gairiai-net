@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Counting Stars</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: linear-gradient(to bottom, #0a0a2e, #1a1a4e);
+    color: #e4e4ed;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .header {
+    text-align: center;
+    padding: 20px 16px 10px;
+    z-index: 10;
+  }
+  h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .prompt {
+    font-size: 1rem;
+    color: #94a3b8;
+    margin-top: 6px;
+  }
+  .target-number {
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: #fbbf24;
+    text-shadow: 0 0 20px rgba(251,191,36,0.4);
+    margin: 4px 0;
+  }
+  .count-display {
+    font-size: 1.1rem;
+    color: #64748b;
+    min-height: 28px;
+  }
+  .count-display .current {
+    color: #fbbf24;
+    font-weight: 700;
+  }
+
+  .sky {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 300px;
+    max-width: 500px;
+  }
+
+  .star {
+    position: absolute;
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+  .star:hover { transform: scale(1.15); }
+  .star:active { transform: scale(0.9); }
+
+  .star-icon {
+    font-size: 2.8rem;
+    filter: drop-shadow(0 0 6px rgba(251,191,36,0.3));
+    transition: filter 0.3s;
+    line-height: 1;
+  }
+  .star.counted .star-icon {
+    filter: drop-shadow(0 0 12px rgba(251,191,36,0.7));
+  }
+  .star .number-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1e1b4b;
+    color: #fbbf24;
+    font-weight: 800;
+    font-size: 0.9rem;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fbbf24;
+  }
+  .star.counted .number-badge {
+    display: flex;
+  }
+
+  .twinkle {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle 3s ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.8; }
+  }
+
+  .celebration {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    background: rgba(10,10,46,0.85);
+    flex-direction: column;
+  }
+  .celebration.active { display: flex; }
+  .celebration-text {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #fbbf24;
+    text-shadow: 0 0 30px rgba(251,191,36,0.5);
+    animation: celebBounce 0.6s ease-out;
+  }
+  .celebration-sub {
+    font-size: 1.2rem;
+    color: #94a3b8;
+    margin-top: 8px;
+  }
+  .next-btn {
+    margin-top: 24px;
+    background: #fbbf24;
+    color: #1e1b4b;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .next-btn:hover { transform: scale(1.05); }
+  .next-btn:active { transform: scale(0.95); }
+
+  @keyframes celebBounce {
+    0% { transform: scale(0.3); opacity: 0; }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .confetti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: confettiFall 2s ease-out forwards;
+    z-index: 101;
+    pointer-events: none;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Counting Stars</h1>
+  <p class="prompt">Tap the stars to count them!</p>
+  <div class="target-number" id="targetNumber">3</div>
+  <div class="count-display" id="countDisplay"></div>
+</div>
+
+<div class="sky" id="sky"></div>
+
+<div class="celebration" id="celebration">
+  <div class="celebration-text" id="celebText"></div>
+  <div class="celebration-sub">You counted them all!</div>
+  <button class="next-btn" onclick="newRound()">Next Round</button>
+</div>
+
+<script>
+let target = 0;
+let counted = 0;
+let stars = [];
+const sky = document.getElementById('sky');
+const targetEl = document.getElementById('targetNumber');
+const countEl = document.getElementById('countDisplay');
+const celebEl = document.getElementById('celebration');
+const celebText = document.getElementById('celebText');
+
+const cheerMessages = [
+  'Amazing!', 'Great job!', 'You did it!',
+  'Wonderful!', 'Superstar!', 'Fantastic!',
+  'Hooray!', 'Brilliant!', 'Way to go!'
+];
+
+function addBackgroundStars() {
+  for (let i = 0; i < 40; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'twinkle';
+    dot.style.left = Math.random() * 100 + '%';
+    dot.style.top = Math.random() * 100 + '%';
+    dot.style.animationDelay = (Math.random() * 3) + 's';
+    dot.style.width = (Math.random() * 2 + 1) + 'px';
+    dot.style.height = dot.style.width;
+    sky.appendChild(dot);
+  }
+}
+
+function newRound() {
+  celebEl.classList.remove('active');
+  counted = 0;
+
+  target = Math.floor(Math.random() * 8) + 3;
+  targetEl.textContent = String(target);
+  countEl.textContent = '';
+
+  while (sky.firstChild) {
+    sky.removeChild(sky.firstChild);
+  }
+  stars = [];
+
+  addBackgroundStars();
+
+  const padding = 60;
+  const positions = [];
+
+  for (let i = 0; i < target; i++) {
+    let x, y, attempts = 0;
+    do {
+      x = padding + Math.random() * (sky.offsetWidth - padding * 2);
+      y = padding + Math.random() * (sky.offsetHeight - padding * 2);
+      attempts++;
+    } while (attempts < 50 && positions.some(function(p) {
+      return Math.hypot(p.x - x, p.y - y) < 70;
+    }));
+
+    positions.push({ x: x, y: y });
+
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.left = x + 'px';
+    star.style.top = y + 'px';
+    star.dataset.index = String(i);
+
+    const icon = document.createElement('span');
+    icon.className = 'star-icon';
+    icon.textContent = '\u2B50';
+    star.appendChild(icon);
+
+    const badge = document.createElement('span');
+    badge.className = 'number-badge';
+    star.appendChild(badge);
+
+    star.addEventListener('click', function() {
+      tapStar(star, badge);
+    });
+
+    sky.appendChild(star);
+    stars.push(star);
+  }
+}
+
+function tapStar(star, badge) {
+  if (star.classList.contains('counted')) return;
+
+  counted++;
+  star.classList.add('counted');
+  badge.textContent = String(counted);
+
+  updateCount();
+
+  if (counted >= target) {
+    setTimeout(celebrate, 400);
+  }
+}
+
+function updateCount() {
+  var span = document.createElement('span');
+  span.className = 'current';
+  span.textContent = String(counted);
+
+  while (countEl.firstChild) {
+    countEl.removeChild(countEl.firstChild);
+  }
+  countEl.appendChild(span);
+  countEl.appendChild(document.createTextNode(' of ' + target));
+}
+
+function celebrate() {
+  celebText.textContent = cheerMessages[Math.floor(Math.random() * cheerMessages.length)];
+  celebEl.classList.add('active');
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  var colors = ['#fbbf24', '#f59e0b', '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#ec4899'];
+  for (var i = 0; i < 30; i++) {
+    var piece = document.createElement('div');
+    piece.className = 'confetti';
+    piece.style.left = Math.random() * 100 + 'vw';
+    piece.style.top = '-10px';
+    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 0.5) + 's';
+    piece.style.width = (Math.random() * 6 + 4) + 'px';
+    piece.style.height = (Math.random() * 6 + 4) + 'px';
+    document.body.appendChild(piece);
+    (function(el) {
+      setTimeout(function() {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 2500);
+    })(piece);
+  }
+}
+
+newRound();
+</script>
+</body>
+</html>
