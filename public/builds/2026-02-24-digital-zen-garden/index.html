@@ -57,9 +57,9 @@
   .tool-btn:hover { background: #2a2a3e; }
   .tool-btn:active { transform: scale(0.94); }
   .tool-btn.active {
-    background: #2563eb;
+    background: #5a8a9a;
     color: #fff;
-    box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 0 20px rgba(126, 200, 227, 0.4);
   }
   .tool-btn svg { width: 24px; height: 24px; }
   .tool-btn span { font-size: 10px; font-weight: 600; }
@@ -339,19 +339,7 @@
     ctx.fillStyle = '#0a0a0f';
     ctx.fillRect(0, 0, w, h);
 
-    // Draw sand
-    const imgData = ctx.createImageData(w, h);
-    const data = imgData.data;
-
-    for (let py = 0; py < h; py++) {
-      for (let px = 0; px < w; px++) {
-        const gx = Math.floor((px / w) * GRID_W);
-        const gy = Math.floor((py / h) * GRID_H);
-        const idx = Math.min(idx, heightMap.length - 1);
-      }
-    }
-
-    // Direct canvas rendering for performance
+    // Draw sand using direct canvas rendering for performance
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         const i = y * GRID_W + x;
