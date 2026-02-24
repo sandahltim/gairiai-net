@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Digital Zen Garden</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, sans-serif;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+  }
+  .toolbar {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(20, 20, 30, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    z-index: 100;
+  }
+  .tool-btn {
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
+    border: none;
+    border-radius: 12px;
+    background: #1e1e2e;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.2s ease;
+  }
+  .tool-btn:hover { background: #2a2a3e; }
+  .tool-btn:active { transform: scale(0.94); }
+  .tool-btn.active {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+  }
+  .tool-btn svg { width: 24px; height: 24px; }
+  .tool-btn span { font-size: 10px; font-weight: 600; }
+  .screenshot-btn {
+    border-color: rgba(37, 99, 235, 0.3);
+  }
+  @media (max-width: 480px) {
+    .toolbar {
+      bottom: 16px;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+    .tool-btn {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+    }
+    .tool-btn svg { width: 20px; height: 20px; }
+    .tool-btn span { font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <nav class="toolbar" id="toolbar" aria-label="Toolbar"></nav>
+
+<script>
+(function() {
+  'use strict';
+
+  // Canvas setup
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Grid settings
+  const GRID_W = 200;
+  const GRID_H = 150;
+  let cellWidth, cellHeight;
+  let heightMap = new Float32Array(GRID_W * GRID_H);
+
+  // Sand colors
+  const SAND_DARK = {r: 196, g: 167, b: 125};
+  const SAND_LIGHT = {r: 232, g: 213, b: 183};
+
+  // Rock color gradient
+  const ROCK_DARK = {r: 90, g: 90, b: 106};
+  const ROCK_LIGHT = {r: 138, g: 138, b: 154};
+
+  // State
+  let currentTool = 'rake';
+  let isDrawing = false;
+  let lastX = 0;
+  let lastY = 0;
+  let rocks = [];
+  let rockBeingDragged = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+  let ripples = [];
+  let windParticles = [];
+  let frameCount = 0;
+
+  // Canvas sizing
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.scale(dpr, dpr);
+    cellWidth = window.innerWidth / GRID_W;
+    cellHeight = window.innerHeight / GRID_H;
+
+    // Store old height map if exists
+    const oldHeightMap = new Float32Array(heightMap);
+    for (let i = 0; i < heightMap.length; i++) {
+      if (heightMap[i] === 0.5) {
+        oldHeightMap[i] = 0.5;
+      }
+    }
+
+    // Recreate height map at new resolution
+    heightMap = new Float32Array(GRID_W * GRID_H);
+    for (let i = 0; i < heightMap.length; i++) {
+      heightMap[i] = 0.5;
+    }
+
+    // Restore values where they weren't default
+    const scaleOldW = GRID_W;  // Same grid resolution
+    const scaleOldH = GRID_H;
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        const oldX = Math.floor(x * scaleOldW / GRID_W);
+        const oldY = Math.floor(y * scaleOldH / GRID_H);
+        const oldIndex = oldY * scaleOldW + oldX;
+        const newIndex = y * GRID_W + x;
+        if (oldIndex < oldHeightMap.length) {
+          heightMap[newIndex] = oldHeightMap[oldIndex];
+        }
+      }
+    }
+  }
+
+  // Initialize wind particles
+  function initWindParticles() {
+    windParticles = [];
+    for (let i = 0; i < 24; i++) {
+      windParticles.push({
+        x: Math.random() * window.innerWidth,
+        y: Math.random() * window.innerHeight,
+        vx: 0.3 + Math.random() * 0.4,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  // Initialize starter rock
+  function initStarterRock() {
+    rocks.push({
+      x: window.innerWidth * 0.55,
+      y: window.innerHeight * 0.55,
+      radius: 28,
+      dragOffsetX: 0,
+      dragOffsetY: 0,
+      isDragging: false
+    });
+  }
+
+  // Ripple effect
+  function createRipple(x, y) {
+    ripples.push({x, y, radius: 0, opacity: 1, frame: 0});
+  }
+
+  // Interpolate color based on height
+  function getSandColor(height) {
+    const t = Math.max(0, Math.min(1, height));
+    const r = Math.round(SAND_DARK.r + (SAND_LIGHT.r - SAND_DARK.r) * t);
+    const g = Math.round(SAND_DARK.g + (SAND_LIGHT.g - SAND_DARK.g) * t);
+    const b = Math.round(SAND_DARK.b + (SAND_LIGHT.b - SAND_DARK.b) * t);
+    return `rgb(${r},${g},${b})`;
+  }
+
+  // Get rock gradient color at position
+  function getRockGradient(x, y, cx, cy, r) {
+    const dx = (x - cx) / r;
+    const dy = (y - cy) / r;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const t = Math.min(1, dist);
+
+    const rockR = Math.round(ROCK_DARK.r + (ROCK_LIGHT.r - ROCK_DARK.r) * t);
+    const rockG = Math.round(ROCK_DARK.g + (ROCK_LIGHT.g - ROCK_DARK.g) * t);
+    const rockB = Math.round(ROCK_DARK.b + (ROCK_LIGHT.b - ROCK_DARK.b) * t);
+    return `rgb(${rockR},${rockG},${rockB})`;
+  }
+
+  // Rake operation
+  function rake(gx, gy, intensity = 0.3) {
+    const radius = 3;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= radius) {
+          const nx = gx + dx;
+          const ny = gy + dy;
+          if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+            const ni = ny * GRID_W + nx;
+            const fallOff = 1 - (dist / radius);
+            const effect = intensity * fallOff;
+
+            // Create valley with ridges on sides
+            heightMap[ni] = Math.max(0, Math.min(1, heightMap[ni] - effect * 0.8));
+
+            // Add ridges on sides based on direction
+            if (dx !== 0 || dy !== 0) {
+              const angle = Math.atan2(dy, dx);
+              const perpX = Math.round(Math.cos(angle + Math.PI/2) * 2);
+              const perpY = Math.round(Math.sin(angle + Math.PI/2) * 2);
+              const ridgeX = nx + perpX;
+              const ridgeY = ny + perpY;
+              const ridgeI = ridgeY * GRID_W + ridgeX;
+              if (ridgeX >= 0 && ridgeX < GRID_W && ridgeY >= 0 && ridgeY < GRID_H) {
+                heightMap[ridgeI] = Math.min(1, heightMap[ridgeI] + effect * 0.4);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Get grid coordinates from canvas coords
+  function getGridCoords(canvasX, canvasY) {
+    return {
+      x: Math.floor(canvasX / cellWidth),
+      y: Math.floor(canvasY / cellHeight)
+    };
+  }
+
+  // Check if point is inside rock
+  function pointInRock(px, py, rock) {
+    const dx = px - rock.x;
+    const dy = py - rock.y;
+    return (dx * dx + dy * dy) <= (rock.radius * rock.radius);
+  }
+
+  // Carve depression for rock
+  function carveRockDepression(rock) {
+    const gridR = Math.ceil(rock.radius / cellWidth) + 2;
+    const centerGrid = getGridCoords(rock.x, rock.y);
+
+    for (let dy = -gridR; dy <= gridR; dy++) {
+      for (let dx = -gridR; dx <= gridR; dx++) {
+        const nx = centerGrid.x + dx;
+        const ny = centerGrid.y + dy;
+        if (nx >= 0 && nx < GRID_W && ny >= 0 && ny < GRID_H) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= gridR) {
+            const ni = ny * GRID_W + nx;
+            const fallOff = 1 - (dist / gridR);
+            heightMap[ni] = Math.max(0, heightMap[ni] - fallOff * 0.3);
+          }
+        }
+      }
+    }
+  }
+
+  // Relaxation - sand settles
+  function applyRelaxation() {
+    const tempMap = new Float32Array(heightMap);
+    for (let y = 1; y < GRID_H - 1; y++) {
+      for (let x = 1; x < GRID_W - 1; x++) {
+        const i = y * GRID_W + x;
+        const avg = (
+          heightMap[i - 1] +
+          heightMap[i + 1] +
+          heightMap[i - GRID_W] +
+          heightMap[i + GRID_W]
+        ) / 4;
+
+        // Blend toward average and toward flat (0.5)
+        const settleRate = 0.03;
+        tempMap[i] = heightMap[i] * (1 - settleRate) + avg * settleRate;
+
+        // Slowly return to flat
+        tempMap[i] = tempMap[i] * 0.995 + 0.5 * 0.005;
+      }
+    }
+    heightMap = tempMap;
+
+    // Clamp values
+    for (let i = 0; i < heightMap.length; i++) {
+      heightMap[i] = Math.max(0, Math.min(1, heightMap[i]));
+    }
+  }
+
+  // Get pseudo-normal for lighting
+  function getNormal(gx, gy) {
+    let nx = 0, ny = 0;
+    if (gx > 0) nx += heightMap[gy * GRID_W + gx] - heightMap[gy * GRID_W + gx - 1];
+    if (gx < GRID_W - 1) nx += heightMap[gy * GRID_W + gx + 1] - heightMap[gy * GRID_W + gx];
+    if (gy > 0) ny += heightMap[gy * GRID_W + gx] - heightMap[(gy - 1) * GRID_W + gx];
+    if (gy < GRID_H - 1) ny += heightMap[(gy + 1) * GRID_W + gx] - heightMap[gy * GRID_W + gx];
+
+    const len = Math.sqrt(nx * nx + ny * ny);
+    if (len > 0) {
+      nx /= len;
+      ny /= len;
+    }
+    return {x: nx, y: ny};
+  }
+
+  // Render frame
+  function render() {
+    const w = canvas.width / (window.devicePixelRatio || 1);
+    const h = canvas.height / (window.devicePixelRatio || 1);
+
+    ctx.fillStyle = '#0a0a0f';
+    ctx.fillRect(0, 0, w, h);
+
+    // Draw sand
+    const imgData = ctx.createImageData(w, h);
+    const data = imgData.data;
+
+    for (let py = 0; py < h; py++) {
+      for (let px = 0; px < w; px++) {
+        const gx = Math.floor((px / w) * GRID_W);
+        const gy = Math.floor((py / h) * GRID_H);
+        const idx = Math.min(idx, heightMap.length - 1);
+      }
+    }
+
+    // Direct canvas rendering for performance
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        const i = y * GRID_W + x;
+        const height = heightMap[i];
+
+        const normal = getNormal(x, y);
+        const light = Math.max(0.4, 1 - Math.abs(normal.x) * 0.6 - normal.y * 0.4);
+        const shadowFactor = 1 - normal.y * 0.4;
+
+        const t = Math.max(0, Math.min(1, height));
+        const r = Math.round((SAND_DARK.r + (SAND_LIGHT.r - SAND_DARK.r) * t) * light * shadowFactor);
+        const g = Math.round((SAND_DARK.g + (SAND_LIGHT.g - SAND_DARK.g) * t) * light * shadowFactor);
+        const b = Math.round((SAND_DARK.b + (SAND_LIGHT.b - SAND_DARK.b) * t) * light * shadowFactor);
+
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(x * cellWidth, y * cellHeight, Math.ceil(cellWidth) + 1, Math.ceil(cellHeight) + 1);
+      }
+    }
+
+    // Draw ripples
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const rip = ripples[i];
+      rip.frame++;
+      if (rip.frame > 30) {
+        ripples.splice(i, 1);
+        continue;
+      }
+
+      const scale = rip.frame / 30;
+      const alpha = 1 - scale;
+      ctx.beginPath();
+      ctx.arc(rip.x, rip.y, rip.radius * scale + 10, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(126, 200, 227, ${alpha * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      if (alpha <= 0.05) ripples.splice(i, 1);
+    }
+
+    // Draw rocks
+    const sortedRocks = [...rocks].sort((a, b) => a.y - b.y);
+    for (const rock of sortedRocks) {
+      const grad = ctx.createRadialGradient(
+        rock.x - rock.radius * 0.3, rock.y - rock.radius * 0.3, 0,
+        rock.x, rock.y, rock.radius
+      );
+      grad.addColorStop(0, `rgb(${ROCK_LIGHT.r},${ROCK_LIGHT.g},${ROCK_LIGHT.b})`);
+      grad.addColorStop(1, `rgb(${ROCK_DARK.r},${ROCK_DARK.g},${ROCK_DARK.b})`);
+
+      ctx.beginPath();
+      ctx.arc(rock.x, rock.y, rock.radius, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      // Shadow
+      ctx.beginPath();
+      ctx.arc(rock.x + 3, rock.y + 3, rock.radius * 0.9, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Glow if active
+      if (rock === rockBeingDragged || rock.isDragging) {
+        ctx.beginPath();
+        ctx.arc(rock.x, rock.y, rock.radius + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(126, 200, 227, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+
+    // Draw wind particles
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    for (const p of windParticles) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Update wind
+  function updateWind() {
+    for (const p of windParticles) {
+      p.vx = 0.3 + Math.sin(p.phase) * 0.15;
+      p.x += p.vx;
+      p.y += Math.sin(p.phase + frameCount * 0.02) * 0.2;
+      p.phase += 0.01;
+
+      if (p.x > window.innerWidth + 10) {
+        p.x = -10;
+        p.y = Math.random() * window.innerHeight;
+      }
+    }
+  }
+
+  // Main loop
+  function loop() {
+    frameCount++;
+
+    // Physics every 2nd frame
+    if (frameCount % 2 === 0) {
+      if (!rockBeingDragged) {
+        applyRelaxation();
+      }
+    }
+
+    updateWind();
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // Input handling
+  function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches && e.touches.length > 0) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    }
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  function handleStart(e) {
+    const coords = getCanvasCoords(e);
+    lastX = coords.x;
+    lastY = coords.y;
+
+    if (currentTool === 'rake') {
+      isDrawing = true;
+      const grid = getGridCoords(coords.x, coords.y);
+      rake(grid.x, grid.y);
+    } else if (currentTool === 'rock') {
+      for (let i = rocks.length - 1; i >= 0; i--) {
+        const rock = rocks[i];
+        if (pointInRock(coords.x, coords.y, rock)) {
+          rockBeingDragged = rock;
+          rock.isDragging = true;
+          dragOffsetX = coords.x - rock.x;
+          dragOffsetY = coords.y - rock.y;
+          break;
+        }
+      }
+
+      if (!rockBeingDragged) {
+        const newRock = {
+          x: coords.x,
+          y: coords.y + 20,
+          radius: 24 + Math.random() * 12,
+          dragOffsetX: 0,
+          dragOffsetY: 0,
+          isDragging: false
+        };
+        rocks.push(newRock);
+        createRipple(coords.x, coords.y);
+        carveRockDepression(newRock);
+        rockBeingDragged = newRock;
+        newRock.isDragging = true;
+        dragOffsetX = 0;
+        dragOffsetY = 20;
+      }
+    }
+  }
+
+  function handleMove(e) {
+    if (e.touches) e.preventDefault();
+
+    const coords = getCanvasCoords(e);
+
+    if (currentTool === 'rake' && isDrawing) {
+      const grid = getGridCoords(coords.x, coords.y);
+      rake(grid.x, grid.y);
+      lastX = coords.x;
+      lastY = coords.y;
+    } else if (rockBeingDragged) {
+      rockBeingDragged.x = coords.x - dragOffsetX;
+      rockBeingDragged.y = coords.y - dragOffsetY;
+    }
+  }
+
+  function handleEnd() {
+    isDrawing = false;
+    if (rockBeingDragged) {
+      rockBeingDragged.isDragging = false;
+      carveRockDepression(rockBeingDragged);
+      rockBeingDragged = null;
+    }
+  }
+
+  // Event listeners
+  canvas.addEventListener('mousedown', handleStart);
+  canvas.addEventListener('mousemove', handleMove);
+  canvas.addEventListener('mouseup', handleEnd);
+  canvas.addEventListener('mouseleave', handleEnd);
+
+  canvas.addEventListener('touchstart', handleStart, {passive: false});
+  canvas.addEventListener('touchmove', handleMove, {passive: false});
+  canvas.addEventListener('touchend', handleEnd);
+  canvas.addEventListener('touchcancel', handleEnd);
+
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    initWindParticles();
+  });
+
+  // Create toolbar using DOM methods
+  function createToolbar() {
+    const toolbar = document.getElementById('toolbar');
+
+    // SVG paths
+    const rakePath = 'M2 8l10-6 10 6-10 6zm10-4l0 8M7 12l6 0m6 0l6 0';
+    const rockPath = 'M8 16l0-8 8 0 0 8-8 0zM6 6l12 0M6 18l12 0';
+    const clearPath = 'M4 4l16 16M4 20l16-16';
+    const screenshotPath = 'M3 6l0 14 5 0 5 4 5 0 5-4 4 0 0-14-24 0zM20 10l-4 4 0-8M8 10l4 4 0-8';
+
+    const tools = [
+      {id: 'rake', icon: rakePath, label: 'Rake'},
+      {id: 'rock', icon: rockPath, label: 'Rocks'},
+      {id: 'clear', icon: clearPath, label: 'Clear'},
+      {id: 'screenshot', icon: screenshotPath, label: 'Shot'}
+    ];
+
+    tools.forEach(tool => {
+      const btn = document.createElement('button');
+      btn.className = 'tool-btn';
+      btn.setAttribute('aria-label', tool.label);
+      btn.id = `tool-${tool.id}`;
+
+      if (tool.id === 'screenshot') {
+        btn.classList.add('screenshot-btn');
+      }
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '2');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', tool.icon);
+      svg.appendChild(path);
+
+      const span = document.createElement('span');
+      span.textContent = tool.label;
+
+      btn.appendChild(svg);
+      btn.appendChild(span);
+
+      btn.addEventListener('click', () => {
+        if (tool.id === 'screenshot') {
+          takeScreenshot();
+          return;
+        }
+
+        tools.forEach(t => {
+          const b = document.getElementById(`tool-${t.id}`);
+          if (b) b.classList.remove('active');
+        });
+
+        currentTool = tool.id;
+        btn.classList.add('active');
+
+        rockBeingDragged = null;
+        rocks.forEach(r => r.isDragging = false);
+      });
+
+      toolbar.appendChild(btn);
+
+      if (tool.id === 'rake') {
+        btn.classList.add('active');
+      }
+    });
+
+    // Clear action
+    document.getElementById('tool-clear').addEventListener('click', () => {
+      rocks = [];
+      for (let i = 0; i < heightMap.length; i++) {
+        heightMap[i] = 0.5;
+      }
+      initStarterRock();
+    });
+  }
+
+  // Screenshot
+  function takeScreenshot() {
+    const toolbarEl = document.getElementById('toolbar');
+    toolbarEl.style.display = 'none';
+
+    setTimeout(() => {
+      const dataURL = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'zen-garden-' + Date.now() + '.png';
+      link.href = dataURL;
+      link.click();
+
+      toolbarEl.style.display = 'flex';
+    }, 100);
+  }
+
+  // Initialize
+  function init() {
+    resizeCanvas();
+    initWindParticles();
+    initStarterRock();
+    createToolbar();
+    loop();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
