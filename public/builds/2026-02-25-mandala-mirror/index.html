@@ -473,7 +473,9 @@
 
     // Guidelines setup
     function createGuidelines() {
-      guidelines.innerHTML = '';
+      while (guidelines.firstChild) {
+        guidelines.removeChild(guidelines.firstChild);
+      }
       for (let i = 0; i < 12; i++) {
         const line = document.createElement('div');
         line.className = 'guideline';
@@ -643,12 +645,13 @@
 
     // Glow trail effect
     function fadeCanvas() {
-      if (!state.isDrawing) return;
-      ctx.save();
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(18, 18, 26, 0.02)';
-      ctx.fillRect(0, 0, logicalSize, logicalSize);
-      ctx.restore();
+      if (state.isDrawing) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = 'rgba(18, 18, 26, 0.02)';
+        ctx.fillRect(0, 0, logicalSize, logicalSize);
+        ctx.restore();
+      }
       requestAnimationFrame(fadeCanvas);
     }
 
