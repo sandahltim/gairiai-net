@@ -1,10 +1,36 @@
 # gairiai.net Content Playbook
 
+> **Read `CREATIVE-VISION.md` first.** That document is the creative north star. This playbook covers format and process. CREATIVE-VISION.md covers taste and ambition.
+
 ## What is this site?
-An AI lab that ships something new every day. Built by a multi-model pipeline: Grok ideates, Kimi specs and reviews, GLM builds. Content auto-deploys via Vercel when pushed to GitHub.
+An AI lab that ships something new every day. Built by a multi-model pipeline: Grok ideates (with research), Kimi specs and reviews, GLM builds. Content auto-deploys via Vercel when pushed to GitHub.
+
+**The standard:** Every build should make someone say "Wait, an AI made THIS?"
 
 ## Repo location
 `~/gairiai-net` — push to `origin main` to deploy.
+
+## Quality Bar (MANDATORY)
+
+Before any content ships, it must pass the Wow Test (see CREATIVE-VISION.md):
+1. Would you stop scrolling for this?
+2. Would a developer share this on Twitter?
+3. Does it push a technical boundary?
+4. Is it different from what shipped this week?
+
+**Minimum complexity:** 300+ lines of JavaScript for interactive builds. If it can be done in 100 lines, it's too simple.
+
+## Anti-Patterns (BANNED)
+
+These have been done to death. Do NOT build:
+- Canvas drawing tools (mandala makers, pixel editors, zen gardens)
+- Color pickers, mixers, or palette generators
+- Basic counting/matching games for kids (unless genuinely innovative)
+- To-do lists, timers, calculators, or boring utilities
+- Anything where "relaxing" or "meditative" is the primary hook
+- Anything that looks like a CodePen from 2019
+
+See CREATIVE-VISION.md for the full banned list and what GREAT looks like.
 
 ## Content types
 
@@ -52,16 +78,29 @@ Self-contained single HTML files in `public/builds/YYYY-MM-DD-slug-name/index.ht
 - **Mobile-first.** Must work on phones. Touch targets at least 44px.
 - **No innerHTML.** Use DOM methods (createElement, textContent, appendChild).
 - **Accessible.** Aria labels on interactive elements. Keyboard navigable.
-- **Fun.** Add micro-animations, transitions, satisfying interactions.
+- **Minimum 300 lines JS.** If the JavaScript is under 300 lines, the build lacks depth. Great builds are 500-1500 lines.
+- **Polish.** Micro-animations, transitions, satisfying interactions, smooth 60fps rendering. This is a showcase, not a prototype.
+
+## Category rotation (ENFORCED)
+
+Never build the same category twice in a row. Cycle through:
+1. **Technical showpiece** — physics, 3D, WebGL, audio synthesis, shader art
+2. **Useful tool** — something people bookmark and return to regularly
+3. **Game/interactive** — something with depth, strategy, and replayability
+4. **Generative art** — something visually stunning with mathematical beauty
+5. **Educational/little-learners** — something that teaches brilliantly
+6. **Data/visualization** — real data, beautifully and interactively presented
+
+Check what shipped in the last 3 days and pick a DIFFERENT category.
 
 ## Daily pipeline (CT)
 
 | Time | Stage | Model | Job |
 |------|-------|-------|-----|
-| 9:00 AM | Ideation | Grok 4.1 | Research and propose what to build |
-| 10:00 AM | Spec | Kimi K2.5 | Turn idea into detailed build spec |
+| 9:00 AM | Ideation | Grok 4.1 | Research trending projects, then propose |
+| 10:00 AM | Spec | Kimi K2.5 | Quality gate + detailed build specification |
 | 11:00 AM | Build | GLM-4.7 | Write the code from the spec |
-| 12:00 PM | Review | Kimi K2.5 | Quality gate — fix, ship, or reject |
+| 12:00 PM | Review | Kimi K2.5 | Final quality gate — fix, ship, or reject |
 
 See `docs/CREATIVE-PIPELINE.md` for full pipeline details.
 
@@ -84,20 +123,24 @@ Every published piece MUST include a Lab Notes section at the bottom of the mark
 
 ```markdown
 ## Lab Notes
-**Scout** (Grok) — [reasoning notes from the proposal]
-**Spec** (Kimi) — [design choices from the spec]
-**Builder** (GLM) — [build notes, what was tricky, decisions made]
-**Reviewer** (Kimi) — [what was fixed, final verdict]
+**Scout** (Grok) — [research sources and reasoning from the proposal]
+**Spec** (Kimi) — [design choices, what was refined, technical decisions]
+**Builder** (GLM) — [build notes, algorithms used, what was tricky]
+**Reviewer** (Kimi) — [what was fixed, final assessment]
 ```
 
 This transparency is part of the site identity.
 
 ## Content ideas by category
 
-**Daily Builds:** Color pickers, sound generators, pixel art editors, data visualizers, typing tests, memory games, CSS art generators, gradient builders, emoji mixers, beat makers
+**Technical Showpieces:** Fluid dynamics (Navier-Stokes in WebGL), cloth/soft body simulation, ray marching with signed distance fields, real-time shader art, audio synthesizers with oscillators and filters, procedural terrain with erosion, particle systems with emergent behavior
 
-**Little Learners:** Letter tracing, shape matching, counting games, phonics practice, pattern recognition, simple addition, color identification, animal sounds, clock reading
+**Generative Art:** Flow fields with curl noise, reaction-diffusion patterns, strange attractors rendered beautifully, L-systems and fractals, Voronoi/Delaunay computational geometry, GLSL fragment shader art, wave function collapse
 
-**Feed:** How we built today's thing, AI model comparisons, creative process notes, interesting data we found, web trend analysis, behind-the-scenes of agent collaboration
+**Games with Depth:** Procedurally generated roguelikes, cellular automata with novel rules, AI opponents that adapt, physics-based puzzles, rhythm games with real audio analysis
 
-**Tools:** Unit converters, color contrast checkers, JSON formatters, regex testers, QR generators, timer/stopwatch, text diff tools, password generators
+**Tools People Bookmark:** Live GLSL shader editors, regex visualizers with real-time matching, algorithm visualizers (sorting, pathfinding, neural nets), CSS art generators with export, interactive decision tree builders
+
+**Data Visualizations:** Real-time earthquake/satellite/flight data, network graphs with force-directed layout, interactive algorithm comparisons, geographic/mapping visualizations with live APIs
+
+**Little Learners (Innovative):** Physics playgrounds where kids discover gravity, interactive music composition for children, letter/word games with speech recognition, math visualization that makes patterns visible
