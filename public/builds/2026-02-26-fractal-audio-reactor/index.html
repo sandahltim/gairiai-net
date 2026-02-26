@@ -505,7 +505,7 @@ function getFragmentShader(presetIndex) {
     `;
 }
 
-function uniformLocations = {};
+let uniformLocations = {};
 
 function getUniformLocations() {
     uniformLocations.resolution = gl.getUniformLocation(program, 'u_resolution');
