@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Particle Beam Arena</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body, html {
+  width: 100%;
+  height: 100%;
+  background: #0a0a0f;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#ui-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+#score {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  color: #e4e4ed;
+  font-size: 1.5rem;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(0,245,255,0.5);
+}
+#health-bar-container {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 200px;
+  height: 8px;
+  background: #2a2a3e;
+  border-radius: 4px;
+  overflow: hidden;
+}
+#health-bar {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #00ff88, #00ffaa);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(0,255,136,0.5);
+}
+#wave-indicator {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e4e4ed;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+#start-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,10,15,0.95);
+  pointer-events: auto;
+}
+#start-screen h1 {
+  color: #00f5ff;
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  text-shadow: 0 0 30px rgba(0,245,255,0.8);
+  animation: pulse 2s ease-in-out infinite;
+}
+#start-screen p {
+  color: #e4e4ed;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+  margin-bottom: 32px;
+}
+#start-btn {
+  padding: 16px 48px;
+  background: linear-gradient(135deg, #00f5ff 0%, #0080ff 100%);
+  border: none;
+  border-radius: 8px;
+  color: #0a0a0f;
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  animation: pulse-btn 1.5s ease-in-out infinite;
+}
+#start-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(0,245,255,0.6);
+}
+#controls-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e4e4ed;
+  font-size: 0.75rem;
+  opacity: 0.5;
+  text-align: center;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; text-shadow: 0 0 40px rgba(0,245,255,1); }
+}
+@keyframes pulse-btn {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+#screen-flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.05s;
+}
+#charge-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+#charge-circle {
+  position: absolute;
+  border: 2px solid #00f5ff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.6;
+  box-shadow: 0 0 10px rgba(0,245,255,0.5);
+}
+#performance-mode {
+  position: absolute;
+  top: 56px;
+  right: 24px;
+  color: #ffaa00;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  display: none;
+}
+#upgrade-toast {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #00f5ff;
+  font-size: 1rem;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.3s;
+  text-shadow: 0 0 10px rgba(0,245,255,0.8);
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="ui-layer">
+  <div id="score">SCORE: 0</div>
+  <div id="health-bar-container">
+    <div id="health-bar"></div>
+  </div>
+  <div id="wave-indicator">WAVE 1</div>
+  <div id="performance-mode">PERFORMANCE MODE</div>
+  <div id="upgrade-toast"></div>
+</div>
+<div id="start-screen">
+  <h1>PARTICLE BEAM ARENA</h1>
+  <p>WebGL GPGPU Combat Simulation</p>
+  <button id="start-btn">CLICK TO START</button>
+</div>
+<div id="controls-hint">CLICK AND HOLD TO CHARGE • RELEASE TO FIRE • DODGE THE AI</div>
+<div id="screen-flash"></div>
+<div id="charge-indicator">
+  <div id="charge-circle"></div>
+</div>
+<script>
+(function() {
+  'use strict';
+
+  // Configuration
+  const CONFIG = {
+    SIMULATION_RESOLUTION: window.innerWidth < 768 ? 512 : 1024,
+    MAX_PARTICLES: window.innerWidth < 768 ? 100000 : 500000,
+    PARTICLES_PER_SHOT_MIN: 50,
+    PARTICLES_PER_SHOT_MAX: 300,
+    CHARGE_TIME_MIN: 100,
+    CHARGE_TIME_MAX: 500,
+    PLAYER_BEAM_COLOR: [0, 0.965, 1],
+    AI_BEAM_COLOR: [1, 0.2, 0.4],
+    EXPLOSION_COLORS: [
+      [1, 1, 1],
+      [1, 1, 0],
+      [1, 0.4, 0]
+    ],
+    DEBRIS_COLORS: [
+      [1, 0.667, 0],
+      [1, 0.267, 0],
+      [0.533, 0.533, 0.533]
+    ],
+    HOMING_STRENGTH: 0.4,
+    WALL_DAMPING: 0.8,
+    PARTICLE_LIFE: 255,
+    DEBRIS_LIFE: 60,
+    COLLISION_DISTANCE: 0.015,
+    ORB_COLLECT_DISTANCE: 0.03,
+    SCREEN_SHAKE_INTENSITY: 3,
+    SCREEN_SHAKE_DURATION: 200,
+    BLOOM_THRESHOLD: 0.7,
+    BLOOM_INTENSITY: 0.4
+  };
+
+  // State
+  const state = {
+    particlesActive: 0,
+    particleCount: 0,
+    player: { x: 0, y: 0.5, charge: 0, charging: false, health: 100, maxHealth: 100 },
+    ai: { x: 0, y: -0.5, targetX: 0, targetY: 0, health: 100, maxHealth: 100, lastFire: 0, firePattern: 0 },
+    score: 0,
+    wave: 1,
+    orbs: [],
+    explosions: [],
+    debris: [],
+    shockwaves: [],
+    mouseX: 0,
+    mouseY: 0,
+    isMouseDown: false,
+    mouseDownTime: 0,
+    gameStarted: false,
+    gameOver: false,
+    screenShake: 0,
+    screenFlash: 0,
+    lastTime: 0,
+    fps: 0,
+    frameCount: 0,
+    fpsTime: 0,
+    performanceMode: false
+  };
+
+  // DOM elements
+  const canvas = document.createElement('canvas');
+  document.body.appendChild(canvas);
+  const gl = canvas.getContext('webgl2', {
+    alpha: false,
+    antialias: false,
+    preserveDrawingBuffer: true
+  });
+
+  const ui = {
+    score: document.getElementById('score'),
+    healthBar: document.getElementById('health-bar'),
+    wave: document.getElementById('wave-indicator'),
+    startScreen: document.getElementById('start-screen'),
+    startBtn: document.getElementById('start-btn'),
+    screenFlash: document.getElementById('screen-flash'),
+    chargeIndicator: document.getElementById('charge-indicator'),
+    chargeCircle: document.getElementById('charge-circle'),
+    performanceMode: document.getElementById('performance-mode'),
+    upgradeToast: document.getElementById('upgrade-toast')
+  };
+
+  // WebGL2 Setup
+  function setupWebGL() {
+    if (!gl) {
+      alert('WebGL2 not supported - falling back to simplified mode');
+      return false;
+    }
+
+    // Extensions
+    const ext = gl.getExtension('EXT_color_buffer_float');
+    if (!ext) {
+      console.warn('EXT_color_buffer_float not available');
+    }
+
+    return true;
+  }
+
+  // Shader sources
+  const simulationVertexShader = `#version 300 es
+  in vec2 a_position;
+  void main() {
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+  `;
+
+  const simulationFragmentShader = `#version 300 es
+  precision highp float;
+
+  uniform sampler2D u_texture;
+  uniform vec2 u_resolution;
+  uniform float u_time;
+  uniform float u_deltaTime;
+  uniform vec2 u_playerTarget;
+  uniform vec2 u_aiTarget;
+  uniform int u_firePlayer;
+  uniform int u_fireAI;
+  uniform float u_playerCharge;
+  uniform float u_aiCharge;
+
+  layout(location = 0) out vec4 fragColor;
+
+  const float WALL_BOUND = 0.95;
+  const float HOMING_STRENGTH = 0.4;
+  const float COLLISION_DIST = 0.015;
+  const float DAMPING = 0.995;
+
+  void main() {
+    vec2 uv = gl_FragCoord.xy / u_resolution;
+
+    // Read particle data
+    vec4 data = texture(u_texture, uv);
+    
+    if (data.a <= 0.0) {
+      // Dead particle
+      fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+      return;
+    }
+
+    // Decode: rgb = pos (x,y,zunused), a = encoded velocity & life
+    vec2 pos = data.xy;
+    float vx = mod(data.a * 256.0, 256.0) - 128.0;
+    float vy = floor(data.a / 256.0) - 128.0;
+
+    float life = data.z;
+
+    // Apply homing based on owner (encoded in position sign bits or high bits)
+    vec2 target = vec2(0.0);
+    float homing = 0.0;
+
+    // Position < -0.5 indicates AI particle (using sign bit encoding)
+    if (pos.x > 0.0) {
+      // Player particle targets AI
+      target = u_aiTarget;
+      homing = HOMING_STRENGTH * 0.01;
+    } else if (pos.x < 0.0) {
+      // AI particle targets player
+      target = u_playerTarget;
+      homing = HOMING_STRENGTH * 0.008;
+    }
+
+    vec2 dir = normalize(target - pos);
+    vx += dir.x * homing * u_deltaTime;
+    vy += dir.y * homing * u_deltaTime;
+
+    // Apply velocity
+    pos.x += vx * u_deltaTime;
+    pos.y += vy * u_deltaTime;
+
+    // Damping
+    vx *= DAMPING;
+    vy *= DAMPING;
+
+    // Wall collision
+    if (pos.x > WALL_BOUND || pos.x < -WALL_BOUND) {
+      vx *= -WALL_DAMPING;
+      pos.x = clamp(pos.x, -WALL_BOUND, WALL_BOUND);
+    }
+    if (pos.y > WALL_BOUND || pos.y < -WALL_BOUND) {
+      vy *= -WALL_DAMPING;
+      pos.y = clamp(pos.y, -WALL_BOUND, WALL_BOUND);
+    }
+
+    // Decay life
+    life -= u_deltaTime * 100.0;
+
+    // Encode output
+    float encodedVx = (vx + 128.0) / 256.0;
+    float encodedVy = (vy + 128.0) / 256.0;
+    float encodedAlpha = encodedVx + encodedVy * 256.0;
+
+    fragColor = vec4(pos, max(0.0, life), encodedAlpha);
+  }
+  `;
+
+  const renderVertexShader = `#version 300 es
+  in vec2 a_position;
+  in vec4 a_color;
+  in float a_size;
+
+  uniform mat4 u_projection;
+  uniform float u_time;
+
+  out vec4 v_color;
+
+  void main() {
+    gl_Position = u_projection * vec4(a_position, 0.0, 1.0);
+    gl_PointSize = a_size * (1.0 + 0.3 * sin(u_time * 3.0 + a_position.x * 10.0));
+    v_color = a_color;
+  }
+  `;
+
+  const renderFragmentShader = `#version 300 es
+  precision highp float;
+
+  in vec4 v_color;
+  out vec4 fragColor;
+
+  void main() {
+    vec2 center = gl_PointCoord - 0.5;
+    float dist = length(center);
+    float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+
+    if (alpha < 0.01) discard;
+
+    float glow = 1.0 + 2.0 * (1.0 - dist);
+    vec3 color = v_color.rgb * glow;
+
+    fragColor = vec4(color, alpha * v_color.a);
+  }
+  `;
+
+  // Compile shader
+  function compileShader(source, type) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error('Shader error:', gl.getShaderInfoLog(shader));
+      return null;
+    }
+
+    return shader;
+  }
+
+  // Create program
+  function createProgram(vsSource, fsSource) {
+    const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+    const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+
+    if (!vs || !fs) return null;
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      console.error('Program error:', gl.getProgramInfoLog(program));
+      return null;
+    }
+
+    return program;
+  }
+
+  // Create simulation program
+  const simProgram = createProgram(simulationVertexShader, simulationFragmentShader);
+  const simVao = gl.createVertexArray();
+  gl.bindVertexArray(simVao);
+
+  const simPositions = new Float32Array([
+    -1, -1,
+    1, -1,
+    -1, 1
+  ]);
+
+  const simPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, simPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, simPositions, gl.STATIC_DRAW);
+
+  const simPositionLoc = gl.getAttribLocation(simProgram, 'a_position');
+  gl.enableVertexAttribArray(simPositionLoc);
+  gl.vertexAttribPointer(simPositionLoc, 2, gl.FLOAT, false, 0, 0);
+
+  // Create render program
+  const renderProgram = createProgram(renderVertexShader, renderFragmentShader);
+  const renderVao = gl.createVertexArray();
+  gl.bindVertexArray(renderVao);
+
+  // Particle buffers
+  let particlePositions, particleColors, particleSizes;
+  let positionBuffer, colorBuffer, sizeBuffer;
+
+  function createParticleBuffers() {
+    particlePositions = new Float32Array(CONFIG.MAX_PARTICLES * 2);
+    particleColors = new Float32Array(CONFIG.MAX_PARTICLES * 4);
+    particleSizes = new Float32Array(CONFIG.MAX_PARTICLES);
+
+    positionBuffer = gl.createBuffer();
+    colorBuffer = gl.createBuffer();
+    sizeBuffer = gl.createBuffer();
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, particlePositions, gl.DYNAMIC_DRAW);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, particleColors, gl.DYNAMIC_DRAW);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, particleSizes, gl.DYNAMIC_DRAW);
+  }
+
+  // FBO setup for GPGPU
+  let fboA, fboB, textureA, textureB;
+
+  function createFBOs() {
+    const width = CONFIG.SIMULATION_RESOLUTION;
+    const height = CONFIG.SIMULATION_RESOLUTION;
+
+    fboA = gl.createFramebuffer();
+    fboB = gl.createFramebuffer();
+
+    const createTexture = () => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, width, height, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      return tex;
+    };
+
+    textureA = createTexture();
+    textureB = createTexture();
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboA);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureA, 0);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fboB);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, textureB, 0);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  // Render to texture
+  let currentReadFBO, currentWriteFBO, currentReadTexture, currentWriteTexture;
+
+  function swapFBOs() {
+    const tempFBO = currentReadFBO;
+    const tempTex = currentReadTexture;
+
+    currentReadFBO = currentWriteFBO;
+    currentReadTexture = currentWriteTexture;
+
+    currentWriteFBO = tempFBO;
+    currentWriteTexture = tempTex;
+  }
+
+  // Initialize
+  function init() {
+    if (!setupWebGL()) {
+      ui.startBtn.textContent = 'WEBGL2 NOT SUPPORTED';
+      ui.startBtn.disabled = true;
+      return;
+    }
+
+    createFBOs();
+    createParticleBuffers();
+
+    currentReadFBO = fboA;
+    currentReadTexture = textureA;
+    currentWriteFBO = fboB;
+    currentWriteTexture = textureB;
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    setupEventListeners();
+    updateUI();
+
+    // Start render loop
+    requestAnimationFrame(gameLoop);
+  }
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    gl.viewport(0, 0, canvas.width, canvas.height);
+  }
+
+  function setupEventListeners() {
+    ui.startBtn.addEventListener('click', startGame);
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      state.mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      state.mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (!state.gameStarted || state.gameOver) return;
+      state.isMouseDown = true;
+      state.mouseDownTime = performance.now();
+      state.player.charging = true;
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+      if (!state.gameStarted || state.gameOver || !state.isMouseDown) return;
+      const chargeTime = performance.now() - state.mouseDownTime;
+      firePlayerBeam(chargeTime);
+      state.isMouseDown = false;
+      state.player.charging = false;
+      state.player.charge = 0;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      state.isMouseDown = false;
+      state.player.charging = false;
+      state.player.charge = 0;
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      if (!state.gameStarted || state.gameOver) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      state.mouseX = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+      state.mouseY = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+      state.isMouseDown = true;
+      state.mouseDownTime = performance.now();
+      state.player.charging = true;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!state.gameStarted || state.gameOver) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      state.mouseX = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+      state.mouseY = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (!state.gameStarted || state.gameOver) return;
+      e.preventDefault();
+      if (state.isMouseDown) {
+        const chargeTime = performance.now() - state.mouseDownTime;
+        firePlayerBeam(chargeTime);
+      }
+      state.isMouseDown = false;
+      state.player.charging = false;
+      state.player.charge = 0;
+    });
+
+    // Pause on visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && state.gameStarted && !state.gameOver) {
+        state.paused = true;
+      } else if (!document.hidden && state.paused) {
+        state.paused = false;
+        state.lastTime = performance.now();
+      }
+    });
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && state.gameStarted && !state.gameOver) {
+        e.preventDefault();
+        firePlayerBeam(CONFIG.CHARGE_TIME_MAX);
+      }
+    });
+  }
+
+  function startGame() {
+    state.gameStarted = true;
+    state.gameOver = false;
+    state.score = 0;
+    state.wave = 1;
+    state.player.health = 100;
+    state.ai.health = 100;
+    state.orbs = [];
+    state.explosions = [];
+    state.debris = [];
+    state.shockwaves = [];
+    state.particleCount = 0;
+    state.particlesActive = 0;
+
+    ui.startScreen.style.display = 'none';
+
+    // Spawn initial orbs
+    spawnOrbs(3);
+  }
+
+  function firePlayerBeam(chargeTime) {
+    const normalizedCharge = Math.min(1, Math.max(0, (chargeTime - CONFIG.CHARGE_TIME_MIN) / (CONFIG.CHARGE_TIME_MAX - CONFIG.CHARGE_TIME_MIN)));
+    const particleCount = Math.floor(CONFIG.PARTICLES_PER_SHOT_MIN + normalizedCharge * (CONFIG.PARTICLES_PER_SHOT_MAX - CONFIG.PARTICLES_PER_SHOT_MIN));
+    const spreadAngle = normalizedCharge * 0.5;
+
+    spawnBeam(state.player.x, state.player.y, state.mouseX, state.mouseY, particleCount, spreadAngle, 'player');
+    state.screenShake = CONFIG.SCREEN_SHAKE_INTENSITY * (0.3 + normalizedCharge * 0.7);
+  }
+
+  function fireAIBeam() {
+    const now = performance.now();
+    if (now - state.ai.lastFire < 1200) return;
+
+    const chargeTime = 400;
+    const particleCount = Math.floor(CONFIG.PARTICLES_PER_SHOT_MIN + 0.5 * (CONFIG.PARTICLES_PER_SHOT_MAX - CONFIG.PARTICLES_PER_SHOT_MIN));
+    const spreadAngle = 0.3;
+
+    const targetX = state.player.x + (Math.random() - 0.5) * 0.2;
+    const targetY = state.player.y + (Math.random() - 0.5) * 0.2;
+
+    spawnBeam(state.ai.x, state.ai.y, targetX, targetY, particleCount, spreadAngle, 'ai');
+    state.ai.lastFire = now;
+  }
+
+  function spawnBeam(startX, startY, targetX, targetY, count, spread, owner) {
+    const baseColor = owner === 'player' ? CONFIG.PLAYER_BEAM_COLOR : CONFIG.AI_BEAM_COLOR;
+    const angle = Math.atan2(targetY - startY, targetX - startX);
+
+    let particlesSpawned = 0;
+
+    for (let i = 0; i < count && state.particleCount < CONFIG.MAX_PARTICLES; i++) {
+      const spreadOffset = (Math.random() - 0.5) * spread;
+      const speed = 0.5 + Math.random() * 0.3;
+      const finalAngle = angle + spreadOffset;
+
+      const px = startX * 0.9;
+      const py = startY * 0.9;
+      const vx = Math.cos(finalAngle) * speed * 0.01;
+      const vy = Math.sin(finalAngle) * speed * 0.01;
+
+      const idx = state.particleCount * 2;
+      particlePositions[idx] = px;
+      particlePositions[idx + 1] = py;
+
+      const cidx = state.particleCount * 4;
+      particleColors[cidx] = baseColor[0];
+      particleColors[cidx + 1] = baseColor[1];
+      particleColors[cidx + 2] = baseColor[2];
+      particleColors[cidx + 3] = 1.0;
+
+      particleSizes[state.particleCount] = 2 + Math.random() * 2;
+
+      state.particleCount++;
+      particlesSpawned++;
+    }
+  }
+
+  function spawnOrbs(count) {
+    for (let i = 0; i < count; i++) {
+      const types = ['health', 'fireRate', 'spread'];
+      state.orbs.push({
+        x: (Math.random() - 0.5) * 1.5,
+        y: (Math.random() - 0.5) * 1.5,
+        type: types[i % 3],
+        active: true,
+        spawnTime: performance.now()
+      });
+    }
+  }
+
+  function spawnExplosion(x, y, intensity) {
+    state.explosions.push({
+      x: x,
+      y: y,
+      radius: 0,
+      maxRadius: 0.1 + intensity * 0.1,
+      intensity: intensity,
+      startTime: performance.now()
+    });
+
+    // Screen shake
+    state.screenShake = Math.min(CONFIG.SCREEN_SHAKE_INTENSITY * 2, state.screenShake + intensity * 2);
+
+    // Screen flash
+    state.screenFlash = Math.min(0.8, intensity * 0.3);
+
+    // Spawn debris
+    const debrisCount = Math.floor(30 + intensity * 50);
+    for (let i = 0; i < debrisCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 0.3 + Math.random() * 0.4;
+      const colorIdx = Math.floor(Math.random() * CONFIG.DEBRIS_COLORS.length);
+      const color = CONFIG.DEBRIS_COLORS[colorIdx];
+
+      state.debris.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed * 0.015,
+        vy: Math.sin(angle) * speed * 0.015,
+        life: CONFIG.DEBRIS_LIFE + Math.random() * 30,
+        maxLife: CONFIG.DEBRIS_LIFE + 30,
+        color: color,
+        size: 1 + Math.random() * 2
+      });
+    }
+
+    state.score += Math.floor(10 * intensity);
+  }
+
+  function createShockwave(x, y) {
+    state.shockwaves.push({
+      x: x,
+      y: y,
+      radius: 0,
+      maxRadius: 0.3,
+      startTime: performance.now()
+    });
+  }
+
+  function updateUI() {
+    if (!state.gameStarted || state.gameOver) return;
+
+    ui.score.textContent = 'SCORE: ' + state.score;
+    ui.healthBar.style.width = (state.player.health / state.player.maxHealth * 100) + '%';
+    ui.wave.textContent = 'WAVE ' + state.wave;
+
+    // Charge indicator
+    if (state.player.charging) {
+      const elapsed = performance.now() - state.mouseDownTime;
+      const normalizedCharge = Math.min(1, Math.max(0, (elapsed - CONFIG.CHARGE_TIME_MIN) / (CONFIG.CHARGE_TIME_MAX - CONFIG.CHARGE_TIME_MIN)));
+      ui.chargeIndicator.style.opacity = 1;
+      const radius = 20 + normalizedCharge * 40;
+      ui.chargeCircle.style.width = radius * 2 + 'px';
+      ui.chargeCircle.style.height = radius * 2 + 'px';
+      ui.chargeCircle.style.left = '50%';
+      ui.chargeCircle.style.top = '50%';
+    } else {
+      ui.chargeIndicator.style.opacity = 0;
+    }
+
+    // Performance mode badge
+    if (state.performanceMode) {
+      ui.performanceMode.style.display = 'block';
+    }
+  }
+
+  function showUpgradeToast(text) {
+    ui.upgradeToast.textContent = text;
+    ui.upgradeToast.style.opacity = 1;
+    setTimeout(() => {
+      ui.upgradeToast.style.opacity = 0;
+    }, 2000);
+  }
+
+  function checkCollisions() {
+    // Simple distance-based collision detection for debris
+    for (let i = state.debris.length - 1; i >= 0; i--) {
+      const d = state.debris[i];
+
+      // Wall collision for debris
+      if (d.x > 0.95 || d.x < -0.95) {
+        d.vx *= -0.8;
+        d.x = Math.max(-0.95, Math.min(0.95, d.x));
+      }
+      if (d.y > 0.95 || d.y < -0.95) {
+        d.vy *= -0.8;
+        d.y = Math.max(-0.95, Math.min(0.95, d.y));
+      }
+
+      // Check particle collisions (simplified)
+      if (d.life > 0 && Math.hypot(state.mouseX - d.x, state.mouseY - d.y) < 0.1) {
+        d.life = 0;
+      }
+    }
+
+    // Check orb collection
+    for (let i = state.orbs.length - 1; i >= 0; i--) {
+      const orb = state.orbs[i];
+      if (!orb.active) continue;
+
+      const dist = Math.hypot(state.player.x - orb.x, state.player.y - orb.y);
+      if (dist < CONFIG.ORB_COLLECT_DISTANCE) {
+        orb.active = false;
+        applyUpgrade(orb.type);
+      }
+    }
+  }
+
+  function applyUpgrade(type) {
+    switch (type) {
+      case 'health':
+        state.player.health = Math.min(state.player.maxHealth, state.player.health + 20);
+        showUpgradeToast('+20 HEALTH');
+        break;
+      case 'fireRate':
+        showUpgradeToast('FIRE RATE +');
+        break;
+      case 'spread':
+        showUpgradeToast('SPREAD +');
+        break;
+    }
+
+    // Respawn orb after delay
+    setTimeout(() => {
+      const types = ['health', 'fireRate', 'spread'];
+      state.orbs.push({
+        x: (Math.random() - 0.5) * 1.5,
+        y: (Math.random() - 0.5) * 1.5,
+        type: types[Math.floor(Math.random() * 3)],
+        active: true,
+        spawnTime: performance.now()
+      });
+    }, 5000);
+  }
+
+  function gameOver() {
+    state.gameOver = true;
+    ui.startScreen.style.display = 'flex';
+    ui.startScreen.querySelector('h1').textContent = 'GAME OVER';
+    ui.startScreen.querySelector('p').textContent = 'Final Score: ' + state.score;
+    ui.startBtn.textContent = 'PLAY AGAIN';
+  }
+
+  let accumulatedTime = 0;
+  const targetDeltaTime = 16.67;
+
+  function gameLoop(timestamp) {
+    requestAnimationFrame(gameLoop);
+
+    const deltaTime = Math.min(100, timestamp - state.lastTime);
+    state.lastTime = timestamp;
+
+    // FPS counter
+    state.frameCount++;
+    if (timestamp - state.fpsTime > 1000) {
+      state.fps = state.frameCount;
+      state.frameCount = 0;
+      state.fpsTime = timestamp;
+
+      // Performance check
+      if (state.fps < 30 && !state.performanceMode) {
+        state.performanceMode = true;
+        particleCount = Math.floor(particleCount * 0.5);
+        particlePositions = particlePositions.slice(0, particleCount * 2);
+        particleColors = particleColors.slice(0, particleCount * 4);
+        particleSizes = particleSizes.slice(0, particleCount);
+      }
+    }
+
+    if (!state.gameStarted || state.gameOver || state.paused) {
+      render(0);
+      return;
+    }
+
+    accumulatedTime += deltaTime;
+
+    while (accumulatedTime >= targetDeltaTime) {
+      update(deltaTime / 1000);
+      accumulatedTime -= targetDeltaTime;
+    }
+
+    render(timestamp / 1000);
+  }
+
+  function update(dt) {
+    // Update player
+    state.player.x = state.mouseX * 0.8;
+    state.player.y = state.mouseY * 0.8;
+
+    // Update AI
+    const aiSpeed = 0.3 * dt;
+    const targetX = state.player.x;
+    const targetY = state.player.y;
+    const aiDirX = targetX - state.ai.x;
+    const aiDirY = targetY - state.ai.y;
+    const aiDist = Math.hypot(aiDirX, aiDirY);
+
+    if (aiDist > 0.01) {
+      state.ai.x += (aiDirX / aiDist) * aiSpeed * 0.5;
+      state.ai.y += (aiDirY / aiDist) * aiSpeed * 0.5;
+    }
+
+    // AI firing
+    fireAIBeam();
+
+    // Check collisions
+    checkCollisions();
+
+    // Random explosions for chaos
+    if (Math.random() < 0.02 * state.wave) {
+      const ex = (Math.random() - 0.5) * 1.5;
+      const ey = (Math.random() - 0.5) * 1.5;
+      spawnExplosion(ex, ey, 0.5 + Math.random() * 0.5);
+      createShockwave(ex, ey);
+    }
+
+    // Shockwaves
+    for (let i = state.shockwaves.length - 1; i >= 0; i--) {
+      const sw = state.shockwaves[i];
+      const elapsed = (performance.now() - sw.startTime) / 1000;
+      sw.radius = (elapsed / 0.3) * sw.maxRadius;
+
+      if (elapsed > 0.3) {
+        state.shockwaves.splice(i, 1);
+      }
+    }
+
+    // Screen shake decay
+    if (state.screenShake > 0) {
+      state.screenShake *= 0.92;
+      if (state.screenShake < 0.1) state.screenShake = 0;
+    }
+
+    // Screen flash decay
+    if (state.screenFlash > 0) {
+      state.screenFlash *= 0.9;
+      if (state.screenFlash < 0.01) state.screenFlash = 0;
+    }
+
+    // Update UI
+    updateUI();
+
+    // Check game over
+    if (state.player.health <= 0) {
+      gameOver();
+    }
+
+    // Wave progression
+    if (state.score > state.wave * 500) {
+      state.wave++;
+      state.ai.health = Math.min(100, state.ai.health + 20);
+    }
+  }
+
+  let particleCount = 0;
+
+  function render(time) {
+    const shakeX = (Math.random() - 0.5) * state.screenShake;
+    const shakeY = (Math.random() - 0.5) * state.screenShake;
+
+    // Clear with screen flash
+    gl.clearColor(0.039, 0.039, 0.059, 1.0 - state.screenFlash * 0.5);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    // Render particles
+    if (state.particleCount > 0 && renderProgram) {
+      gl.useProgram(renderProgram);
+      gl.bindVertexArray(renderVao);
+
+      const aspect = canvas.width / canvas.height;
+      const projection = new Float32Array([
+        1 / aspect, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+      ]);
+
+      const projectionLoc = gl.getUniformLocation(renderProgram, 'u_projection');
+      const timeLoc = gl.getUniformLocation(renderProgram, 'u_time');
+      const positionLoc = gl.getAttribLocation(renderProgram, 'a_position');
+      const colorLoc = gl.getAttribLocation(renderProgram, 'a_color');
+      const sizeLoc = gl.getAttribLocation(renderProgram, 'a_size');
+
+      gl.uniformMatrix4fv(projectionLoc, false, projection);
+      gl.uniform1f(timeLoc, time);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, particlePositions.subarray(0, state.particleCount * 2));
+      gl.enableVertexAttribArray(positionLoc);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, particleColors.subarray(0, state.particleCount * 4));
+      gl.enableVertexAttribArray(colorLoc);
+      gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, sizeBuffer);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, particleSizes.subarray(0, state.particleCount));
+      gl.enableVertexAttribArray(sizeLoc);
+      gl.vertexAttribPointer(sizeLoc, 1, gl.FLOAT, false, 0, 0);
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+
+      gl.drawArrays(gl.POINTS, 0, state.particleCount);
+
+      gl.disable(gl.BLEND);
+    }
+
+    // 2D canvas overlay for visual effects
+    update2DEffects(time, shakeX, shakeY);
+  }
+
+  const canvas2dCanvas = document.createElement('canvas');
+  const ctx2d = canvas2dCanvas.getContext('2d');
+  document.body.appendChild(canvas2dCanvas);
+  canvas2dCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+
+  function update2DEffects(time, shakeX, shakeY) {
+    canvas2dCanvas.width = window.innerWidth;
+    canvas2dCanvas.height = window.innerHeight;
+
+    ctx2d.clearRect(0, 0, canvas2dCanvas.width, canvas2dCanvas.height);
+    ctx2d.save();
+
+    // Apply screen shake
+    ctx2d.translate(shakeX, shakeY);
+
+    // Draw shockwaves
+    state.shockwaves.forEach(sw => {
+      const progress = (time * 1000 - sw.startTime) / 300;
+      if (progress > 1) return;
+
+      const alpha = 1 - progress;
+      const radius = sw.radius * Math.min(canvas2dCanvas.width, canvas2dCanvas.height);
+      const x = (sw.x + 1) * 0.5 * canvas2dCanvas.width;
+      const y = (1 - sw.y - 1) * 0.5 * canvas2dCanvas.height + canvas2dCanvas.height;
+
+      ctx2d.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.3})`;
+      ctx2d.lineWidth = 2 * (1 - progress);
+      ctx2d.beginPath();
+      ctx2d.arc(x, y, radius, 0, Math.PI * 2);
+      ctx2d.stroke();
+    });
+
+    // Draw debris (2D overlay)
+    state.debris.forEach(d => {
+      if (d.life <= 0) return;
+
+      const alpha = d.life / d.maxLife;
+      const x = (d.x + 1) * 0.5 * canvas2dCanvas.width;
+      const y = (1 - d.y - 1) * 0.5 * canvas2dCanvas.height + canvas2dCanvas.height;
+
+      ctx2d.fillStyle = `rgba(${d.color[0] * 255}, ${d.color[1] * 255}, ${d.color[2] * 255}, ${alpha})`;
+      ctx2d.beginPath();
+      ctx2d.arc(x, y, d.size, 0, Math.PI * 2);
+      ctx2d.fill();
+
+      d.x += d.vx;
+      d.y += d.vy;
+      d.life--;
+    });
+
+    // Remove dead debris
+    state.debris = state.debris.filter(d => d.life > 0);
+
+    // Draw orbs
+    state.orbs.forEach(orb => {
+      if (!orb.active) return;
+
+      const pulse = 1 + 0.2 * Math.sin(time * 3 + orb.x * 5);
+      const x = (orb.x + 1) * 0.5 * canvas2dCanvas.width;
+      const y = (1 - orb.y - 1) * 0.5 * canvas2dCanvas.height + canvas2dCanvas.height;
+      const radius = 15 * pulse;
+
+      let color;
+      switch (orb.type) {
+        case 'health':
+          color = '#00ff88';
+          break;
+        case 'fireRate':
+          color = '#ffdd00';
+          break;
+        case 'spread':
+          color = '#ff00ff';
+          break;
+      }
+
+      ctx2d.fillStyle = color;
+      ctx2d.shadowColor = color;
+      ctx2d.shadowBlur = 20;
+      ctx2d.beginPath();
+      ctx2d.arc(x, y, radius, 0, Math.PI * 2);
+      ctx2d.fill();
+
+      ctx2d.shadowBlur = 0;
+    });
+
+    ctx2d.restore();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
