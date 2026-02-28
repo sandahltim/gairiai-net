@@ -518,6 +518,11 @@
             <input type="range" class="slider" id="speedSlider" min="1" max="100" value="1" aria-label="Animation speed">
             <span class="speed-value" id="speedValue">1x</span>
         </div>
+        <div class="slider-container">
+            <span class="slider-label">GA Mutate</span>
+            <input type="range" class="slider" id="mutationSlider" min="1" max="50" value="5" aria-label="GA mutation rate">
+            <span class="speed-value" id="mutationValue">0.05</span>
+        </div>
         <div class="controls">
             <button class="btn" id="exportBtn" aria-label="Export SVG">Export SVG</button>
             <button class="btn" id="genBtn" aria-label="Generate random rectangles">Generate Random</button>
@@ -528,7 +533,7 @@
 
     <script>
     (() => {
-        ‘use strict’;
+        'use strict';
 
         // ==========================================
         // CONFIGURATION
@@ -718,6 +723,8 @@
             elements.rewindBtn = document.getElementById('rewindBtn');
             elements.speedSlider = document.getElementById('speedSlider');
             elements.speedValue = document.getElementById('speedValue');
+            elements.mutationSlider = document.getElementById('mutationSlider');
+            elements.mutationValue = document.getElementById('mutationValue');
             elements.exportBtn = document.getElementById('exportBtn');
             elements.genBtn = document.getElementById('genBtn');
             elements.tooltip = document.getElementById('tooltip');
@@ -820,8 +827,12 @@
         function init() {
             initElements();
 
-            elements.statsGrid.innerHTML = '';
-            elements.stripsContainer.innerHTML = '';
+            while (elements.statsGrid.firstChild) {
+                elements.statsGrid.removeChild(elements.statsGrid.firstChild);
+            }
+            while (elements.stripsContainer.firstChild) {
+                elements.stripsContainer.removeChild(elements.stripsContainer.firstChild);
+            }
 
             for (const key of ['ffd', 'bf', 'bl', 'ga']) {
                 const algo = state.algorithms[key];
@@ -854,6 +865,7 @@
             elements.stepBtn.addEventListener('click', handleStep);
             elements.rewindBtn.addEventListener('click', handleRewind);
             elements.speedSlider.addEventListener('input', handleSpeedChange);
+            elements.mutationSlider.addEventListener('input', handleMutationChange);
             elements.genBtn.addEventListener('click', handleGenerate);
             elements.exportBtn.addEventListener('click', handleExportSVG);
 
@@ -938,6 +950,12 @@
         function handleSpeedChange(e) {
             state.global.speed = parseInt(e.target.value, 10);
             elements.speedValue.textContent = state.global.speed + 'x';
+        }
+
+        function handleMutationChange(e) {
+            const rate = parseInt(e.target.value, 10) / 100;
+            state.gaConfig.mutationRate = rate;
+            elements.mutationValue.textContent = rate.toFixed(2);
         }
 
         function handleGenerate() {
@@ -1026,7 +1044,9 @@
                     state.rectanglesById.clear();
                     state.nextRectId = 0;
                     handleRewind();
-                    elements.rectPreview.innerHTML = '';
+                    while (elements.rectPreview.firstChild) {
+                        elements.rectPreview.removeChild(elements.rectPreview.firstChild);
+                    }
                     break;
             }
         }
