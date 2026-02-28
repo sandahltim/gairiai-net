@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Rectangle Packer</title>
+    <meta name="description" content="Watch four packing algorithms compete in real-time">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #e4e4ed;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 1rem 1.5rem;
+            background: #0a0a0f;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 0.875rem;
+            color: #888899;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .stat-card {
+            background: #12121a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            tabular-nums;
+        }
+
+        .stat-waste {
+            font-size: 0.875rem;
+            color: #888899;
+            margin-top: 0.25rem;
+        }
+
+        .algo-ffd .stat-label { color: #ff3366; }
+        .algo-bf .stat-label { color: #33ccff; }
+        .algo-bl .stat-label { color: #33ff99; }
+        .algo-ga .stat-label { color: #ffcc33; }
+
+        .algo-ffd { border-color: rgba(255, 51, 102, 0.3); }
+        .algo-bf { border-color: rgba(51, 204, 255, 0.3); }
+        .algo-bl { border-color: rgba(51, 255, 153, 0.3); }
+        .algo-ga { border-color: rgba(255, 204, 51, 0.3); }
+
+        main {
+            padding: 0 1.5rem 140px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .strip-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .strip-wrapper {
+            background: #12121a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .algo-badge {
+            min-width: 80px;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .badge-ffd {
+            background: rgba(255, 51, 102, 0.2);
+            color: #ff3366;
+            box-shadow: 0 0 20px rgba(255, 51, 102, 0.3);
+        }
+
+        .badge-bf {
+            background: rgba(51, 204, 255, 0.2);
+            color: #33ccff;
+            box-shadow: 0 0 20px rgba(51, 204, 255, 0.3);
+        }
+
+        .badge-bl {
+            background: rgba(51, 255, 153, 0.2);
+            color: #33ff99;
+            box-shadow: 0 0 20px rgba(51, 255, 153, 0.3);
+        }
+
+        .badge-ga {
+            background: rgba(255, 204, 51, 0.2);
+            color: #ffcc33;
+            box-shadow: 0 0 20px rgba(255, 204, 51, 0.3);
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            background: #08080c;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 120px;
+        }
+
+        .strip-metrics {
+            min-width: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .metric {
+            font-size: 0.875rem;
+            tabular-nums;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: #888899;
+        }
+
+        .progress-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(0, 0, 0, 0.3);
+            transform-origin: left;
+        }
+
+        .drop-zone {
+            background: #12121a;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 3rem;
+            text-align: center;
+            margin: 2rem 0;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #aa88ff;
+            background: rgba(170, 136, 255, 0.1);
+        }
+
+        .drop-zone-anim {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -70%);
+        }
+
+        .arrow-pulse {
+            font-size: 2rem;
+            animation: arrowBounce 1.5s ease-in-out infinite;
+        }
+
+        @keyframes arrowBounce {
+            0%, 100% { transform: translateY(0); opacity: 0.5; }
+            50% { transform: translateY(-10px); opacity: 1; }
+        }
+
+        .drop-text {
+            color: #888899;
+            margin-top: 1rem;
+        }
+
+        .control-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #12121a;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            z-index: 50;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: #1a1a24;
+            color: #e4e4ed;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: #22222e;
+            transform: scale(1.02);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-primary {
+            background: #aa88ff;
+            color: #0a0a0f;
+        }
+
+        .btn-primary:hover {
+            background: #bb99ff;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .slider-label {
+            font-size: 0.875rem;
+            color: #888899;
+            min-width: 60px;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 150px;
+            height: 6px;
+            background: #1a1a24;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #aa88ff;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .slider:hover::-webkit-slider-thumb {
+            transform: scale(1.2);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #aa88ff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .speed-value {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #aa88ff;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        .inventory {
+            position: fixed;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            background: #12121a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px 0 0 8px;
+            padding: 1rem;
+            max-width: 200px;
+            z-index: 60;
+        }
+
+        .inventory-header {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #888899;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+
+        .rect-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .rect-item {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            cursor: grab;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .rect-item:hover {
+            background: rgba(170, 136, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .rect-item:active {
+            cursor: grabbing;
+        }
+
+        .challenges {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .challenge-btn {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            background: transparent;
+            color: #888899;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .challenge-btn:hover {
+            border-color: #aa88ff;
+            color: #e4e4ed;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                gap: 0.5rem;
+            }
+
+            .stat-value {
+                font-size: 1rem;
+            }
+
+            .stat-waste {
+                font-size: 0.75rem;
+            }
+
+            canvas {
+                height: 80px;
+            }
+
+            .strip-wrapper {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .algo-badge {
+                width: 100%;
+            }
+
+            .control-bar {
+                padding: 0.75rem;
+                flex-wrap: wrap;
+            }
+
+            .controls {
+                flex-wrap: wrap;
+            }
+
+            .inventory {
+                top: auto;
+                bottom: 140px;
+                right: 1rem;
+                transform: none;
+                border-radius: 8px;
+                max-width: 100%;
+                width: calc(100% - 2rem);
+            }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: #1a1a24;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.75rem;
+            pointer-events: none;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .tooltip.visible {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body aria-label="Live Rectangle Packer - 4 Algorithm Racing Visualization">
+    <header>
+        <h1>Live Rectangle Packer</h1>
+        <p class="subtitle">Watch 4 algorithms compete in real-time to optimize space</p>
+        <div class="stats-grid" id="statsGrid" role="region" aria-label="Algorithm Statistics">
+        </div>
+    </header>
+
+    <main>
+        <div class="strip-container" id="stripsContainer" role="region" aria-label="Algorithm Visualization Strips">
+        </div>
+
+        <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop zone for rectangles">
+            <div class="drop-zone-anim">
+                <div class="arrow-pulse">↓</div>
+                <div class="drop-text">Drag rectangles here or click Generate Random</div>
+            </div>
+        </div>
+
+        <div class="inventory" id="inventory">
+            <div class="inventory-header">Rectangles to Pack</div>
+            <div class="challenges">
+                <button class="challenge-btn" data-challenge="tetris" role="button">Tetris</button>
+                <button class="challenge-btn" data-challenge="knap" role="button">Knap500</button>
+                <button class="challenge-btn" data-challenge="empty" role="button">Clear</button>
+            </div>
+            <div class="rect-preview" id="rectPreview">
+            </div>
+        </div>
+    </main>
+
+    <div class="control-bar">
+        <div class="controls">
+            <button class="btn btn-primary" id="playBtn" aria-label="Play animation">▶ Play</button>
+            <button class="btn" id="pauseBtn" aria-label="Pause animation" disabled>⏸ Pause</button>
+            <button class="btn" id="stepBtn" aria-label="Step forward" disabled>→ Step</button>
+            <button class="btn" id="rewindBtn" aria-label="Rewind">↺ Reset</button>
+        </div>
+        <div class="slider-container">
+            <span class="slider-label">Speed</span>
+            <input type="range" class="slider" id="speedSlider" min="1" max="100" value="1" aria-label="Animation speed">
+            <span class="speed-value" id="speedValue">1x</span>
+        </div>
+        <div class="controls">
+            <button class="btn" id="exportBtn" aria-label="Export SVG">Export SVG</button>
+            <button class="btn" id="genBtn" aria-label="Generate random rectangles">Generate Random</button>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
+
+    <script>
+    (() => {
+        ‘use strict’;
+
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const CONFIG = {
+            colors: {
+                background: '#0a0a0f',
+                surface: '#12121a',
+                surfaceBorder: 'rgba(255, 255, 255, 0.05)',
+                text: '#e4e4ed',
+                textSecondary: '#888899',
+                accent: '#aa88ff',
+                ffd: '#ff3366',
+                bf: '#33ccff',
+                bl: '#33ff99',
+                ga: '#ffcc33',
+                white: 'rgba(255, 255, 255, 1)',
+                wasteGradientStart: 'rgba(255, 68, 68, 0)',
+                wasteGradientEnd: 'rgba(255, 68, 68, 0.2)'
+            },
+            strip: {
+                width: 800,
+                height: 120,
+                padding: 10
+            },
+            particle: {
+                count: 5,
+                fadeTime: 300,
+                maxAge: 300
+            },
+            rect: {
+                minWidth: 50,
+                maxWidth: 150,
+                minHeight: 30,
+                maxHeight: 80,
+                gridSize: 10
+            },
+            ga: {
+                populationSize: 50,
+                generations: 100,
+                tournamentSize: 3,
+                mutationRate: 0.05
+            }
+        };
+
+        // ==========================================
+        // STATE MANAGEMENT
+        // ==========================================
+        const state = {
+            rectangles: [],
+            rectanglesById: new Map(),
+            nextRectId: 0,
+
+            algorithms: {
+                ffd: createAlgorithmState('ffd', 'First-Fit Decreasing', CONFIG.colors.ffd),
+                bf: createAlgorithmState('bf', 'Best-Fit', CONFIG.colors.bf),
+                bl: createAlgorithmState('bl', 'Bottom-Left', CONFIG.colors.bl),
+                ga: createAlgorithmState('ga', 'Genetic Algorithm', CONFIG.colors.ga, true)
+            },
+
+            global: {
+                speed: 1,
+                paused: true,
+                stepMode: false,
+                lastTime: 0,
+                accumTime: 0
+            },
+
+            particles: [],
+
+            gaConfig: {
+                mutationRate: 0.05
+            },
+
+            draggedRect: null,
+            hoverRect: null
+        };
+
+        function createAlgorithmState(key, name, color, isGA = false) {
+            return {
+                key,
+                name,
+                color,
+                isGA,
+                placements: [],
+                currentIdx: 0,
+                stripHeight: 0,
+                shelves: [],
+                totalWidth: CONFIG.strip.width - CONFIG.strip.padding * 2,
+                running: false,
+                completed: false,
+                stats: {
+                    density: 0,
+                    waste: 0,
+                    height: 0,
+                    placedCount: 0
+                },
+                canvas: null,
+                ctx: null,
+
+                // GA-specific state
+                population: [],
+                generation: 0,
+                bestChromosome: [],
+                bestFitness: Infinity
+            };
+        }
+
+        // ==========================================
+        // PARTICLE SYSTEM (Object Pooling)
+        // ==========================================
+        class ParticlePool {
+            constructor(size) {
+                this.pool = [];
+                this.active = [];
+                for (let i = 0; i < size; i++) {
+                    this.pool.push(this.createParticle());
+                }
+            }
+
+            createParticle() {
+                return { x: 0, y: 0, vx: 0, vy: 0, age: 0, lifespan: 0, active: false };
+            }
+
+            emit(x, y, color) {
+                const count = CONFIG.particle.count;
+                for (let i = 0; i < count && this.pool.length > 0; i++) {
+                    const p = this.pool.pop();
+                    p.x = x;
+                    p.y = y;
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + Math.random() * 4;
+                    p.vx = Math.cos(angle) * speed;
+                    p.vy = Math.sin(angle) * speed - 2;
+                    p.age = 0;
+                    p.lifespan = CONFIG.particle.fadeTime + Math.random() * 100;
+                    p.active = true;
+                    p.color = color;
+                    this.active.push(p);
+                }
+            }
+
+            update(dt) {
+                for (let i = this.active.length - 1; i >= 0; i--) {
+                    const p = this.active[i];
+                    p.age += dt;
+                    if (p.age >= p.lifespan) {
+                        this.pool.push(p);
+                        this.active.splice(i, 1);
+                        continue;
+                    }
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3;
+                    p.vx *= 0.98;
+                }
+            }
+
+            render(ctx) {
+                for (const p of this.active) {
+                    const alpha = 1 - p.age / p.lifespan;
+                    ctx.fillStyle = p.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        const particlePool = new ParticlePool(200);
+
+        // ==========================================
+        // DOM ELEMENT CACHING
+        // ==========================================
+        const elements = {};
+
+        function initElements() {
+            elements.header = document.querySelector('header');
+            elements.statsGrid = document.getElementById('statsGrid');
+            elements.stripsContainer = document.getElementById('stripsContainer');
+            elements.dropZone = document.getElementById('dropZone');
+            elements.inventory = document.getElementById('inventory');
+            elements.rectPreview = document.getElementById('rectPreview');
+            elements.playBtn = document.getElementById('playBtn');
+            elements.pauseBtn = document.getElementById('pauseBtn');
+            elements.stepBtn = document.getElementById('stepBtn');
+            elements.rewindBtn = document.getElementById('rewindBtn');
+            elements.speedSlider = document.getElementById('speedSlider');
+            elements.speedValue = document.getElementById('speedValue');
+            elements.exportBtn = document.getElementById('exportBtn');
+            elements.genBtn = document.getElementById('genBtn');
+            elements.tooltip = document.getElementById('tooltip');
+        }
+
+        // ==========================================
+        // DOM CREATE HELPERS (No innerHTML)
+        // ==========================================
+        function createElement(tag, attrs = {}, children = []) {
+            const el = document.createElement(tag);
+            for (const [key, value] of Object.entries(attrs)) {
+                if (key === 'textContent') {
+                    el.textContent = value;
+                } else if (key === 'innerHTML' || key.startsWith('on')) {
+                } else {
+                    el.setAttribute(key, value);
+                }
+            }
+            for (const child of children) {
+                if (child instanceof Node) {
+                    el.appendChild(child);
+                } else {
+                    const textNode = document.createTextNode(String(child));
+                    el.appendChild(textNode);
+                }
+            }
+            return el;
+        }
+
+        function createStripWrapper(algoKey, algoName, color, badgeClass) {
+            const wrapper = createElement('div', { class: `strip-wrapper algo-${algoKey}` });
+
+            const badge = createElement('span', {
+                class: `algo-badge ${badgeClass}`,
+                'aria-label': `${algoName} algorithm visualization`
+            });
+            badge.textContent = algoName.split(' ')[0];
+
+            const canvasWrapper = createElement('div', { class: 'canvas-wrapper' });
+
+            const canvas = createElement('canvas', {
+                width: CONFIG.strip.width,
+                height: CONFIG.strip.height,
+                'data-algo': algoKey,
+                'aria-label': `${algoName} strip packing visualization`
+            });
+
+            const progressBar = createElement('div', {
+                class: 'progress-bar',
+                style: `transform: scaleX(0); background: ${color}70;`
+            });
+
+            canvasWrapper.appendChild(canvas);
+            canvasWrapper.appendChild(progressBar);
+
+            const metrics = createElement('div', { class: 'strip-metrics' });
+            const densityEl = createElement('div', { class: 'metric' });
+            densityEl.appendChild(createElement('span', { class: 'metric-label' }, 'Density'));
+            densityEl.appendChild(document.createTextNode(' '));
+            const densityValue = createElement('span', { class: 'metric-value', 'data-metric': 'density' }, '0.0%');
+            densityEl.appendChild(densityValue);
+
+            const wasteEl = createElement('div', { class: 'metric' });
+            wasteEl.appendChild(createElement('span', { class: 'metric-label' }, 'Waste'));
+            wasteEl.appendChild(document.createTextNode(' '));
+            const wasteValue = createElement('span', { class: 'metric-value', 'data-metric': 'waste' }, '0.0%');
+            wasteEl.appendChild(wasteValue);
+
+            metrics.appendChild(densityEl);
+            metrics.appendChild(wasteEl);
+
+            wrapper.appendChild(badge);
+            wrapper.appendChild(canvasWrapper);
+            wrapper.appendChild(metrics);
+
+            return { wrapper, canvas, progressBar, densityValue, wasteValue };
+        }
+
+        function createStatCard(algoKey, algoName, color) {
+            const card = createElement('div', {
+                class: `stat-card algo-${algoKey}`,
+                role: 'status',
+                'aria-label': `${algoName} statistics`
+            });
+
+            const label = createElement('div', { class: 'stat-label' }, algoName.split(' ')[0]);
+            const value = createElement('div', { class: 'stat-value', 'data-stat': 'density' }, '0%');
+            const waste = createElement('div', { class: 'stat-waste', 'data-stat': 'waste' }, '0.0% waste');
+
+            card.appendChild(label);
+            card.appendChild(value);
+            card.appendChild(waste);
+
+            return card;
+        }
+
+        // ==========================================
+        // INITIALIZATION
+        // ==========================================
+        function init() {
+            initElements();
+
+            elements.statsGrid.innerHTML = '';
+            elements.stripsContainer.innerHTML = '';
+
+            for (const key of ['ffd', 'bf', 'bl', 'ga']) {
+                const algo = state.algorithms[key];
+
+                const statCard = createStatCard(key, algo.name, algo.color);
+                elements.statsGrid.appendChild(statCard);
+
+                const { wrapper, canvas, progressBar, densityValue, wasteValue } =
+                    createStripWrapper(key, algo.name, algo.color, `badge-${key}`);
+
+                elements.stripsContainer.appendChild(wrapper);
+
+                algo.canvas = canvas;
+                algo.ctx = canvas.getContext('2d', { willReadFrequently: false });
+                algo.progressBar = progressBar;
+                algo.densityValue = densityValue;
+                algo.wasteValue = wasteValue;
+
+                canvas.addEventListener('mousemove', handleCanvasMouseMove);
+                canvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+            }
+
+            setupEventListeners();
+            requestAnimationFrame(renderLoop);
+        }
+
+        function setupEventListeners() {
+            elements.playBtn.addEventListener('click', handlePlay);
+            elements.pauseBtn.addEventListener('click', handlePause);
+            elements.stepBtn.addEventListener('click', handleStep);
+            elements.rewindBtn.addEventListener('click', handleRewind);
+            elements.speedSlider.addEventListener('input', handleSpeedChange);
+            elements.genBtn.addEventListener('click', handleGenerate);
+            elements.exportBtn.addEventListener('click', handleExportSVG);
+
+            elements.dropZone.addEventListener('dragover', handleDragOver);
+            elements.dropZone.addEventListener('dragleave', handleDragLeave);
+            elements.dropZone.addEventListener('drop', handleDrop);
+
+            document.addEventListener('keydown', handleKeyDown);
+
+            document.querySelectorAll('.challenge-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => handleChallenge(e, btn.dataset.challenge));
+            });
+        }
+
+        // ==========================================
+        // EVENT HANDLERS
+        // ==========================================
+        function handlePlay() {
+            if (state.rectangles.length === 0) {
+                return;
+            }
+            state.global.paused = false;
+            state.global.stepMode = false;
+            elements.playBtn.disabled = true;
+            elements.playBtn.setAttribute('aria-label', 'Animation running');
+            elements.pauseBtn.disabled = false;
+            elements.stepBtn.disabled = true;
+
+            for (const algo of Object.values(state.algorithms)) {
+                if (!algo.completed) {
+                    algo.running = true;
+                }
+            }
+        }
+
+        function handlePause() {
+            state.global.paused = true;
+            elements.playBtn.disabled = false;
+            elements.playBtn.setAttribute('aria-label', 'Resume playback');
+            elements.pauseBtn.disabled = true;
+            elements.stepBtn.disabled = false;
+
+            for (const algo of Object.values(state.algorithms)) {
+                algo.running = false;
+            }
+        }
+
+        function handleStep() {
+            state.global.paused = true;
+            state.global.stepMode = true;
+            elements.playBtn.disabled = false;
+            elements.pauseBtn.disabled = false;
+            elements.stepBtn.disabled = false;
+
+            for (const algo of Object.values(state.algorithms)) {
+                if (!algo.completed && algo.currentIdx < state.rectangles.length) {
+                    stepAlgorithm(algo);
+                }
+            }
+        }
+
+        function handleRewind() {
+            handlePause();
+            for (const algo of Object.values(state.algorithms)) {
+                algo.placements = [];
+                algo.currentIdx = 0;
+                algo.stripHeight = 0;
+                algo.shelves = [];
+                algo.running = false;
+                algo.completed = false;
+                algo.stats = { density: 0, waste: 0, height: 0, placedCount: 0 };
+                if (algo.isGA) {
+                    algo.population = [];
+                    algo.generation = 0;
+                    algo.bestChromosome = [];
+                    algo.bestFitness = Infinity;
+                }
+            }
+            updateStats();
+        }
+
+        function handleSpeedChange(e) {
+            state.global.speed = parseInt(e.target.value, 10);
+            elements.speedValue.textContent = state.global.speed + 'x';
+        }
+
+        function handleGenerate() {
+            const count = 20 + Math.floor(Math.random() * 10);
+            generateRectangles(count);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            elements.dropZone.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            elements.dropZone.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            elements.dropZone.classList.remove('drag-over');
+            if (state.draggedRect) {
+                addRectangle(state.draggedRect.width, state.draggedRect.height);
+                state.draggedRect = null;
+            }
+        }
+
+        function handleKeyDown(e) {
+            switch (e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    state.global.paused ? handlePlay() : handlePause();
+                    break;
+                case 'ArrowRight':
+                    if (state.global.paused) handleStep();
+                    break;
+                case 'ArrowLeft':
+                    handleStep();
+                    break;
+                case 'KeyR':
+                    handleRewind();
+                    break;
+                case 'KeyS':
+                    if (!e.ctrlKey && !e.metaKey) handleExportSVG();
+                    break;
+                case 'Digit1': toggleAlgoVisibility('ffd'); break;
+                case 'Digit2': toggleAlgoVisibility('bf'); break;
+                case 'Digit3': toggleAlgoVisibility('bl'); break;
+                case 'Digit4': toggleAlgoVisibility('ga'); break;
+            }
+        }
+
+        function handleCanvasMouseMove(e) {
+            const canvas = e.target;
+            const algoKey = canvas.dataset.algo;
+            const algo = state.algorithms[algoKey];
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (const placement of algo.placements) {
+                if (x >= placement.x && x < placement.x + placement.rect.width &&
+                    y >= placement.y && y < placement.y + placement.rect.height) {
+
+                    showTooltip(e.clientX, e.clientY,
+                        `${placement.rect.width}×${placement.rect.height} (pos ${placement.order})`);
+                    return;
+                }
+            }
+            hideTooltip();
+        }
+
+        function handleCanvasMouseLeave() {
+            hideTooltip();
+        }
+
+        function handleChallenge(e, challenge) {
+            e.preventDefault();
+            switch (challenge) {
+                case 'tetris':
+                    generateTetrisSet();
+                    break;
+                case 'knap':
+                    generateRectangles(50);
+                    break;
+                case 'empty':
+                    state.rectangles = [];
+                    state.rectanglesById.clear();
+                    state.nextRectId = 0;
+                    handleRewind();
+                    elements.rectPreview.innerHTML = '';
+                    break;
+            }
+        }
+
+        function handleExportSVG() {
+            const svg = generateSVG();
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = createElement('a', { href: url, download: 'rectangle-packer.svg' });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function toggleAlgoVisibility(key) {
+            const wrapper = elements.stripsContainer.querySelector(`.algo-${key}`);
+            if (wrapper) {
+                const current = wrapper.style.display;
+                wrapper.style.display = current === 'none' ? 'flex' : 'none';
+            }
+        }
+
+        // ==========================================
+        // TOOLTIP
+        // ==========================================
+        function showTooltip(x, y, text) {
+            elements.tooltip.textContent = text;
+            elements.tooltip.style.left = x + 10 + 'px';
+            elements.tooltip.style.top = y + 10 + 'px';
+            elements.tooltip.classList.add('visible');
+            elements.tooltip.setAttribute('aria-hidden', 'false');
+        }
+
+        function hideTooltip() {
+            elements.tooltip.classList.remove('visible');
+            elements.tooltip.setAttribute('aria-hidden', 'true');
+        }
+
+        // ==========================================
+        // RECTANGLE GENERATION
+        // ==========================================
+        function generateRectangles(count) {
+            handleRewind();
+            for (let i = 0; i < count; i++) {
+                const w = CONFIG.rect.minWidth +
+                    Math.random() * (CONFIG.rect.maxWidth - CONFIG.rect.minWidth);
+                const h = CONFIG.rect.minHeight +
+                    Math.random() * (CONFIG.rect.maxHeight - CONFIG.rect.minHeight);
+                addRectangle(Math.floor(w), Math.floor(h));
+            }
+        }
+
+        function generateTetrisSet() {
+            handleRewind();
+            const tetrisRects = [
+                [20, 80], [40, 80], [60, 80], [80, 80],
+                [20, 40], [40, 40], [60, 40], [80, 40],
+                [80, 20], [40, 60], [100, 40], [60, 20],
+                [50, 50], [30, 70], [70, 30], [90, 30],
+                [30, 50], [50, 30], [40, 40], [50, 50]
+            ];
+            for (const [w, h] of tetrisRects) {
+                addRectangle(w, h);
+            }
+        }
+
+        function addRectangle(w, h) {
+            const rect = {
+                id: state.nextRectId++,
+                width: Math.floor(w),
+                height: Math.floor(h),
+                area: w * h
+            };
+            state.rectangles.push(rect);
+            state.rectanglesById.set(rect.id, rect);
+
+            const item = createElement('div', {
+                class: 'rect-item',
+                draggable: 'true',
+                'aria-label': `Rectangle ${rect.width}x${rect.height}, drag to add`
+            });
+            item.textContent = `${rect.width}×${rect.height}`;
+
+            item.addEventListener('dragstart', (e) => {
+                state.draggedRect = rect;
+            });
+            item.addEventListener('click', () => {
+                addRectangle(rect.width, rect.height);
+            });
+
+            elements.rectPreview.appendChild(item);
+        }
+
+        // ==========================================
+        // ALGORITHM IMPLEMENTATIONS
+        // ==========================================
+        function stepAlgorithm(algo) {
+            if (algo.currentIdx >= state.rectangles.length) {
+                algo.running = false;
+                algo.completed = true;
+                return;
+            }
+
+            const rect = state.rectangles[algo.currentIdx];
+            let placement = null;
+
+            if (algo.key === 'ffd') {
+                placement = stepFFD(algo, rect);
+            } else if (algo.key === 'bf') {
+                placement = stepBF(algo, rect);
+            } else if (algo.key === 'bl') {
+                placement = stepBL(algo, rect);
+            } else if (algo.key === 'ga') {
+                stepGA(algo);
+                return;
+            }
+
+            if (placement) {
+                placement.order = algo.currentIdx + 1;
+                algo.placements.push(placement);
+                particlePool.emit(
+                    placement.x + CONFIG.strip.padding + rect.width / 2,
+                    placement.y + rect.height / 2,
+                    algo.color
+                );
+            }
+
+            algo.currentIdx++;
+            algo.completed = algo.currentIdx >= state.rectangles.length;
+            algo.running = !algo.completed;
+        }
+
+        function stepFFD(algo, rect) {
+            for (let i = 0; i < algo.shelves.length; i++) {
+                const shelf = algo.shelves[i];
+                if (shelf.y + rect.height <= CONFIG.strip.height &&
+                    shelf.usedWidth + rect.width <= algototalWidth) {
+                    const placement = {
+                        rect,
+                        x: CONFIG.strip.padding + shelf.usedWidth,
+                        y: shelf.y
+                    };
+                    shelf.usedWidth += rect.width;
+                    algo.stats.height = Math.max(algo.stats.height, shelf.y + rect.height);
+                    algo.stats.placedCount++;
+                    return placement;
+                }
+            }
+
+            const newY = algo.stats.height;
+            if (newY + rect.height <= CONFIG.strip.height) {
+                const placement = {
+                    rect,
+                    x: CONFIG.strip.padding,
+                    y: newY
+                };
+                algo.shelves.push({ y: newY, usedWidth: rect.width });
+                algo.stats.height = newY + rect.height;
+                algo.stats.placedCount++;
+                return placement;
+            }
+
+            return null;
+        }
+
+        function stepBF(algo, rect) {
+            let bestShelfIdx = -1;
+            let bestWaste = Infinity;
+
+            for (let i = 0; i < algo.shelves.length; i++) {
+                const shelf = algo.shelves[i];
+                if (shelf.y + rect.height <= CONFIG.strip.height &&
+                    shelf.usedWidth + rect.width <= algo.totalWidth) {
+                    const waste = algo.totalWidth - (shelf.usedWidth + rect.width);
+                    if (waste < bestWaste) {
+                        bestWaste = waste;
+                        bestShelfIdx = i;
+                    }
+                }
+            }
+
+            if (bestShelfIdx >= 0) {
+                const shelf = algo.shelves[bestShelfIdx];
+                const placement = {
+                    rect,
+                    x: CONFIG.strip.padding + shelf.usedWidth,
+                    y: shelf.y
+                };
+                shelf.usedWidth += rect.width;
+                algo.stats.height = Math.max(algo.stats.height, shelf.y + rect.height);
+                algo.stats.placedCount++;
+                return placement;
+            }
+
+            const newY = algo.stats.height;
+            if (newY + rect.height <= CONFIG.strip.height) {
+                const placement = {
+                    rect,
+                    x: CONFIG.strip.padding,
+                    y: newY
+                };
+                algo.shelves.push({ y: newY, usedWidth: rect.width });
+                algo.stats.height = newY + rect.height;
+                algo.stats.placedCount++;
+                return placement;
+            }
+
+            return null;
+        }
+
+        function stepBL(algo, rect) {
+            let bestPos = null;
+            let lowestY = Infinity;
+
+            for (let y = 0;
+y + rect.height <= CONFIG.strip.height;
+y += CONFIG.rect.gridSize) {
+                for (let x = CONFIG.strip.padding;
+x + rect.width <= CONFIG.strip.padding + algo.totalWidth;
+x += CONFIG.rect.gridSize) {
+                    if (canPlaceAt(algo, x, y, rect.width, rect.height)) {
+                        if (y < lowestY || (y === lowestY && x < (bestPos?.x ?? Infinity))) {
+                            lowestY = y;
+                            bestPos = { x, y };
+                        }
+                    }
+                }
+            }
+
+            if (bestPos) {
+                const placement = {
+                    rect,
+                    x: bestPos.x,
+                    y: bestPos.y
+                };
+                algo.stats.height = Math.max(algo.stats.height, bestPos.y + rect.height);
+                algo.stats.placedCount++;
+                return placement;
+            }
+
+            return null;
+        }
+
+        function canPlaceAt(algo, x, y, w, h) {
+            for (const p of algo.placements) {
+                const px = p.x;
+                const py = p.y;
+                const pw = p.rect.width;
+                const ph = p.rect.height;
+                if (!(x + w <= px || x >= px + pw || y + h <= py || y >= py + ph)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function stepGA(algo) {
+            if (algo.population.length === 0) {
+                initPopulation(algo);
+                return;
+            }
+
+            if (algo.generation >= CONFIG.ga.generations) {
+                placeBestChromosome(algo);
+                return;
+            }
+
+            const newPop = evolvePopulation(algo);
+            algo.population = newPop;
+            algo.generation++;
+
+            const best = algo.population[0];
+            if (best.fitness < algo.bestFitness) {
+                algo.bestFitness = best.fitness;
+                algo.bestChromosome = [...best.chromosome];
+            }
+
+            placeBestChromosome(algo);
+        }
+
+        function initPopulation(algo) {
+            algo.population = [];
+            const n = state.rectangles.length;
+
+            for (let i = 0; i < CONFIG.ga.populationSize; i++) {
+                const chromosome = Array.from({ length: n }, (_, idx) => idx);
+                shuffleArray(chromosome);
+                const fitness = evaluateFitness(algo, chromosome);
+                algo.population.push({ chromosome, fitness });
+            }
+
+            algo.population.sort((a, b) => a.fitness - b.fitness);
+            algo.bestChromosome = [...algo.population[0].chromosome];
+            algo.bestFitness = algo.population[0].fitness;
+        }
+
+        function evaluateFitness(algo, chromosome) {
+            return chromosome.reduce((totalHeight, rectIdx) => {
+                const rect = state.rectangles[rectIdx];
+                let minY = 0;
+                for (const p of algo.placements) {
+                    if (p.y + p.rect.height > minY && p.y < minY + rect.height) {
+                        minY = Math.max(minY, p.y + p.rect.height);
+                    }
+                }
+                for (let i = 0; i < 200; i += CONFIG.rect.gridSize) {
+                    if (canPlaceAt(algo, CONFIG.strip.padding + i, minY, rect.width, rect.height)) {
+                        return Math.max(totalHeight, minY + rect.height);
+                    }
+                }
+                return totalHeight + 1000;
+            }, 0);
+        }
+
+        function evolvePopulation(algo) {
+            const newPop = [];
+
+            newPop.push({ ...algo.population[0] });
+
+            while (newPop.length < CONFIG.ga.populationSize) {
+                const parent1 = tournamentSelect(algo.population);
+                const parent2 = tournamentSelect(algo.population);
+
+                let child = orderCrossover(parent1.chromosome, parent2.chromosome);
+
+                if (Math.random() < state.gaConfig.mutationRate) {
+                    child = mutateSwap(child);
+                }
+
+                const fitness = evaluateFitness(algo, child);
+                newPop.push({ chromosome: child, fitness });
+            }
+
+            newPop.sort((a, b) => a.fitness - b.fitness);
+            return newPop;
+        }
+
+        function tournamentSelect(population) {
+            const k = CONFIG.ga.tournamentSize;
+            let best = null;
+            for (let i = 0; i < k; i++) {
+                const idx = Math.floor(Math.random() * population.length);
+                const ind = population[idx];
+                if (!best || ind.fitness < best.fitness) {
+                    best = ind;
+                }
+            }
+            return best;
+        }
+
+        function orderCrossover(p1, p2) {
+            const n = p1.length;
+            const start = Math.floor(Math.random() * n);
+            const end = start + Math.floor(Math.random() * (n - start));
+
+            const child = new Array(n).fill(-1);
+            const segment = p1.slice(Math.max(0, start), Math.min(n, end));
+
+            for (let i = 0; i < segment.length; i++) {
+                child[start + i] = segment[i];
+            }
+
+            let childIdx = 0;
+            for (let i = 0; i < n; i++) {
+                if (!child.includes(p2[i])) {
+                    while (child[childIdx] !== -1) childIdx++;
+                    child[childIdx++] = p2[i];
+                }
+            }
+
+            return child;
+        }
+
+        function mutateSwap(chromosome) {
+            const n = chromosome.length;
+            const i = Math.floor(Math.random() * n);
+            const j = Math.floor(Math.random() * n);
+            const temp = chromosome[i];
+            chromosome[i] = chromosome[j];
+            chromosome[j] = temp;
+            return chromosome;
+        }
+
+        function placeBestChromosome(algo) {
+            while (algo.currentIdx < algo.bestChromosome.length) {
+                const rectIdx = algo.bestChromosome[algo.currentIdx];
+                const rect = state.rectangles[rectIdx];
+
+                let placed = false;
+                for (const shelf of algo.shelves) {
+                    if (shelf.y + rect.height <= CONFIG.strip.height &&
+                        shelf.usedWidth + rect.width <= algo.totalWidth) {
+                        const placement = {
+                            rect,
+                            x: CONFIG.strip.padding + shelf.usedWidth,
+                            y: shelf.y,
+                            order: algo.currentIdx + 1
+                        };
+                        algo.placements.push(placement);
+                        shelf.usedWidth += rect.width;
+                        algo.stats.height = Math.max(algo.stats.height, shelf.y + rect.height);
+                        algo.stats.placedCount++;
+                        algo.currentIdx++;
+                        placed = true;
+                        break;
+                    }
+                }
+
+                if (!placed) {
+                    const newY = algo.stats.height;
+                    if (newY + rect.height <= CONFIG.strip.height) {
+                        const placement = {
+                            rect,
+                            x: CONFIG.strip.padding,
+                            y: newY,
+                            order: algo.currentIdx + 1
+                        };
+                        algo.placements.push(placement);
+                        algo.shelves.push({ y: newY, usedWidth: rect.width });
+                        algo.stats.height = newY + rect.height;
+                        algo.stats.placedCount++;
+                        algo.currentIdx++;
+                    } else {
+                        algo.currentIdx++;
+                    }
+                }
+            }
+
+            algo.running = false;
+            algo.completed = true;
+        }
+
+        function shuffleArray(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // ==========================================
+        // RENDERING
+        // ==========================================
+        function renderLoop(timestamp) {
+            if (!state.global.lastTime) state.global.lastTime = timestamp;
+            const dt = timestamp - state.global.lastTime;
+            state.global.lastTime = timestamp;
+
+            if (!state.global.paused) {
+                const stepsPerFrame = Math.max(1, Math.floor(state.global.speed / 10));
+                for (let step = 0; step < stepsPerFrame; step++) {
+                    for (const algo of Object.values(state.algorithms)) {
+                        if (algo.running && !algo.completed) {
+                            stepAlgorithm(algo);
+                        }
+                    }
+
+                    let allComplete = true;
+                    for (const algo of Object.values(state.algorithms)) {
+                        if (!algo.completed) {
+                            allComplete = false;
+                            break;
+                        }
+                    }
+                    if (allComplete) break;
+                }
+            }
+
+            particlePool.update(dt);
+            renderAll();
+            updateStats();
+            updateProgressBars();
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        function renderAll() {
+            for (const algo of Object.values(state.algorithms)) {
+                renderCanvas(algo);
+            }
+        }
+
+        function renderCanvas(algo) {
+            const ctx = algo.ctx;
+            const canvas = algo.canvas;
+
+            ctx.fillStyle = CONFIG.colors.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const gridColor = 'rgba(255, 255, 255, 0.03)';
+            ctx.strokeStyle = gridColor;
+
+            for (let x = 0; x < canvas.width; x += CONFIG.rect.gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += CONFIG.rect.gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            for (const p of algo.placements) {
+                const rect = p.rect;
+
+                const gradient = ctx.createLinearGradient(p.x, p.y, p.x + rect.width, p.y + rect.height);
+                gradient.addColorStop(0, algo.color + 'cc');
+                gradient.addColorStop(1, algo.color + '66');
+                ctx.fillStyle = gradient;
+
+                ctx.fillRect(p.x, p.y, rect.width, rect.height);
+
+                ctx.strokeStyle = algo.color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(p.x, p.y, rect.width, rect.height);
+
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.fillRect(p.x, p.y, 1, rect.height);
+                ctx.fillRect(p.x, p.y + rect.height - 1, rect.width, 1);
+
+                if (p.order) {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.font = '10px system-ui';
+                    ctx.fillText(p.order.toString(), p.x + 2, p.y + 12);
+                }
+            }
+
+            if (algo.completed && algo.stats.waste > 0) {
+                renderWasteHeatmap(ctx, algo);
+            }
+
+            particlePool.render(ctx);
+        }
+
+        function renderWasteHeatmap(ctx, algo) {
+            const wasteRegions = findWasteRegions(algo);
+            for (const region of wasteRegions) {
+                const gradient = ctx.createRadialGradient(
+                    region.x + region.w / 2, region.y + region.h / 2, 0,
+                    region.x + region.w / 2, region.y + region.h / 2, Math.max(region.w, region.h)
+                );
+                gradient.addColorStop(0, CONFIG.colors.wasteGradientEnd);
+                gradient.addColorStop(1, CONFIG.colors.wasteGradientStart);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(region.x, region.y, region.w, region.h);
+            }
+        }
+
+        function findWasteRegions(algo) {
+            const regions = [];
+            const placed = new Set();
+            for (const p of algo.placements) {
+                for (let dx = 0; dx < p.rect.width; dx += 5) {
+                    for (let dy = 0; dy < p.rect.height; dy += 5) {
+                        placed.add(`${Math.floor(p.x + dx)},${Math.floor(p.y + dy)}`);
+                    }
+                }
+            }
+
+            for (let x = CONFIG.strip.padding; x < CONFIG.strip.padding + algo.totalWidth; x += 10) {
+                for (let y = 0; y < algo.stats.height; y += 10) {
+                    let isWaste = true;
+                    for (let dx = 0; dx < 10; dx++) {
+                        for (let dy = 0; dy < 10; dy++) {
+                            if (placed.has(`${x + dx},${y + dy}`)) {
+                                isWaste = false;
+                                break;
+                            }
+                        }
+                        if (!isWaste) break;
+                    }
+
+                    if (isWaste) {
+                        regions.push({ x, y, w: 10, h: 10 });
+                    }
+                }
+            }
+
+            return regions;
+        }
+
+        // ==========================================
+        // STATISTICS UPDATES
+        // ==========================================
+        function updateStats() {
+            for (const algo of Object.values(state.algorithms)) {
+                if (algo.placements.length > 0) {
+                    const totalArea = algo.placements.reduce((sum, p) => sum + p.rect.area, 0);
+                    const boundingArea = algo.stats.height * algo.totalWidth;
+                    algo.stats.density = totalArea / boundingArea;
+                    algo.stats.waste = 1 - algo.stats.density;
+                } else {
+                    algo.stats.density = 0;
+                    algo.stats.waste = 0;
+                }
+
+                algo.densityValue.textContent = (algo.stats.density * 100).toFixed(1) + '%';
+                algo.wasteValue.textContent = (algo.stats.waste * 100).toFixed(1) + '%';
+
+                const statDensity = document.querySelector(`.algo-${algo.key} [data-stat="density"]`);
+                const statWaste = document.querySelector(`.algo-${algo.key} [data-stat="waste"]`);
+
+                if (statDensity) statDensity.textContent = (algo.stats.density * 100).toFixed(0) + '%';
+                if (statWaste) statWaste.textContent = (algo.stats.waste * 100).toFixed(1) + '% waste';
+            }
+        }
+
+        function updateProgressBars() {
+            for (const algo of Object.values(state.algorithms)) {
+                const progress = state.rectangles.length > 0 ? algo.currentIdx / state.rectangles.length : 0;
+                algo.progressBar.style.transform = `scaleX(${progress})`;
+            }
+        }
+
+        // ==========================================
+        // SVG EXPORT
+        // ==========================================
+        function generateSVG() {
+            let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CONFIG.strip.width}" height="${CONFIG.strip.height * 4}">\n`;
+
+            let yOffset = 0;
+            const labels = ['First-Fit Decreasing', 'Best-Fit', 'Bottom-Left', 'Genetic Algo'];
+
+            for (const key of ['ffd', 'bf', 'bl', 'ga']) {
+                const algo = state.algorithms[key];
+
+                svg += `<g transform="translate(0, ${yOffset})">\n`;
+                svg += `  <rect x="0" y="0" width="${CONFIG.strip.width}" height="${CONFIG.strip.height}" fill="#0a0a0f"/>\n`;
+                svg += `  <text x="10" y="15" fill="${algo.color}" font-size="12" font-weight="600">${labels[Object.keys(state.algorithms).indexOf(key)]}</text>\n`;
+
+                for (const p of algo.placements) {
+                    svg += `  <rect x="${p.x}" y="${p.y}" width="${p.rect.width}" height="${p.rect.height}" fill="${algo.color}66" stroke="${algo.color}" stroke-width="1"/>\n`;
+                }
+
+                svg += `  <text x="10" y="${CONFIG.strip.height - 10}" fill="#888899" font-size="10">Density: ${(algo.stats.density * 100).toFixed(1)}% | Waste: ${(algo.stats.waste * 100).toFixed(1)}%</text>\n`;
+                svg += `</g>\n`;
+
+                yOffset += CONFIG.strip.height;
+            }
+
+            svg += '</svg>';
+            return svg;
+        }
+
+        // Start initialization
+        document.addEventListener('DOMContentLoaded', init);
+    })();
+    </script>
+</body>
+</html>
