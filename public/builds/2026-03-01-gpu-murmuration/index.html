@@ -452,7 +452,7 @@
           float life = posData.z;
           
           // Handle invalid positions (dead birds)
-          if (!isValid(pos) || life <= 0.0) {
+          if (!isValid(pos)) {
             // Respawn at random position
             vec2 newPos = vec2(
               fract(uv.x * 0.1 + gl_FragCoord.x * 0.001),
@@ -566,7 +566,7 @@
           if (pos.y > 1.0) pos.y -= 1.0;
 
           // Output new state - pack position and velocity
-          fragColor = vec4(pos.x, pos.y, 1.0, vel.x);
+          fragColor = vec4(pos.x, pos.y, vel.x, vel.y);
           // vel.y needs to be packed too - we'll handle in update
         }
       \`;
@@ -960,42 +960,46 @@
         gl.vertexAttribPointer(quadPosLoc, 2, gl.FLOAT, false, 0, 0);
 
         const texWidth = 1024;
+        // Use instanced rendering for performance
+        const instancePosLoc = gl.getAttribLocation(renderProgram, 'a_instancePos');
+        const instanceVelLoc = gl.getAttribLocation(renderProgram, 'a_instanceVel');
+        
+        // Create instance data buffer
+        const instanceData = new Float32Array(birdCount * 4);
         for (let i = 0; i < birdCount; i++) {
           const i4 = i * 4;
-          const px = birdData[i4];
-          const py = birdData[i4 + 1];
-          const life = birdData[i4 + 2];
-          const vx = birdData[i4 + 3];
-
-          if (life <= 0) continue;
-
-          const instancePosLoc = gl.getAttribLocation(renderProgram, 'a_instancePos');
-          const instanceVelLoc = gl.getAttribLocation(renderProgram, 'a_instanceVel');
-
-          gl.disableVertexAttribArray(instancePosLoc);
-          gl.vertexAttrib4f(instancePosLoc, px * 400, py * 400, 0, 0);
-
-          gl.disableVertexAttribArray(instanceVelLoc);
-          gl.vertexAttrib4f(instanceVelLoc, vx * 100, 0, life, 0);
-
-          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          const dataIdx = i * 4;
+          instanceData[dataIdx] = birdData[i4] * canvasWidth;      // px
+          instanceData[dataIdx + 1] = birdData[i4 + 1] * canvasHeight; // py  
+          instanceData[dataIdx + 2] = birdData[i4 + 2] * 1000;   // vx (stored in z)
+          instanceData[dataIdx + 3] = birdData[i4 + 3] * 1000;     // vy (stored in w)
         }
+        
+        const instanceBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.STREAM_DRAW);
+        
+        gl.enableVertexAttribArray(instancePosLoc);
+        gl.vertexAttribPointer(instancePosLoc, 2, gl.FLOAT, false, 16, 0);
+        gl.vertexAttribDivisor(instancePosLoc, 1);
+        
+        gl.enableVertexAttribArray(instanceVelLoc);
+        gl.vertexAttribPointer(instanceVelLoc, 2, gl.FLOAT, false, 16, 8);
+        gl.vertexAttribDivisor(instanceVelLoc, 1);
+        
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, birdCount);
+        
+        gl.deleteBuffer(instanceBuffer);
       }
 
-      function renderObstacles() {
-        // Obstacles would be rendered via Canvas2D overlay
-      }
 
-      function renderPredator() {
-        // Predator cursor would be rendered via Canvas2D overlay  
-      }
 
       // ===================================================================
       // SECTION 7: Main Animation Loop
       // ===================================================================
 
-      let canvasWidth = 0;
-      let canvasHeight = 0;
+      let canvasWidth = window.innerWidth;
+      let canvasHeight = window.innerHeight;
 
       function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
@@ -1071,16 +1075,67 @@
       function runWebGLLoop(timestamp) {
         try {
           simulateBoids();
-
           const birdData = readBirdData(adaptiveCount);
-
           renderBoids(birdData, adaptiveCount, timestamp / 1000);
-
-          // NOTE: Predator and obstacles would be rendered via 2D overlay
-          // For full implementation, use offscreen canvas and composite
-
+          renderOverlay();
         } catch (error) {
           console.error('WebGL draw error:', error);
+        }
+      }
+      
+      function renderOverlay() {
+        // Create 2D context on the same canvas for overlay rendering
+        // Note: This switches context, which is inefficient but works for the prototype
+        const ctx = CANVAS.getContext('2d');
+        if (!ctx) return;
+        
+        // Save WebGL state and restore after
+        const glCanvas = document.createElement('canvas');
+        glCanvas.width = CANVAS.width;
+        glCanvas.height = CANVAS.height;
+        const glCtx = glCanvas.getContext('2d');
+        
+        // Draw obstacles
+        for (const obs of obstacles) {
+          if (!obs.active) continue;
+          
+          // Draw glowing red-orange ring
+          const gradient = glCtx.createRadialGradient(
+            obs.x, obs.y, obs.radius * 0.3,
+            obs.x, obs.y, obs.radius
+          );
+          gradient.addColorStop(0, 'rgba(255, 100, 50, 0.8)');
+          gradient.addColorStop(0.5, 'rgba(255, 68, 68, 0.5)');
+          gradient.addColorStop(1, 'rgba(255, 68, 68, 0)');
+          
+          glCtx.beginPath();
+          glCtx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+          glCtx.fillStyle = gradient;
+          glCtx.fill();
+          
+          // Inner pulsing core
+          glCtx.beginPath();
+          glCtx.arc(obs.x, obs.y, obs.radius * 0.3, 0, Math.PI * 2);
+          glCtx.fillStyle = 'rgba(255, 136, 68, 0.9)';
+          glCtx.fill();
+        }
+        
+        // Draw predator cursor
+        if (predatorActive && mouseX >= 0 && mouseY >= 0) {
+          const predRadius = params.predRadius;
+          
+          // White ring
+          glCtx.beginPath();
+          glCtx.arc(mouseX, mouseY, predRadius, 0, Math.PI * 2);
+          glCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          glCtx.lineWidth = 2;
+          glCtx.stroke();
+          
+          // Inner dot
+          glCtx.beginPath();
+          glCtx.arc(mouseX, mouseY, 4, 0, Math.PI * 2);
+          glCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          glCtx.fill();
         }
       }
 
