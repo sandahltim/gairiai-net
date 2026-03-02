@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Fractal Wavetable Odyssey</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0a0a0f;
+            color: #e4e4ed;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #fractal-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        #fractal-canvas:active {
+            cursor: grabbing;
+        }
+
+        .ui-panel {
+            position: absolute;
+            background: rgba(20, 20, 30, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 12px;
+            pointer-events: auto;
+        }
+
+        .ui-panel * {
+            pointer-events: auto;
+        }
+
+        .hud-top-left {
+            top: 16px;
+            left: 16px;
+            min-width: 200px;
+        }
+
+        .hud-top-right {
+            top: 16px;
+            right: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .hud-bottom {
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            max-width: 90vw;
+        }
+
+        .param-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            min-height: 28px;
+            margin-bottom: 6px;
+        }
+
+        .param-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .param-label {
+            font-size: 0.875rem;
+            color: #a0a0b0;
+            min-width: 80px;
+        }
+
+        .param-value {
+            font-size: 1rem;
+            color: #e4e4ed;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .hint-text {
+            font-size: 0.75rem;
+            color: #606070;
+            margin-top: 4px;
+        }
+
+        .kbd-hint {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #ffd93d;
+            font-size: 0.75rem;
+        }
+
+        button.audio-toggle {
+            background: rgba(0, 217, 255, 0.15);
+            border: 1px solid #00d9ff;
+            color: #00d9ff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        button.audio-toggle:hover {
+            background: rgba(0, 217, 255, 0.25);
+            transform: scale(1.05);
+        }
+
+        button.audio-toggle.active {
+            background: rgba(0, 217, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.3);
+        }
+
+        #wavetable-preview {
+            width: 128px;
+            height: 64px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            width: 120px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .volume-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        #start-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 15, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: pointer;
+            transition: opacity 0.5s ease;
+        }
+
+        #start-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .start-text {
+            font-size: 1.5rem;
+            color: #e4e4ed;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .start-subtext {
+            font-size: 0.875rem;
+            color: #a0a0b0;
+        }
+
+        .blink {
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-ok {
+            background: #6bcb77;
+            box-shadow: 0 0 8px #6bcb77;
+        }
+
+        .status-warn {
+            background: #ffd93d;
+            box-shadow: 0 0 8px #ffd93d;
+        }
+
+        .status-bad {
+            background: #e94560;
+            box-shadow: 0 0 8px #e94560;
+        }
+
+        .keyboard-hint {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: #a0a0b0;
+        }
+
+        .key-desc {
+            font-size: 0.75rem;
+            color: #606070;
+        }
+
+        @media (max-width: 600px) {
+            .hud-top-left {
+                top: auto;
+                bottom: 80px;
+                left: 8px;
+                right: 8px;
+                max-width: calc(100vw - 16px);
+            }
+
+            .hud-top-right {
+                top: 8px;
+                right: 8px;
+            }
+
+            .hud-bottom {
+                display: none;
+            }
+
+            .keyboard-hint {
+                font-size: 0.625rem;
+            }
+
+            .key-badge {
+                padding: 4px 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="fractal-canvas"></canvas>
+
+    <!-- Start Overlay -->
+    <div id="start-overlay">
+        <div class="start-text blink">Click anywhere to start audio</div>
+        <div class="start-subtext">Mandelbrot Wavetable Synth</div>
+    </div>
+
+    <!-- Top Left: Parameters -->
+    <div class="ui-panel hud-top-left" aria-label="Fractal parameters">
+        <div class="param-row">
+            <span class="param-label">Zoom</span>
+            <span class="param-value" id="zoom-value">1.0e+0</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Max Iter</span>
+            <span class="param-value" id="iter-value">256</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Real</span>
+            <span class="param-value" id="real-value">-0.5000</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Imag</span>
+            <span class="param-value" id="imag-value">0.0000</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Quality</span>
+            <span class="status-indicator status-ok" id="quality-indicator"></span>
+            <span class="param-value" id="quality-value">60 fps</span>
+        </div>
+    </div>
+
+    <!-- Top Right: Audio Controls -->
+    <div class="ui-panel hud-top-right" aria-label="Audio controls">
+        <canvas id="wavetable-preview" aria-label="Wavetable waveform preview"></canvas>
+        <div class="param-row" style="gap: 8px;">
+            <button class="audio-toggle" id="audio-btn" aria-label="Toggle audio">
+                🔊 Audio
+            </button>
+            <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="50" aria-label="Volume">
+        </div>
+        <div class="hint-text">
+            <span class="kbd-hint">A-K</span> notes · 
+            <span class="kbd-hint">Space</span> arpegiate
+        </div>
+    </div>
+
+    <!-- Bottom: Keyboard hint -->
+    <div class="ui-panel hud-bottom" aria-label="Keyboard shortcuts">
+        <div class="keyboard-hint">
+            <div>
+                <span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span><span class="key-badge">F</span><span class="key-badge">G</span><span class="key-badge">H</span><span class="key-badge">J</span><span class="key-badge">K</span>
+                <span class="key-desc">play notes</span>
+            </div>
+            <div>
+                <span class="key-badge">Space</span>
+                <span class="key-desc">arpeggiate</span>
+            </div>
+            <div>
+                <span class="key-badge">B</span>
+                <span class="key-desc">bookmark</span>
+            </div>
+            <div>
+                <span class="key-badge">R</span>
+                <span class="key-desc">reset</span>
+            </div>
+            <div>
+                <span class="key-badge">↑↓</span>
+                <span class="key-desc">volume</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // FRACTAL WAVETABLE SYNTH - Complete Implementation
+        // ============================================================
+
+        // --- Constants & Configuration ---
+        const CONFIG = {
+            bgColor: '#0a0a0f',
+            textColor: '#e4e4ed',
+            colors: {
+                interior: [0x1a, 0x1a, 0x2e],
+                edge: [0xe9, 0x45, 0x60],
+                glow: [0x00, 0xd9, 0xff]
+            },
+            maxIterations: 256,
+            tileCacheSize: 16,
+            wavetableSize: 1024,
+            audioLatency: 0.05,
+            momentumFriction: 0.92,
+            zoomMin: 1e-15,
+            zoomMax: 1e6,
+            particleCount: 100,
+            arpeggioInterval: 150
+        };
+
+        const PENTATONIC = [
+            { note: 'A', freq: 220.00 },    // A3
+            { note: 'Bb', freq: 233.08 },   // Bb3
+            { note: 'C', freq: 261.63 },    // C4
+            { note: 'D', freq: 293.66 },    // D4
+            { note: 'Eb', freq: 311.13 },   // Eb4
+            { note: 'F', freq: 349.23 },    // F4
+            { note: 'G', freq: 392.00 },    // G4
+            { note: 'A', freq: 440.00 }     // A4
+        ];
+
+        const KEY_MAP = {
+            'KeyA': 0, 'KeyS': 1, 'KeyD': 2, 'KeyF': 3,
+            'KeyG': 4, 'KeyH': 5, 'KeyJ': 6, 'KeyK': 7
+        };
+
+        // --- Global State ---
+        const state = {
+            // View state
+            view: {
+                cx: -0.5,
+                cy: 0.0,
+                zoom: 1.0,
+                targetZoom: 1.0,
+                zoomProgress: 0.0,
+                width: 3.0,
+                height: 2.0
+            },
+            // Audio state
+            audio: {
+                initialized: false,
+                context: null,
+                masterGain: null,
+                wavetable: new Float32Array(CONFIG.wavetableSize),
+                filterFreq: 1000,
+                lfoRate: 1.0,
+                activeNotes: new Map(),
+                volume: 0.5,
+                arpeggiator: null,
+                arpeggioIndex: 0,
+                isArpeggiating: false
+            },
+            // Interaction state
+            interaction: {
+                isDragging: false,
+                lastMouse: { x: 0, y: 0 },
+                momentum: { vx: 0, vy: 0 },
+                lastClickTime: 0
+            },
+            // Render state
+            render: {
+                iterationMax: CONFIG.maxIterations,
+                colorOffset: 0,
+                qualityLevel: 2,
+                frameCount: 0,
+                lastFpsTime: performance.now(),
+                fps: 60
+            },
+            // Animation state
+            animation: {
+                breathingPhase: 0,
+                particles: [],
+                lastWavetableUpdate: 0
+            },
+            // Bookmarks
+            bookmark: null
+        };
+
+        // --- Canvas & Rendering ---
+        const canvas = document.getElementById('fractal-canvas');
+        const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+        const previewCanvas = document.getElementById('wavetable-preview');
+        const previewCtx = previewCanvas.getContext('2d');
+
+        // Offscreen canvas for tile caching
+        const tileCanvas = document.createElement('canvas');
+        const tileCtx = tileCanvas.getContext('2d');
+        const tileCache = new Map();
+
+        // Offscreen canvas for static background
+        const bgCanvas = document.createElement('canvas');
+        const bgCtx = bgCanvas.getContext('2d');
+
+        // Audio nodes
+        let oscillators = new Map();
+
+        // --- Resize Handler ---
+        function resize() {
+            const dpr = window.devicePixelRatio || 1;
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            ctx.scale(dpr, dpr);
+            
+            previewCanvas.width = 128;
+            previewCanvas.height = 64;
+            
+            bgCanvas.width = width * dpr;
+            bgCanvas.height = height * dpr;
+            
+            state.view.width = 3.0 / state.view.zoom;
+            state.view.height = state.view.width * (height / width);
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- Mandelbrot Iteration ---
+        function iterateMandelbrot(cx, cy, maxIterations) {
+            let zx = 0;
+            let zy = 0;
+            let zx2 = 0;
+            let zy2 = 0;
+            let iterations = 0;
+            
+            while (zx2 + zy2 < 4.0 && iterations < maxIterations) {
+                zy = 2.0 * zx * zy + cy;
+                zx = zx2 - zy2 + cx;
+                zx2 = zx * zx;
+                zy2 = zy * zy;
+                iterations++;
+            }
+            
+            return iterations;
+        }
+
+        // Smooth coloring with escape time
+        function smoothColor(iterations, maxIterations, zx, zy) {
+            if (iterations === maxIterations) return 0;
+            const logZ = Math.log(zx * zx + zy * zy) / 2;
+            const nu = Math.log(logZ / Math.log(2)) / Math.log(2);
+            return iterations + 1 - nu;
+        }
+
+        // --- Color Gradient Generation ---
+        function getColor(iterations, maxIterations, colorOffset) {
+            if (iterations === maxIterations) {
+                return `rgb(${CONFIG.colors.interior[0]}, ${CONFIG.colors.interior[1]}, ${CONFIG.colors.interior[2]})`;
+            }
+            
+            const smooth = iterations / maxIterations;
+            const hue = (smooth * 360 + colorOffset) % 360;
+            
+            // Generate gradient from coral to pink to gold to mint
+            let r, g, b;
+            const t = smooth;
+            
+            if (t < 0.25) {
+                // Coral to red-pink
+                const localT = t / 0.25;
+                r = CONFIG.colors.edge[0];
+                g = CONFIG.colors.edge[1];
+                b = CONFIG.colors.edge[2];
+                r = r + (255 - r) * localT * 0.3;
+            } else if (t < 0.5) {
+                // Pink to gold
+                const localT = (t - 0.25) / 0.25;
+                r = 255 + (0 - 255) * localT;
+                g = 107 + (0 - 107) * localT;
+                b = 107 + (45 - 107) * localT;
+            } else if (t < 0.75) {
+                // Gold to mint-green
+                const localT = (t - 0.5) / 0.25;
+                r = 0 + (107 - 0) * localT;
+                g = 45 + (203 - 45) * localT;
+                b = 61 + (119 - 61) * localT;
+            } else {
+                // Mint to cyan
+                const localT = (t - 0.75) / 0.25;
+                r = 107 + (0 - 107) * localT;
+                g = 203 + (217 - 203) * localT;
+                b = 119 + (255 - 119) * localT;
+            }
+            
+            return `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+        }
+
+        // --- Wavetable Extraction from Fractal Edge ---
+        function extractWavetable(cx, cy, zoom) {
+            const table = state.audio.wavetable;
+            const sampleRadius = 0.0005 / zoom;
+            const centerIterations = iterateMandelbrot(cx, cy, CONFIG.maxIterations);
+            
+            for (let i = 0; i < CONFIG.wavetableSize; i++) {
+                const angle = (i / CONFIG.wavetableSize) * Math.PI * 2;
+                const sx = Math.cos(angle) * sampleRadius;
+                const sy = Math.sin(angle) * sampleRadius;
+                
+                const iters = iterateMandelbrot(cx + sx, cy + sy, CONFIG.maxIterations);
+                
+                // Create waveform based on iteration difference
+                if (centerIterations === CONFIG.maxIterations) {
+                    table[i] = (iters === CONFIG.maxIterations) ? 0 : 
+                        Math.sin(angle * (centerIterations / 20 + 5)) * 
+                        (1 - iters / CONFIG.maxIterations);
+                } else {
+                    const diff = Math.abs(iters - centerIterations);
+                    const normalized = diff / CONFIG.maxIterations;
+                    table[i] = Math.sin(angle * (diff % 10 + 3)) * normalized * 2 - 1;
+                }
+                
+                // Clamp
+                table[i] = Math.max(-1, Math.min(1, table[i]));
+            }
+            
+            // Smooth the wavetable
+            const smoothed = new Float32Array(CONFIG.wavetableSize);
+            for (let i = 0; i < CONFIG.wavetableSize; i++) {
+                let sum = 0;
+                let count = 0;
+                for (let j = -2; j <= 2; j++) {
+                    const idx = (i + j + CONFIG.wavetableSize) % CONFIG.wavetableSize;
+                    sum += table[idx];
+                    count++;
+                }
+                smoothed[i] = sum / count;
+            }
+            state.audio.wavetable = smoothed;
+        }
+
+        // --- Audio System ---
+        function initAudio() {
+            if (state.audio.initialized) return;
+            
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                state.audio.context = new AudioContext({ latencyHint: 'interactive' });
+                state.audio.masterGain = state.audio.context.createGain();
+                state.audio.masterGain.gain.value = state.audio.volume;
+                state.audio.masterGain.connect(state.audio.context.destination);
+                
+                state.audio.initialized = true;
+                document.getElementById('start-overlay').classList.add('hidden');
+                document.getElementById('audio-btn').classList.add('active');
+                
+                // Initialize wavetable from current view
+                updateWavetable();
+            } catch (e) {
+                console.error('Audio initialization failed:', e);
+            }
+        }
+
+        function createPeriodicWave(wavetable) {
+            const real = new Float32Array(wavetable.length);
+            const imag = new Float32Array(wavetable.length);
+            
+            // Simple FFT-like harmonic decomposition
+            for (let harmonic = 0; harmonic < 64; harmonic++) {
+                let realSum = 0;
+                let imagSum = 0;
+                const freq = harmonic;
+                
+                for (let i = 0; i < wavetable.length; i++) {
+                    const phase = (i * freq * Math.PI * 2) / wavetable.length;
+                    realSum += wavetable[i] * Math.cos(phase);
+                    imagSum += wavetable[i] * Math.sin(phase);
+                }
+                
+                if (harmonic < 64) {
+                    real[harmonic] = realSum / wavetable.length * 2;
+                    imag[harmonic] = imagSum / wavetable.length * 2;
+                }
+            }
+            
+            return state.audio.context.createPeriodicWave(real, imag, { disableNormalization: false });
+        }
+
+        function playNote(index, duration = 0.5) {
+            if (!state.audio.initialized) return;
+            if (index < 0 || index >= PENTATONIC.length) return;
+            
+            const note = PENTATONIC[index];
+            const freq = note.freq * (1 + (state.view.zoom - 1) * 0.1); // Pitch bend with zoom
+            
+            // Create oscillator
+            const osc = state.audio.context.createOscillator();
+            const wave = createPeriodicWave(state.audio.wavetable);
+            osc.setPeriodicWave(wave);
+            osc.frequency.value = freq;
+            
+            // Filter based on fractal density
+            const filter = state.audio.context.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = state.audio.filterFreq * (1 + Math.sin(state.animation.breathingPhase) * 0.3);
+            filter.Q.value = 5;
+            
+            // Gain envelope
+            const gain = state.audio.context.createGain();
+            gain.gain.setValueAtTime(0, state.audio.context.currentTime);
+            gain.gain.linearRampToValueAtTime(0.3, state.audio.context.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, state.audio.context.currentTime + duration);
+            
+            // Connect
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(state.audio.masterGain);
+            
+            // Start
+            osc.start();
+            osc.stop(state.audio.context.currentTime + duration);
+            
+            // Track active note
+            const noteId = `${index}-${Date.now()}`;
+            state.audio.activeNotes.set(noteId, { osc, filter, gain });
+            
+            // Cleanup
+            setTimeout(() => {
+                state.audio.activeNotes.delete(noteId);
+            }, duration * 1000 + 100);
+        }
+
+        function stopAllNotes() {
+            state.audio.activeNotes.forEach((note, id) => {
+                try {
+                    note.gain.gain.exponentialRampToValueAtTime(0.001, 
+                        state.audio.context.currentTime + 0.1);
+                    note.osc.stop(state.audio.context.currentTime + 0.1);
+                } catch (e) {}
+            });
+            state.audio.activeNotes.clear();
+        }
+
+        function updateWavetable() {
+            const now = performance.now();
+            if (now - state.animation.lastWavetableUpdate < 100) return; // Throttle
+            
+            extractWavetable(state.view.cx, state.view.cy, state.view.zoom);
+            state.animation.lastWavetableUpdate = now;
+            
+            // Update audio filter based on zoom level
+            state.audio.filterFreq = Math.max(200, Math.min(8000, 1000 * Math.log10(state.view.zoom + 1)));
+        }
+
+        function updateWavetablePreview() {
+            const w = previewCanvas.width;
+            const h = previewCanvas.height;
+            previewCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            previewCtx.fillRect(0, 0, w, h);
+            
+            previewCtx.strokeStyle = '#00d9ff';
+            previewCtx.lineWidth = 1;
+            previewCtx.beginPath();
+            
+            const table = state.audio.wavetable;
+            for (let i = 0; i < table.length; i++) {
+                const x = (i / table.length) * w;
+                const y = h / 2 - table[i] * (h / 2 - 2);
+                if (i === 0) {
+                    previewCtx.moveTo(x, y);
+                } else {
+                    previewCtx.lineTo(x, y);
+                }
+            }
+            previewCtx.stroke();
+        }
+
+        // --- Particle System ---
+        function initParticles() {
+            for (let i = 0; i < CONFIG.particleCount; i++) {
+                state.animation.particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    size: Math.random() * 2 + 1,
+                    alpha: Math.random() * 0.5 + 0.2
+                });
+            }
+        }
+
+        function updateParticles() {
+            const w = canvas.width;
+            const h = canvas.height;
+            
+            state.animation.particles.forEach(p => {
+                p.x += p.vx + state.interaction.momentum.vx * 0.1;
+                p.y += p.vy + state.interaction.momentum.vy * 0.1;
+                
+                // Wrap
+                if (p.x < 0) p.x = w;
+                if (p.x > w) p.x = 0;
+                if (p.y < 0) p.y = h;
+                if (p.y > h) p.y = 0;
+            });
+        }
+
+        function drawParticles() {
+            state.animation.particles.forEach(p => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+                ctx.beginPath();
+                ctx.arc(p.x / (window.devicePixelRatio || 1), 
+                        p.y / (window.devicePixelRatio || 1), 
+                        p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // --- Fractal Rendering ---
+        function drawFractal() {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            const dpr = window.devicePixelRatio || 1;
+            
+            const aspect = width / height;
+            const zoom = state.view.zoom;
+            const cx = state.view.cx;
+            const cy = state.view.cy;
+            
+            const xMin = cx - (state.view.width / 2);
+            const yMin = cy - (state.view.height / 2);
+            const xRange = state.view.width;
+            const yRange = state.view.height;
+            
+            // Adaptive iteration count based on zoom
+            const maxIter = Math.min(1024, Math.floor(64 + Math.log10(zoom) * 200));
+            state.render.iterationMax = maxIter;
+            
+            // Progressive refinement: start with lower resolution, refine higher-iter areas
+            const step = state.render.qualityLevel === 0 ? 4 : 2;
+            
+            for (let py = 0; py < height; py += step) {
+                const y0 = yMin + (py / height) * yRange;
+                
+                for (let px = 0; px < width; px += step) {
+                    const x0 = xMin + (px / width) * xRange;
+                    
+                    const iterations = iterateMandelbrot(x0, y0, maxIter);
+                    const color = getColor(iterations, maxIter, state.render.colorOffset);
+                    
+                    ctx.fillStyle = color;
+                    ctx.fillRect(px, py, step, step);
+                }
+            }
+            
+            // Draw iteration glow rings around the center
+            drawGlowRings();
+        }
+
+        function drawGlowRings() {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            const maxRings = Math.min(10, Math.floor(state.view.zoom / 2));
+            
+            ctx.save();
+            ctx.globalAlpha = 0.1 + Math.sin(state.animation.breathingPhase) * 0.05;
+            
+            for (let i = 1; i <= maxRings; i++) {
+                const radius = i * 30 * (1 + Math.sin(state.animation.breathingPhase + i) * 0.1);
+                ctx.strokeStyle = `rgba(0, 217, 255, ${0.3 - i * 0.02})`;
+                ctx.lineWidth = 1 + Math.sin(state.animation.breathingPhase * 2 + i) * 0.5;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        }
+
+        // --- Main Render Loop ---
+        function render(timestamp) {
+            // Update color offset for breathing effect
+            state.animation.breathingPhase = timestamp * 0.0005;
+            state.render.colorOffset = Math.sin(state.animation.breathingPhase) * 30;
+            
+            // Update FPS
+            state.render.frameCount++;
+            const now = performance.now();
+            const fpsElapsed = now - state.render.lastFpsTime;
+            
+            if (fpsElapsed >= 500) {
+                state.render.fps = Math.round((state.render.frameCount * 1000) / fpsElapsed);
+                state.render.lastFpsTime = now;
+                state.render.frameCount = 0;
+                
+                // Update quality indicator
+                const qualityEl = document.getElementById('quality-value');
+                const indicatorEl = document.getElementById('quality-indicator');
+                qualityEl.textContent = `${state.render.fps} fps`;
+                
+                if (state.render.fps >= 50) {
+                    indicatorEl.className = 'status-indicator status-ok';
+                } else if (state.render.fps >= 30) {
+                    indicatorEl.className = 'status-indicator status-warn';
+                } else {
+                    indicatorEl.className = 'status-indicator status-bad';
+                }
+            }
+            
+            // Update momentum
+            if (!state.interaction.isDragging) {
+                state.interaction.momentum.vx *= CONFIG.momentumFriction;
+                state.interaction.momentum.vy *= CONFIG.momentumFriction;
+                
+                const speed = Math.sqrt(
+                    state.interaction.momentum.vx ** 2 + 
+                    state.interaction.momentum.vy ** 2
+                );
+                
+                if (speed > 0.01) {
+                    const panScale = state.view.width / canvas.width * speed;
+                    state.view.cx -= state.interaction.momentum.vx * panScale;
+                    state.view.cy -= state.interaction.momentum.vy * panScale;
+                    
+                    updateWavetable();
+                }
+            }
+            
+            // Smooth zoom interpolation
+            if (Math.abs(state.view.zoom - state.view.targetZoom) > 0.0001) {
+                const zoomDelta = (state.view.targetZoom - state.view.zoom) * 0.1;
+                state.view.zoom += zoomDelta;
+                
+                // Recalculate dimensions
+                state.view.width = 3.0 / state.view.zoom;
+                state.view.height = state.view.width * (canvas.height / canvas.width);
+                
+                state.animation.lastWavetableUpdate = 0; // Force wavetable update
+                updateWavetable();
+            }
+            
+            // Clear and draw
+            ctx.fillStyle = CONFIG.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            drawFractal();
+            updateParticles();
+            drawParticles();
+            
+            // Update UI
+            updateUI();
+            
+            // Update wavetable preview
+            updateWavetablePreview();
+            
+            // Arpeggiator
+            if (state.audio.isArpeggiating && 
+                timestamp - (state.audio.lastArpeggioTime || 0) > CONFIG.arpeggioInterval) {
+                state.audio.lastArpeggioTime = timestamp;
+                state.audio.arpeggioIndex = (state.audio.arpeggioIndex + 1) % PENTATONIC.length;
+                playNote(state.audio.arpeggioIndex, 0.3);
+            }
+            
+            requestAnimationFrame(render);
+        }
+
+        // --- UI Updates ---
+        function updateUI() {
+            document.getElementById('zoom-value').textContent = 
+                state.view.zoom.toExponential(1);
+            document.getElementById('iter-value').textContent = 
+                state.render.iterationMax;
+            document.getElementById('real-value').textContent = 
+                state.view.cx.toFixed(4);
+            document.getElementById('imag-value').textContent = 
+                state.view.cy.toFixed(4);
+        }
+
+        // --- Input Handlers ---
+        function handleMouseDown(e) {
+            e.preventDefault();
+            state.interaction.isDragging = true;
+            state.interaction.lastMouse = { x: e.clientX, y: e.clientY };
+            state.interaction.momentum = { vx: 0, vy: 0 };
+            
+            // Play note at position
+            if (state.audio.initialized) {
+                const noteIndex = Math.floor(
+                    (e.clientX / window.innerWidth) * PENTATONIC.length
+                );
+                playNote(noteIndex);
+            }
+        }
+
+        function handleMouseMove(e) {
+            e.preventDefault();
+            
+            if (!state.interaction.isDragging) return;
+            
+            const dx = e.clientX - state.interaction.lastMouse.x;
+            const dy = e.clientY - state.interaction.lastMouse.y;
+            
+            state.interaction.lastMouse = { x: e.clientX, y: e.clientY };
+            state.interaction.momentum = { vx: dx * 0.1, vy: dy * 0.1 };
+            
+            const panScale = state.view.width / canvas.width;
+            state.view.cx -= dx * panScale;
+            state.view.cy -= dy * panScale;
+            
+            updateWavetable();
+        }
+
+        function handleMouseUp(e) {
+            e.preventDefault();
+            state.interaction.isDragging = false;
+        }
+
+        function handleWheel(e) {
+            e.preventDefault();
+            
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            let newZoom = state.view.zoom * zoomFactor;
+            
+            newZoom = Math.max(CONFIG.zoomMin, Math.min(CONFIG.zoomMax, newZoom));
+            state.view.targetZoom = newZoom;
+        }
+
+        function handleTouchStart(e) {
+            if (e.touches.length === 1) {
+                const t = e.touches[0];
+                handleMouseDown({ clientX: t.clientX, clientY: t.clientY, preventDefault: () => {} });
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                state.interaction.lastPinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (e.touches.length === 1) {
+                const t = e.touches[0];
+                handleMouseMove({ clientX: t.clientX, clientY: t.clientY, preventDefault: () => {} });
+            } else if (e.touches.length === 2) {
+                e.preventDefault();
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                
+                const zoomFactor = dist / state.interaction.lastPinchDist;
+                let newZoom = state.view.zoom * zoomFactor;
+                newZoom = Math.max(CONFIG.zoomMin, Math.min(CONFIG.zoomMax, newZoom));
+                state.view.targetZoom = newZoom;
+                
+                state.interaction.lastPinchDist = dist;
+            }
+        }
+
+        function handleTouchEnd(e) {
+            handleMouseUp({ preventDefault: () => {} });
+        }
+
+        function handleKeyDown(e) {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                state.audio.isArpeggiating = !state.audio.isArpeggiating;
+                if (!state.audio.isArpeggiating) {
+                    stopAllNotes();
+                }
+                return;
+            }
+            
+            if (e.code === 'KeyB' && state.bookmark) {
+                state.view.cx = state.bookmark.cx;
+                state.view.cy = state.bookmark.cy;
+                state.view.targetZoom = state.bookmark.zoom;
+                updateWavetable();
+                return;
+            }
+            
+            if (e.code === 'KeyR') {
+                state.view.cx = -0.5;
+                state.view.cy = 0.0;
+                state.view.targetZoom = 1.0;
+                updateWavetable();
+                return;
+            }
+            
+            if (e.code === 'ArrowUp') {
+                e.preventDefault();
+                state.audio.volume = Math.min(1, state.audio.volume + 0.05);
+                if (state.audio.masterGain) {
+                    state.audio.masterGain.gain.value = state.audio.volume;
+                }
+                document.getElementById('volume-slider').value = state.audio.volume * 100;
+                return;
+            }
+            
+            if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                state.audio.volume = Math.max(0, state.audio.volume - 0.05);
+                if (state.audio.masterGain) {
+                    state.audio.masterGain.gain.value = state.audio.volume;
+                }
+                document.getElementById('volume-slider').value = state.audio.volume * 100;
+                return;
+            }
+            
+            // Play notes
+            if (e.code in KEY_MAP && state.audio.initialized) {
+                e.preventDefault();
+                const noteIndex = KEY_MAP[e.code];
+                playNote(noteIndex);
+            }
+        }
+
+        function handleClick(e) {
+            initAudio();
+            
+            // Double-click to bookmark
+            const now = Date.now();
+            if (now - state.interaction.lastClickTime < 300) {
+                state.bookmark = {
+                    cx: state.view.cx,
+                    cy: state.view.cy,
+                    zoom: state.view.zoom
+                };
+                
+                // Visual feedback
+                const feedback = document.createElement('div');
+                feedback.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 217, 255, 0.3);
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    font-size: 0.875rem;
+                    z-index: 1000;
+                `;
+                feedback.textContent = '📍 Bookmarked (press B to return)';
+                document.body.appendChild(feedback);
+                
+                setTimeout(() => feedback.remove(), 1500);
+            }
+            state.interaction.lastClickTime = now;
+        }
+
+        // --- Volume Control ---
+        document.getElementById('volume-slider').addEventListener('input', (e) => {
+            state.audio.volume = e.target.value / 100;
+            if (state.audio.masterGain) {
+                state.audio.masterGain.gain.value = state.audio.volume;
+            }
+        });
+
+        // --- Audio Toggle Button ---
+        document.getElementById('audio-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            initAudio();
+        });
+
+        // --- Event Listeners ---
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('wheel', handleWheel, { passive: false });
+        
+        canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd);
+        
+        window.addEventListener('keydown', handleKeyDown);
+        canvas.addEventListener('click', handleClick);
+
+        document.getElementById('start-overlay').addEventListener('click', initAudio);
+
+        // --- Initialization ---
+        initParticles();
+        resize();
+        updateWavetable();
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>
