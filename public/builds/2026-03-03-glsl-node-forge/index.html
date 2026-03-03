@@ -1,0 +1,2000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>GLSL Node Forge</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0a0a0f;
+      color: #e4e4ed;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+    }
+
+    .split-container {
+      display: flex;
+      width: 100%;
+      height: 100%;
+    }
+
+    .graph-pane {
+      width: 40%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle, #1a1a24 1px, transparent 1px);
+      background-size: 20px 20px;
+      cursor: grab;
+    }
+
+    .graph-pane:active {
+      cursor: grabbing;
+    }
+
+    .graph-canvas {
+      position: absolute;
+      top: -100000px;
+      left: -100000px;
+      width: 200000px;
+      height: 200000px;
+      transform-origin: 0 0;
+    }
+
+    .node {
+      position: absolute;
+      width: 140px;
+      background: rgba(26, 26, 36, 0.95);
+      border: 1px solid #252532;
+      border-radius: 8px;
+      padding: 8px 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      cursor: move;
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .node.selected {
+      border-color: #00d4ff;
+      box-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+    }
+
+    .node.error {
+      border-color: #ff5555;
+    }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .node-preview {
+      width: 32px;
+      height: 24px;
+      border-radius: 4px;
+      background: #0a0a0f;
+      border: 1px solid #252532;
+    }
+
+    .node-title {
+      flex: 1;
+    }
+
+    .node-ports {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 4px;
+      gap: 8px;
+    }
+
+    .node-ports-left, .node-ports-right {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .node-port {
+      position: relative;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #3a3a48;
+      border: 2px solid #5a5a68;
+      cursor: crosshair;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .node-port:hover {
+      background: #00d4ff;
+      border-color: #00d4ff;
+    }
+
+    .node-port.error {
+      background: #ff5555;
+      border-color: #ff5555;
+    }
+
+    .node-port-label {
+      position: absolute;
+      font-size: 0.65rem;
+      color: #8a8a9a;
+      white-space: nowrap;
+    }
+
+    .node-ports-left .node-port-label {
+      left: 16px;
+      top: -2px;
+    }
+
+    .node-ports-right .node-port-label {
+      right: 16px;
+      top: -2px;
+    }
+
+    .wires-svg {
+      position: absolute;
+      top: -100000px;
+      left: -100000px;
+      width: 200000px;
+      height: 200000px;
+      pointer-events: none;
+    }
+
+    .wire {
+      fill: none;
+      stroke-width: 2;
+      opacity: 0.8;
+      transition: stroke 0.15s ease;
+    }
+
+    .wire.active {
+      stroke: #00d4ff;
+      animation: wireFlow 1s linear infinite;
+    }
+
+    .wire.error {
+      stroke: #ff5555;
+    }
+
+    .wire.highlighted {
+      stroke: #ffffff;
+      stroke-width: 3;
+      opacity: 1;
+    }
+
+    @keyframes wireFlow {
+      to { stroke-dashoffset: -16; }
+    }
+
+    .wire-drag {
+      fill: none;
+      stroke: #00d4ff;
+      stroke-width: 2;
+      stroke-dasharray: 8 4;
+      opacity: 0.6;
+    }
+
+    .preview-pane {
+      width: 60%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #0a0a0f;
+      border-left: 1px solid #252532;
+    }
+
+    .preview-canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .preview-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 6px 10px;
+      background: rgba(10, 10, 15, 0.8);
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.7rem;
+      color: #8a8a9a;
+      backdrop-filter: blur(4px);
+    }
+
+    .compiling {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 0.875rem;
+      color: #00d4ff;
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #1a1a24;
+      border-bottom: 1px solid #252532;
+    }
+
+    .toolbar-btn {
+      padding: 8px 14px;
+      background: #252532;
+      border: 1px solid #3a3a48;
+      border-radius: 6px;
+      color: #e4e4ed;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .toolbar-btn:hover {
+      background: #3a3a48;
+      border-color: #4a4a58;
+    }
+
+    .toolbar-btn.primary {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+    }
+
+    .toolbar-btn.main-color {
+      background: rgba(0, 212, 255, 0.15);
+      border-color: #00d4ff;
+    }
+
+    .select-wrapper {
+      position: relative;
+    }
+
+    .select-wrapper select {
+      padding: 8px 28px 8px 12px;
+      background: #252532;
+      border: 1px solid #3a3a48;
+      border-radius: 6px;
+      color: #e4e4ed;
+      font-size: 0.75rem;
+      cursor: pointer;
+      appearance: none;
+      min-width: 44px;
+      min-height: 44px;
+    }
+
+    .select-wrapper::after {
+      content: "▼";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.6rem;
+      color: #8a8a9a;
+      pointer-events: none;
+    }
+
+    .properties-panel {
+      width: 240px;
+      background: #1a1a24;
+      border-left: 1px solid #252532;
+      padding: 12px;
+      overflow-y: auto;
+      transform: translateX(100%);
+      position: absolute;
+      right: 0;
+      top: 52px;
+      bottom: 0;
+      transition: transform 0.2s ease;
+      z-index: 100;
+    }
+
+    .properties-panel.visible {
+      transform: translateX(0);
+    }
+
+    .prop-group {
+      margin-bottom: 16px;
+    }
+
+    .prop-label {
+      font-size: 0.7rem;
+      color: #8a8a9a;
+      margin-bottom: 6px;
+    }
+
+    .prop-input {
+      width: 100%;
+      padding: 6px 8px;
+      background: #252532;
+      border: 1px solid #3a3a48;
+      border-radius: 4px;
+      color: #e4e4ed;
+      font-size: 0.75rem;
+    }
+
+    .prop-slider {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #252532;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    .prop-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #00d4ff;
+      border-radius: 50%;
+      cursor: grab;
+    }
+
+    .prop-color {
+      width: 100%;
+      height: 36px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .minimap {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 160px;
+      height: 120px;
+      background: rgba(26, 26, 36, 0.9);
+      border: 1px solid #252532;
+      border-radius: 6px;
+      overflow: hidden;
+      opacity: 0.3;
+      transition: opacity 0.15s ease;
+    }
+
+    .minimap:hover {
+      opacity: 0.7;
+    }
+
+    .minimap-content {
+      position: absolute;
+      transform-origin: 0 0;
+    }
+
+    .minimap-viewport {
+      position: absolute;
+      border: 1px solid #00d4ff;
+      background: rgba(0, 212, 255, 0.1);
+    }
+
+    .node-palette {
+      position: absolute;
+      background: #1a1a24;
+      border: 1px solid #252532;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      min-width: 280px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .palette-category {
+      margin-bottom: 12px;
+    }
+
+    .palette-category-title {
+      font-size: 0.7rem;
+      color: #8a8a9a;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .palette-item {
+      padding: 8px 10px;
+      background: #252532;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      cursor: grab;
+      margin-bottom: 4px;
+      transition: background 0.15s ease;
+    }
+
+    .palette-item:hover {
+      background: #3a3a48;
+    }
+
+    .export-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .export-content {
+      background: #1a1a24;
+      border: 1px solid #252532;
+      border-radius: 8px;
+      width: 80%;
+      max-width: 800px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .export-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border-bottom: 1px solid #252532;
+    }
+
+    .export-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 16px;
+      border-bottom: 1px solid #252532;
+    }
+
+    .export-tab {
+      padding: 10px 16px;
+      background: none;
+      border: none;
+      color: #8a8a9a;
+      font-size: 0.8rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .export-tab.active {
+      color: #e4e4ed;
+      border-bottom-color: #00d4ff;
+    }
+
+    .export-body {
+      flex: 1;
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .export-textarea {
+      width: 100%;
+      height: 100%;
+      min-height: 300px;
+      background: #0a0a0f;
+      border: 1px solid #252532;
+      border-radius: 4px;
+      color: #e4e4ed;
+      font-family: monospace;
+      font-size: 0.7rem;
+      padding: 12px;
+      resize: none;
+    }
+
+    .export-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 16px;
+      border-top: 1px solid #252532;
+    }
+
+    .hint-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #8a8a9a;
+      font-size: 0.8rem;
+      pointer-events: none;
+      animation: hintPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes hintPulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.6; }
+    }
+
+    .error-message {
+      position: absolute;
+      bottom: 60px;
+      left: 10px;
+      right: 10px;
+      padding: 10px;
+      background: rgba(255, 85, 85, 0.2);
+      border: 1px solid #ff5555;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: #ff5555;
+      display: none;
+    }
+
+    .error-message.visible {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .graph-pane { width: 50%; }
+      .preview-pane { width: 50%; }
+      .minimap { display: none; }
+      .toolbar-btn { padding: 6px 10px; font-size: 0.65rem; }
+      .properties-panel { width: 200px; }
+      .export-content { width: 95%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="split-container">
+    <div class="graph-pane" id="graphPane">
+      <div class="graph-canvas" id="graphCanvas">
+        <svg class="wires-svg" id="wiresSvg"></svg>
+      </div>
+      <div class="minimap" id="minimap">
+        <div class="minimap-content" id="minimapContent"></div>
+        <div class="minimap-viewport" id="minimapViewport"></div>
+      </div>
+      <div class="hint-text" id="hintText">Double-click to add node</div>
+      <div class="error-message" id="errorMessage"></div>
+    </div>
+    <div class="preview-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn main-color" id="addNodeBtn">+ Node</button>
+        <button class="toolbar-btn" id="exportBtn">Export</button>
+        <div class="select-wrapper">
+          <select id="presetSelect">
+            <option value="">Load Preset</option>
+            <option value="plasma">Plasma</option>
+            <option value="fire">Fire</option>
+            <option value="water">Water</option>
+            <option value="crt">CRT Distortion</option>
+            <option value="neon">Neon Pulse</option>
+            <option value="volumetric">Volumetric</option>
+            <option value="attractor">Attractor</option>
+          </select>
+        </div>
+        <button class="toolbar-btn" id="undoBtn">Undo</button>
+        <button class="toolbar-btn" id="redoBtn">Redo</button>
+      </div>
+      <div class="preview-canvas-container">
+        <canvas class="preview-canvas" id="previewCanvas"></canvas>
+        <div class="preview-overlay" id="perfMonitor">FPS: 60 | Fragments: 1</div>
+        <div class="compiling" id="compilingIndicator" style="display:none">Compiling...</div>
+      </div>
+      <div class="properties-panel" id="propertiesPanel">
+        <div style="font-size:0.75rem;color:#8a8a9a;margin-bottom:12px">Node Parameters</div>
+        <div id="propertiesContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PORT_TYPES = {
+      FLOAT: 'float',
+      VEC2: 'vec2',
+      VEC3: 'vec3',
+      VEC4: 'vec4',
+      SAMPLER2D: 'sampler2D'
+    };
+
+    const TYPE_PROMOTION = {
+      'float': ['vec2', 'vec3', 'vec4'],
+      'vec2': ['vec3', 'vec4'],
+      'vec3': ['vec4']
+    };
+
+    function canConnect(fromType, toType) {
+      if (fromType === toType) return true;
+      return TYPE_PROMOTION[fromType]?.includes(toType);
+    }
+
+    function promoteValue(val, fromType, toType) {
+      if (fromType === toType) return val;
+      if (fromType === 'float') {
+        if (toType === 'vec2') return `vec2(${val}, ${val})`;
+        if (toType === 'vec3') return `vec3(${val}, ${val}, ${val})`;
+        if (toType === 'vec4') return `vec4(${val}, ${val}, ${val}, ${val})`;
+      }
+      if (fromType === 'vec2') {
+        if (toType === 'vec3') return `vec3(${val}, 1.0)`;
+        if (toType === 'vec4') return `vec4(${val}, 1.0)`;
+      }
+      if (fromType === 'vec3' && toType === 'vec4') {
+        return `vec4(${val}, 1.0)`;
+      }
+      return val;
+    }
+
+    const NODE_DEFS = {
+      'output': {
+        category: 'output',
+        inputs: [{ name: 'color', type: 'vec4', default: 'vec4(1.0)' }],
+        outputs: [],
+        params: []
+      },
+      'perlin': {
+        category: 'noise',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'value', type: 'float' }],
+        params: [
+          { name: 'scale', type: 'float', default: 4.0, min: 0.1, max: 20.0 },
+          { name: 'octaves', type: 'float', default: 1.0, min: 1.0, max: 8.0 }
+        ]
+      },
+      'curl': {
+        category: 'noise',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'curl', type: 'vec2' }],
+        params: [
+          { name: 'scale', type: 'float', default: 4.0, min: 0.1, max: 20.0 },
+          { name: 'strength', type: 'float', default: 1.0, min: 0.0, max: 5.0 }
+        ]
+      },
+      'simplex': {
+        category: 'noise',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'value', type: 'float' }],
+        params: [
+          { name: 'scale', type: 'float', default: 4.0, min: 0.1, max: 20.0 }
+        ]
+      },
+      'circle': {
+        category: 'shapes',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'sdf', type: 'float' }],
+        params: [
+          { name: 'radius', type: 'float', default: 0.3, min: 0.01, max: 2.0 }
+        ]
+      },
+      'box': {
+        category: 'shapes',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'sdf', type: 'float' }],
+        params: [
+          { name: 'size', type: 'vec2', default: 'vec2(0.4, 0.3)', min: 'vec2(0.01)', max: 'vec2(2.0)' }
+        ]
+      },
+      'torus': {
+        category: 'shapes',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'sdf', type: 'float' }],
+        params: [
+          { name: 'radius', type: 'float', default: 0.3, min: 0.01, max: 2.0 },
+          { name: 'thickness', type: 'float', default: 0.15, min: 0.01, max: 1.0 }
+        ]
+      },
+      'polarWarp': {
+        category: 'warps',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'warped', type: 'vec2' }],
+        params: [
+          { name: 'strength', type: 'float', default: 1.0, min: 0.0, max: 10.0 }
+        ]
+      },
+      'twist': {
+        category: 'warps',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'warped', type: 'vec2' }],
+        params: [
+          { name: 'strength', type: 'float', default: 1.0, min: 0.0, max: 10.0 }
+        ]
+      },
+      'kaleido': {
+        category: 'warps',
+        inputs: [{ name: 'uv', type: 'vec2', default: 'uv' }],
+        outputs: [{ name: 'warped', type: 'vec2' }],
+        params: [
+          { name: 'segments', type: 'float', default: 6.0, min: 2.0, max: 16.0 }
+        ]
+      },
+      'glow': {
+        category: 'effects',
+        inputs: [{ name: 'input', type: 'vec4', default: 'vec4(1.0)' }],
+        outputs: [{ name: 'output', type: 'vec4' }],
+        params: [
+          { name: 'intensity', type: 'float', default: 1.5, min: 0.0, max: 5.0 },
+          { name: 'color', type: 'vec3', default: 'vec3(0.0, 0.83, 1.0)', isColor: true }
+        ]
+      },
+      'bloom': {
+        category: 'effects',
+        inputs: [{ name: 'input', type: 'vec4', default: 'vec4(1.0)' }],
+        outputs: [{ name: 'output', type: 'vec4' }],
+        params: [
+          { name: 'threshold', type: 'float', default: 0.8, min: 0.0, max: 2.0 },
+          { name: 'intensity', type: 'float', default: 1.0, min: 0.0, max: 3.0 }
+        ]
+      },
+      'crt': {
+        category: 'effects',
+        inputs: [{ name: 'input', type: 'vec4', default: 'vec4(1.0)' }],
+        outputs: [{ name: 'output', type: 'vec4' }],
+        params: [
+          { name: 'scanline', type: 'float', default: 0.5, min: 0.0, max: 2.0 },
+          { name: 'vignette', type: 'float', default: 0.5, min: 0.0, max: 2.0 }
+        ]
+      },
+      'chromatic': {
+        category: 'effects',
+        inputs: [{ name: 'input', type: 'vec4', default: 'vec4(1.0)' }],
+        outputs: [{ name: 'output', type: 'vec4' }],
+        params: [
+          { name: 'offset', type: 'float', default: 0.005, min: 0.0, max: 0.05 }
+        ]
+      },
+      'mix': {
+        category: 'math',
+        inputs: [
+          { name: 'a', type: 'vec4', default: 'vec4(0.0)' },
+          { name: 'b', type: 'vec4', default: 'vec4(1.0)' }
+        ],
+        outputs: [{ name: 'mixed', type: 'vec4' }],
+        params: [
+          { name: 'factor', type: 'float', default: 0.5, min: 0.0, max: 1.0 }
+        ]
+      },
+      'step': {
+        category: 'math',
+        inputs: [
+          { name: 'edge', type: 'float', default: '0.5' },
+          { name: 'input', type: 'float', default: '0.0' }
+        ],
+        outputs: [{ name: 'stepped', type: 'float' }],
+        params: []
+      },
+      'smoothstep': {
+        category: 'math',
+        inputs: [
+          { name: 'edge0', type: 'float', default: '0.0' },
+          { name: 'edge1', type: 'float', default: '1.0' },
+          { name: 'input', type: 'float', default: '0.5' }
+        ],
+        outputs: [{ name: 'smoothed', type: 'float' }],
+        params: []
+      },
+      'fractalize': {
+        category: 'math',
+        inputs: [{ name: 'input', type: 'float', default: '0.0' }],
+        outputs: [{ name: 'fractal', type: 'float' }],
+        params: [
+          { name: 'octaves', type: 'float', default: 4.0, min: 1.0, max: 8.0 },
+          { name: 'persistence', type: 'float', default: 0.5, min: 0.1, max: 1.0 }
+        ]
+      },
+      'sin': {
+        category: 'math',
+        inputs: [{ name: 'input', type: 'float', default: '0.0' }],
+        outputs: [{ name: 'result', type: 'float' }],
+        params: []
+      },
+      'cos': {
+        category: 'math',
+        inputs: [{ name: 'input', type: 'float', default: '0.0' }],
+        outputs: [{ name: 'result', type: 'float' }],
+        params: []
+      },
+      'time': {
+        category: 'input',
+        inputs: [],
+        outputs: [{ name: 'value', type: 'float' }],
+        params: [
+          { name: 'speed', type: 'float', default: 1.0, min: 0.0, max: 10.0 }
+        ]
+      },
+      'mouse': {
+        category: 'input',
+        inputs: [],
+        outputs: [{ name: 'position', type: 'vec2' }],
+        params: []
+      },
+      'resolution': {
+        category: 'input',
+        inputs: [],
+        outputs: [{ name: 'value', type: 'vec2' }],
+        params: []
+      },
+      'uv': {
+        category: 'input',
+        inputs: [],
+        outputs: [{ name: 'value', type: 'vec2' }],
+        params: []
+      },
+      'colorize': {
+        category: 'convert',
+        inputs: [{ name: 'value', type: 'float', default: '0.0' }],
+        outputs: [{ name: 'color', type: 'vec3' }],
+        params: []
+      }
+    };
+
+    const GLSL_TEMPLATES = {
+      perlin: (inputs, params) => `perlinNoise(inputs.${inputs[0].name} * ${params.scale})`,
+      curl: (inputs, params) => `curlNoise(inputs.${inputs[0].name} * ${params.scale} * ${params.strength})`,
+      simplex: (inputs, params) => `simplexNoise(inputs.${inputs[0].name} * ${params.scale})`,
+      circle: (inputs, params) => `sdCircle(inputs.${inputs[0].name}, ${params.radius})`,
+      box: (inputs, params) => `sdBox(inputs.${inputs[0].name}, ${params.size})`,
+      torus: (inputs, params) => `sdTorus(inputs.${inputs[0].name}, ${params.radius}, ${params.thickness})`,
+      polarWarp: (inputs, params) => `polarWarp(inputs.${inputs[0].name}, ${params.strength})`,
+      twist: (inputs, params) => `twist(inputs.${inputs[0].name}, ${params.strength})`,
+      kaleido: (inputs, params) => `kaleido(inputs.${inputs[0].name}, int(${params.segments}))`,
+      glow: (inputs, params) => `applyGlow(inputs.${inputs[0].name}, ${params.intensity}, vec3(${params.color.replace('vec3', '').replace('(', '').replace(')', '')}))`,
+      bloom: (inputs, params) => `applyBloom(inputs.${inputs[0].name}, ${params.threshold}, ${params.intensity})`,
+      crt: (inputs, params) => `applyCRT(inputs.${inputs[0].name}, ${params.scanline}, ${params.vignette})`,
+      chromatic: (inputs, params) => `applyChromatic(inputs.${inputs[0].name}, ${params.offset})`,
+      mix: (inputs, params) => `mix(inputs.${inputs[0].name}, inputs.${inputs[1].name}, ${params.factor})`,
+      step: (inputs) => `step(inputs.${inputs[0].name}, inputs.${inputs[1].name})`,
+      smoothstep: (inputs) => `smoothstep(inputs.${inputs[0].name}, inputs.${inputs[1].name}, inputs.${inputs[2].name})`,
+      fractalize: (inputs, params) => `fbm(inputs.${inputs[0].name}, int(${params.octaves}), ${params.persistence})`,
+      sin: (inputs) => `sin(inputs.${inputs[0].name})`,
+      cos: (inputs) => `cos(inputs.${inputs[0].name})`,
+      time: () => `u_time * ${params.speed}`,
+      mouse: () => `u_mouse`,
+      resolution: () => `u_resolution`,
+      uv: () => `uv`,
+      colorize: (inputs) => `vec3(inputs.${inputs[0].name})`
+    };
+
+    const GLSL_LIB = `
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float perlinNoise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), f.x),
+          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+          f.y
+        );
+      }
+
+      float simplexNoise(vec2 p) {
+        const float K1 = 0.3660254078;
+        const float K2 = 0.2113248654;
+        vec2 i = floor(p + (p.x + p.y) * K1);
+        vec2 a = p - i + (i.x + i.y) * K2;
+        float m = step(a.y, a.x);
+        vec2 o = vec2(m, 1.0 - m);
+        vec2 b = a - o + K2;
+        vec2 c = a - 1.0 + 2.0 * K2;
+        vec3 h = max(0.5 - vec3(dot(a, a), dot(b, b), dot(c, c)), 0.0);
+        return (dot(m, m) * 2.0) * (
+          h.x * (dot(h.x, a) + hash(i)) +
+          h.y * (dot(h.y, b) + hash(i + o)) +
+          h.z * (dot(h.z, c) + hash(i + 1.0))
+        );
+      }
+
+      vec2 curlNoise(vec2 p, float strength) {
+        float eps = 0.01;
+        float n1 = perlinNoise(p + vec2(eps, 0.0));
+        float n2 = perlinNoise(p - vec2(eps, 0.0));
+        float n3 = perlinNoise(p + vec2(0.0, eps));
+        float n4 = perlinNoise(p - vec2(0.0, eps));
+        return vec2((n1 - n2), (n3 - n4)) / (2.0 * eps) * strength;
+      }
+
+      float sdCircle(vec2 p, float r) {
+        return length(p) - r;
+      }
+
+      float sdBox(vec2 p, vec2 b) {
+        vec2 d = abs(p) - b;
+        return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+      }
+
+      float sdTorus(vec2 p, float r, float thickness) {
+        return abs(length(p) - r) - thickness;
+      }
+
+      vec2 polarWarp(vec2 p, float strength) {
+        float angle = atan(p.y, p.x) + strength * 0.1;
+        float radius = length(p) * strength;
+        return vec2(cos(angle), sin(angle)) * radius;
+      }
+
+      vec2 twist(vec2 p, float strength) {
+        float angle = strength * p.y * 0.5;
+        float c = cos(angle);
+        float s = sin(angle);
+        return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+      }
+
+      vec2 kaleido(vec2 p, int segments) {
+        float angle = atan(p.y, p.x);
+        float segAngle = 3.14159 * 2.0 / float(segments);
+        float m = floor((angle + segAngle / 2.0) / segAngle);
+        a = abs(angle - m * segAngle - segAngle / 2.0);
+        float r = length(p);
+        return vec2(cos(a) * r, sin(a) * r);
+      }
+
+      vec4 applyGlow(vec4 col, float intensity, vec3 glowCol) {
+        return col + vec4(glowCol * intensity * col.a, col.a);
+      }
+
+      vec4 applyBloom(vec4 col, float threshold, float intensity) {
+        float brightness = dot(col.rgb, vec3(0.299, 0.587, 0.114));
+        return col + vec4(col.rgb * step(threshold, brightness) * intensity, 0.0);
+      }
+
+      vec4 applyCRT(vec4 col, float scanline, float vignette) {
+        vec2 uv = gl_FragCoord.xy / u_resolution;
+        float scan = sin(uv.y * 100.0 + u_time * 10.0) * 0.02 * scanline;
+        float vig = 1.0 - length((uv - 0.5) * 2.0) * vignette;
+        return col * (1.0 + scan) * vig;
+      }
+
+      vec4 applyChromatic(vec4 col, float offset) {
+        vec2 uv = gl_FragCoord.xy / u_resolution;
+        float r = texture2D(u_texture, uv + vec2(offset, 0.0)).r;
+        float g = col.g;
+        float b = texture2D(u_texture, uv - vec2(offset, 0.0)).b;
+        return vec4(r, g, b, col.a);
+      }
+
+      float fbm(vec2 p, int octaves, float persistence) {
+        float total = 0.0;
+        float frequency = 1.0;
+        float amplitude = 1.0;
+        float maxValue = 0.0;
+        for (int i = 0; i < 8; i++) {
+          if (i >= octaves) break;
+          total += perlinNoise(p * frequency) * amplitude;
+          maxValue += amplitude;
+          amplitude *= persistence;
+          frequency *= 2.0;
+        }
+        return total / maxValue;
+      }
+    `;
+
+    function generateNodeId() {
+      return 'node_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function generateWireId() {
+      return 'wire_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function createDefaultGraph() {
+      const nodes = new Map();
+      const timeNode = { id: generateNodeId(), type: 'time', x: -16000, y: -99840, params: { speed: 1.0 } };
+      const uvNode = { id: generateNodeId(), type: 'uv', x: -16120, y: -99980, params: {} };
+      const perlinNode = { id: generateNodeId(), type: 'perlin', x: -15760, y: -99960, params: { scale: 4.0, octaves: 1.0 } };
+      const glowNode = { id: generateNodeId(), type: 'glow', x: -15300, y: -99880, params: { intensity: 1.5, color: 'vec3(0.0, 0.83, 1.0)' } };
+      const outputNode = { id: generateNodeId(), type: 'output', x: -14840, y: -99940, params: {} };
+
+      [timeNode, uvNode, perlinNode, glowNode, outputNode].forEach(n => nodes.set(n.id, n));
+
+      const wires = new Set();
+      wires.add({ id: generateWireId(), from: { node: timeNode.id, port: 0 }, to: { node: glowNode.id, port: 0 } });
+      wires.add({ id: generateWireId(), from: { node: uvNode.id, port: 0 }, to: { node: perlinNode.id, port: 0 } });
+      wires.add({ id: generateWireId(), from: { node: perlinNode.id, port: 0 }, to: { node: glowNode.id, port: 0 } });
+      wires.add({ id: generateWireId(), from: { node: glowNode.id, port: 0 }, to: { node: outputNode.id, port: 0 } });
+
+      return { nodes, wires, camera: { x: -16400, y: -100000, zoom: 1 }, selected: null };
+    }
+
+    const PRESETS = {
+      plasma: { nodes: new Map(), wires: new Set() },
+      fire: { nodes: new Map(), wires: new Set() },
+      water: { nodes: new Map(), wires: new Set() },
+      crt: { nodes: new Map(), wires: new Set() },
+      neon: { nodes: new Map(), wires: new Set() },
+      volumetric: { nodes: new Map(), wires: new Set() },
+      attractor: { nodes: new Map(), wires: new Set() }
+    };
+
+    Object.values(PRESETS).forEach(preset => {
+      const { nodes, wires } = createDefaultGraph();
+      preset.nodes = nodes;
+      preset.wires = wires;
+    });
+
+    const state = createDefaultGraph();
+    state.camera = { x: 0, y: 0, zoom: 1 };
+    state.undoStack = [];
+    state.redoStack = [];
+    state.dragging = null;
+    state.connecting = null;
+    state.panning = false;
+    state.panStart = { x: 0, y: 0 };
+    state.panCameraStart = { x: 0, y: 0 };
+    state.isCompiling = false;
+    state.compileTimer = null;
+    state.startTime = Date.now();
+    state.frameCount = 0;
+    state.lastFpsUpdate = state.startTime;
+    state.fps = 60;
+
+    function saveState() {
+      if (state.undoStack.length >= 50) state.undoStack.shift();
+      state.undoStack.push(JSON.stringify({ nodes: Array.from(state.nodes.entries()), wires: Array.from(state.wires), camera: state.camera }));
+      state.redoStack = [];
+    }
+
+    function restoreState(s) {
+      const parsed = JSON.parse(s);
+      state.nodes = new Map(parsed.nodes);
+      state.wires = new Set(parsed.wires);
+      state.camera = parsed.camera;
+      state.selected = null;
+    }
+
+    function undo() {
+      if (state.undoStack.length === 0) return;
+      state.redoStack.push(JSON.stringify({ nodes: Array.from(state.nodes.entries()), wires: Array.from(state.wires), camera: state.camera }));
+      restoreState(state.undoStack.pop());
+      updateGraph();
+      scheduleCompile();
+    }
+
+    function redo() {
+      if (state.redoStack.length === 0) return;
+      state.undoStack.push(JSON.stringify({ nodes: Array.from(state.nodes.entries()), wires: Array.from(state.wires), camera: state.camera }));
+      restoreState(state.redoStack.pop());
+      updateGraph();
+      scheduleCompile();
+    }
+
+    function getWireStartEnd(wire) {
+      const fromNode = state.nodes.get(wire.from.node);
+      const toNode = state.nodes.get(wire.to.node);
+      if (!fromNode || !toNode) return null;
+
+      const fromEl = document.getElementById(fromNode.id);
+      const toEl = document.getElementById(toNode.id);
+      if (!fromEl || !toEl) return null;
+
+      const fromPort = fromEl.querySelector(`.node-ports-right .node-port:nth-child(${wire.from.port + 1})`);
+      const toPort = toEl.querySelector(`.node-ports-left .node-port:nth-child(${wire.to.port + 1})`);
+
+      if (!fromPort || !toPort) return null;
+
+      const graphCanvas = document.getElementById('graphCanvas');
+      const canvasRect = graphCanvas.getBoundingClientRect();
+
+      const fromRect = fromPort.getBoundingClientRect();
+      const toRect = toPort.getBoundingClientRect();
+
+      return {
+        x1: (fromRect.left + fromRect.width / 2 - canvasRect.left + state.camera.x * -state.camera.zoom) / state.camera.zoom,
+        y1: (fromRect.top + fromRect.height / 2 - canvasRect.top + state.camera.y * -state.camera.zoom) / state.camera.zoom,
+        x2: (toRect.left + toRect.width / 2 - canvasRect.left + state.camera.x * -state.camera.zoom) / state.camera.zoom,
+        y2: (toRect.top + toRect.height / 2 - canvasRect.top + state.camera.y * -state.camera.zoom) / state.camera.zoom
+      };
+    }
+
+    function createWirePath(wire) {
+      const coords = getWireStartEnd(wire);
+      if (!coords) return '';
+
+      const dx = coords.x2 - coords.x1;
+      const cpOffset = Math.min(Math.abs(dx) * 0.5, 100);
+
+      return `M ${coords.x1} ${coords.y1} C ${coords.x1 + cpOffset} ${coords.y1}, ${coords.x2 - cpOffset} ${coords.y2}, ${coords.x2} ${coords.y2}`;
+    }
+
+    function getCurvePoints(x1, y1, x2, y2) {
+      const dx = x2 - x1;
+      const cpOffset = Math.min(Math.abs(dx) * 0.5, 100);
+      return {
+        cp1: { x: x1 + cpOffset, y: y1 },
+        cp2: { x: x2 - cpOffset, y: y2 }
+      };
+    }
+
+    function updateWires() {
+      const svg = document.getElementById('wiresSvg');
+      svg.innerHTML = '';
+
+      state.wires.forEach(wire => {
+        const coords = getWireStartEnd(wire);
+        if (!coords) return;
+
+        const { cp1, cp2 } = getCurvePoints(coords.x1, coords.y1, coords.x2, coords.y2);
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${coords.x1} ${coords.y1} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${coords.x2} ${coords.y2}`);
+        path.setAttribute('class', 'wire active');
+        path.setAttribute('stroke-dasharray', '8 4');
+        path.dataset.wireId = wire.id;
+
+        svg.appendChild(path);
+      });
+
+      if (state.connecting) {
+        const graphCanvas = document.getElementById('graphCanvas');
+        const canvasRect = graphCanvas.getBoundingClientRect();
+        const fromNode = state.nodes.get(state.connecting.from.node);
+        const fromEl = document.getElementById(fromNode.id);
+        const fromPort = fromEl.querySelector(`.node-ports-right .node-port:nth-child(${state.connecting.from.port + 1})`);
+        const fromRect = fromPort.getBoundingClientRect();
+
+        const x1 = (fromRect.left + fromRect.width / 2 - canvasRect.left + state.camera.x * -state.camera.zoom) / state.camera.zoom;
+        const y1 = (fromRect.top + fromRect.height / 2 - canvasRect.top + state.camera.y * -state.camera.zoom) / state.camera.zoom;
+        const mouseX = (state.connecting.mouseX - canvasRect.left + state.camera.x * -state.camera.zoom) / state.camera.zoom;
+        const mouseY = (state.connecting.mouseY - canvasRect.top + state.camera.y * -state.camera.zoom) / state.camera.zoom;
+
+        const { cp1, cp2 } = getCurvePoints(x1, y1, mouseX, mouseY);
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${x1} ${y1} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${mouseX} ${mouseY}`);
+        path.setAttribute('class', 'wire-drag');
+
+        svg.appendChild(path);
+      }
+    }
+
+    function updateNodePosition(node) {
+      const el = document.getElementById(node.id);
+      if (!el) return;
+      el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+    }
+
+    function updateGraph() {
+      const canvas = document.getElementById('graphCanvas');
+      const graphCanvas = document.getElementById('graphCanvas');
+
+      graphCanvas.style.transform = `translate(${state.camera.x * state.camera.zoom}px, ${state.camera.y * state.camera.zoom}px) scale(${state.camera.zoom})`;
+
+      state.nodes.forEach((node, id) => {
+        let el = document.getElementById(id);
+        if (!el) {
+          el = document.createElement('div');
+          el.id = id;
+          el.className = 'node';
+          canvas.appendChild(el);
+        }
+
+        el.style.transform = `translate(${node.x}px, ${node.y}px)`;
+
+        const def = NODE_DEFS[node.type];
+        if (!def) return;
+
+        const isOutput = node.id === state.selected;
+        el.classList.toggle('selected', id === state.selected);
+        el.classList.toggle('error', node.error === true);
+
+        let html = `<div class="node-header"><canvas class="node-preview" width="32" height="24"></canvas><span class="node-title">${node.type}</span></div>`;
+
+        if (def.inputs.length > 0 || def.outputs.length > 0) {
+          html += '<div class="node-ports">';
+          if (def.inputs.length > 0) {
+            html += '<div class="node-ports-left">';
+            def.inputs.forEach((input, i) => {
+              const isConnected = Array.from(state.wires).some(w => w.to.node === id && w.to.port === i);
+              html += `<div class="node-port" data-node="${id}" data-port="${i}" data-direction="input" ${isConnected ? 'style="background:#00d4ff;border-color:#00d4ff"' : ''}><span class="node-port-label">${input.name}</span></div>`;
+            });
+            html += '</div>';
+          }
+          if (def.outputs.length > 0) {
+            html += '<div class="node-ports-right">';
+            def.outputs.forEach((output, i) => {
+              html += `<div class="node-port" data-node="${id}" data-port="${i}" data-direction="output"><span class="node-port-label">${output.name}</span></div>`;
+            });
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+
+        el.innerHTML = html;
+
+        el.onmousedown = (e) => {
+          if (e.button === 0 && !e.target.classList.contains('node-port')) {
+            e.stopPropagation();
+            saveState();
+            state.dragging = { nodeId: id, offsetX: e.clientX - node.x, offsetY: e.clientY - node.y };
+            selectNode(id);
+          }
+        };
+
+        el.oncontextmenu = (e) => {
+          e.preventDefault();
+          saveState();
+          state.nodes.delete(id);
+          state.wires = new Set(Array.from(state.wires).filter(w => w.from.node !== id && w.to.node !== id));
+          updateGraph();
+          scheduleCompile();
+        };
+
+        const ports = el.querySelectorAll('.node-port');
+        ports.forEach(port => {
+          port.onmousedown = (e) => {
+            e.stopPropagation();
+            if (port.dataset.direction === 'output') {
+              state.connecting = {
+                from: { node: id, port: parseInt(port.dataset.port) },
+                mouseX: e.clientX,
+                mouseY: e.clientY
+              };
+            }
+          };
+        });
+      });
+
+      state.nodes.forEach((node, id) => {
+        if (!state.nodes.has(id)) {
+          const el = document.getElementById(id);
+          if (el) el.remove();
+        }
+      });
+
+      updateWires();
+      updatePropertiesPanel();
+      updateMinimap();
+      document.getElementById('hintText').style.display = state.nodes.size > 0 ? 'none' : 'block';
+    }
+
+    function selectNode(id) {
+      state.selected = id;
+      document.querySelectorAll('.node').forEach(el => el.classList.remove('selected'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('selected');
+
+      state.wires.forEach(wire => {
+        const path = document.querySelector(`[data-wire-id="${wire.id}"]`);
+        if (path) path.classList.toggle('highlighted', wire.from.node === id || wire.to.node === id);
+      });
+
+      updatePropertiesPanel();
+    }
+
+    function updatePropertiesPanel() {
+      const panel = document.getElementById('propertiesPanel');
+      const content = document.getElementById('propertiesContent');
+      const node = state.selected ? state.nodes.get(state.selected) : null;
+
+      if (!node || !NODE_DEFS[node.type]) {
+        panel.classList.remove('visible');
+        content.innerHTML = '';
+        return;
+      }
+
+      panel.classList.add('visible');
+      const def = NODE_DEFS[node.type];
+
+      let html = '';
+      def.params.forEach(param => {
+        const value = node.params[param.name] !== undefined ? node.params[param.name] : param.default;
+        html += `<div class="prop-group">
+          <div class="prop-label">${param.name}</div>`;
+
+        if (param.isColor) {
+          const hexValue = value.includes('vec3') ? floatToHex(value) : '#ff6bff';
+          html += `<input type="color" class="prop-color prop-input" value="${hexValue}" data-param="${param.name}">`;
+        } else if (param.min !== undefined) {
+          html += `<input type="range" class="prop-slider" min="${typeof param.min === 'string' ? 0 : param.min}" max="${typeof param.max === 'string' ? 1 : param.max}" step="0.01" value="${value}" data-param="${param.name}">
+            <div style="font-size:0.65rem;color:#8a8a9a;margin-top:4px">${value}</div>`;
+        } else {
+          html += `<input type="text" class="prop-input" value="${value}" data-param="${param.name}">`;
+        }
+        html += '</div>';
+      });
+
+      content.innerHTML = html;
+
+      content.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const paramName = e.target.dataset.param;
+          let value = e.target.type === 'color' ? hexToVec3(e.target.value) : e.target.value;
+          node.params[paramName] = value;
+
+          if (e.target.type === 'range') {
+            e.target.nextElementSibling.textContent = value;
+          }
+
+          scheduleCompile();
+        });
+      });
+    }
+
+    function floatToHex(vec3Str) {
+      const match = vec3Str.match(/vec3\(([^,]+),\s*([^,]+),\s*([^)]+)\)/);
+      if (!match) return '#ff6bff';
+      const r = Math.min(255, Math.max(0, Math.round(parseFloat(match[1]) * 255)));
+      const g = Math.min(255, Math.max(0, Math.round(parseFloat(match[2]) * 255)));
+      const b = Math.min(255, Math.max(0, Math.round(parseFloat(match[3]) * 255)));
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+
+    function hexToVec3(hex) {
+      const r = parseInt(hex.substr(1, 2), 16) / 255;
+      const g = parseInt(hex.substr(3, 2), 16) / 255;
+      const b = parseInt(hex.substr(5, 2), 16) / 255;
+      return `vec3(${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)})`;
+    }
+
+    function updateMinimap() {
+      const content = document.getElementById('minimapContent');
+      const viewport = document.getElementById('minimapViewport');
+      const graphPane = document.getElementById('graphPane');
+
+      const nodes = Array.from(state.nodes.values());
+      if (nodes.length === 0) {
+        content.innerHTML = '';
+        return;
+      }
+
+      const xs = nodes.map(n => n.x);
+      const ys = nodes.map(n => n.y);
+      const minx = Math.min(...xs) - 200;
+      const maxx = Math.max(...xs) + 200;
+      const miny = Math.min(...ys) - 200;
+      const maxy = Math.max(...ys) + 200;
+
+      const width = maxx - minx;
+      const height = maxy - miny;
+      const scale = Math.min(160 / width, 120 / height, 0.5);
+
+      content.style.transform = `scale(${scale}) translate(${-minx}px, ${-miny}px)`;
+      content.innerHTML = nodes.map(n => `<div style="position:absolute;left:${n.x}px;top:${n.y}px;width:140px;height:80px;background:${state.selected === n.id ? '#00d4ff' : '#3a3a48'};border-radius:2px;"></div>`).join('');
+
+      const paneRect = graphPane.getBoundingClientRect();
+      viewport.style.left = (-state.camera.x * state.camera.zoom / width * 160) + 'px';
+      viewport.style.top = (-state.camera.y * state.camera.zoom / height * 120) + 'px';
+      viewport.style.width = (paneRect.width / state.camera.zoom / width * 160) + 'px';
+      viewport.style.height = (paneRect.height / state.camera.zoom / height * 120) + 'px';
+    }
+
+    function topologicalSort() {
+      const graph = { nodes: new Set(), edges: new Map() };
+
+      state.nodes.forEach((node, id) => {
+        graph.nodes.add(id);
+        graph.edges.set(id, []);
+      });
+
+      state.wires.forEach(wire => {
+        const edges = graph.edges.get(wire.to.node);
+        if (edges) edges.push({ from: wire.from.node, port: wire.from.port, toPort: wire.to.port });
+      });
+
+      const inDegree = new Map();
+      graph.nodes.forEach(id => inDegree.set(id, 0));
+
+      graph.edges.forEach((edges, id) => {
+        edges.forEach(edge => {
+          inDegree.set(edge.from, (inDegree.get(edge.from) || 0) + 1);
+        });
+      });
+
+      const queue = [];
+      inDegree.forEach((deg, id) => {
+        if (deg === 0) queue.push(id);
+      });
+
+      const sorted = [];
+      const visited = new Set();
+
+      let iterations = 0;
+      while (queue.length > 0 && iterations < graph.nodes.size * 2) {
+        const id = queue.shift();
+        if (visited.has(id)) continue;
+        visited.add(id);
+        sorted.push(id);
+
+        const edges = graph.edges.get(id) || [];
+        edges.forEach(edge => {
+          if (!visited.has(edge.from)) {
+            const deg = (inDegree.get(edge.from) || 0) - 1;
+            inDegree.set(edge.from, deg);
+            if (deg === 0) queue.push(edge.from);
+          } else {
+            return null;
+          }
+        });
+        iterations++;
+      }
+
+      if (sorted.length !== graph.nodes.size) {
+        return null;
+      }
+
+      return { sorted, graph };
+    }
+
+    function generateGLSL() {
+      const result = topologicalSort();
+      if (!result) {
+        return { error: 'Circular dependency detected' };
+      }
+
+      const { sorted, graph } = result;
+
+      const code = {
+        functions: new Map(),
+        uniforms: ['uniform float u_time;', 'uniform vec2 u_resolution;', 'uniform vec2 u_mouse;'],
+        main: ''
+      };
+
+      function getNodeOutput(nodeId, outputPort = 0) {
+        const node = state.nodes.get(nodeId);
+        if (!node) return 'vec4(0.0)';
+
+        const def = NODE_DEFS[node.type];
+        if (!def) return 'vec4(0.0)';
+
+        const output = def.outputs[outputPort];
+        if (!output) return 'vec4(0.0)';
+
+        const key = `${nodeId}_${outputPort}`;
+
+        if (code.functions.has(key)) {
+          return code.functions.get(key);
+        }
+
+        let expression = '';
+
+        if (node.type === 'output') {
+          expression = getNodeInput(nodeId, 0);
+        } else if (GLSL_TEMPLATES[node.type]) {
+          const inputs = def.inputs.map((inp, i) => getNodeInput(nodeId, i));
+          expression = GLSL_TEMPLATES[node.type](inputs, node.params);
+        } else {
+          expression = output.default || 'vec4(0.0)';
+        }
+
+        code.functions.set(key, expression);
+        return expression;
+      }
+
+      function getNodeInput(nodeId, inputPort) {
+        const wire = Array.from(state.wires).find(w => w.to.node === nodeId && w.to.port === inputPort);
+        if (!wire) {
+          const node = state.nodes.get(nodeId);
+          const def = NODE_DEFS[node.type];
+          if (def && def.inputs[inputPort]) {
+            return def.inputs[inputPort].default;
+          }
+          return 'vec4(0.0)';
+        }
+
+        const connectedNode = state.nodes.get(wire.from.node);
+        const connectedDef = NODE_DEFS[connectedNode.type];
+        if (!connectedDef || !connectedDef.outputs[wire.from.port]) {
+          return 'vec4(0.0)';
+        }
+
+        const fromType = connectedDef.outputs[wire.from.port].type;
+        const toType = def.inputs[inputPort].type;
+
+        let value = getNodeOutput(wire.from.node, wire.from.port);
+        value = promoteValue(value, fromType, toType);
+
+        return value;
+      }
+
+      const outputNodes = Array.from(state.nodes.values()).filter(n => n.type === 'output');
+      if (outputNodes.length === 0) {
+        return { error: 'No output node in graph' };
+      }
+
+      code.main = '  vec3 col = vec3(0.0);\n';
+
+      code.functions.clear();
+      const finalColor = getNodeOutput(outputNodes[0].id, 0);
+      code.main += `  gl_FragColor = ${finalColor};\n`;
+
+      const finalGLSL = `#version 300 es
+precision highp float;
+
+uniform vec2 u_resolution;
+uniform float u_time;
+uniform vec2 u_mouse;
+
+out vec4 fragColor;
+
+${GLSL_LIB}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution;
+  uv.x *= u_resolution.x / u_resolution.y;
+${code.main}
+}
+`;
+
+      return { glsl: finalGLSL };
+    }
+
+    function compileShader(gl) {
+      const result = generateGLSL();
+      if (result.error) {
+        document.getElementById('errorMessage').textContent = result.error;
+        document.getElementById('errorMessage').classList.add('visible');
+        return null;
+      }
+
+      document.getElementById('errorMessage').classList.remove('visible');
+
+      const vertexShaderSource = `#version 300 es
+in vec2 a_position;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vertexShader, vertexShaderSource);
+      gl.compileShader(vertexShader);
+
+      if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error('Vertex shader error:', gl.getShaderInfoLog(vertexShader));
+        return null;
+      }
+
+      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fragmentShader, result.glsl);
+      gl.compileShader(fragmentShader);
+
+      if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        document.getElementById('errorMessage').textContent = 'Shader compile error: ' + gl.getShaderInfoLog(fragmentShader);
+        document.getElementById('errorMessage').classList.add('visible');
+        gl.deleteShader(vertexShader);
+        return null;
+      }
+
+      const program = gl.createProgram();
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(program));
+        gl.deleteShader(vertexShader);
+        gl.deleteShader(fragmentShader);
+        return null;
+      }
+
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+
+      return program;
+    }
+
+    function setupUniforms(gl, program) {
+      const timeLoc = gl.getUniformLocation(program, 'u_time');
+      const resLoc = gl.getUniformLocation(program, 'u_resolution');
+      const mouseLoc = gl.getUniformLocation(program, 'u_mouse');
+
+      gl.uniform1f(timeLoc, (Date.now() - state.startTime) / 1000);
+      gl.uniform2f(resLoc, gl.canvas.width, gl.canvas.height);
+      gl.uniform2f(mouseLoc, state.mouseX / gl.canvas.width * 2 - 1, 1 - state.mouseY / gl.canvas.height * 2);
+    }
+
+    let gl;
+    let currentProgram = null;
+    let positionBuffer = null;
+    let animationId = null;
+
+    function initWebGL(canvas) {
+      gl = canvas.getContext('webgl2', { preserveDrawingBuffer: true });
+      if (!gl) {
+        console.error('WebGL2 not supported');
+        return false;
+      }
+
+      positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1,
+         1, -1,
+        -1,  1,
+         1,  1
+      ]), gl.STATIC_DRAW);
+
+      return true;
+    }
+
+    function render() {
+      if (state.isCompiling) {
+        animationId = requestAnimationFrame(render);
+        return;
+      }
+
+      const canvas = document.getElementById('previewCanvas');
+      gl.viewport(0, 0, canvas.width, canvas.height);
+
+      if (currentProgram) {
+        gl.useProgram(currentProgram);
+
+        setupUniforms(gl, currentProgram);
+
+        const positionLoc = gl.getAttribLocation(currentProgram, 'a_position');
+        gl.enableVertexAttribArray(positionLoc);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+
+      state.frameCount++;
+      const now = Date.now();
+      if (now - state.lastFpsUpdate >= 1000) {
+        state.fps = Math.round(state.frameCount * 1000 / (now - state.lastFpsUpdate));
+        state.frameCount = 0;
+        state.lastFpsUpdate = now;
+        document.getElementById('perfMonitor').textContent = `FPS: ${state.fps} | Fragments: 1`;
+      }
+
+      animationId = requestAnimationFrame(render);
+    }
+
+    function scheduleCompile() {
+      if (state.compileTimer) clearTimeout(state.compileTimer);
+      state.isCompiling = true;
+      document.getElementById('compilingIndicator').style.display = 'block';
+
+      state.compileTimer = setTimeout(() => {
+        const canvas = document.getElementById('previewCanvas');
+        const displayWidth = canvas.clientWidth * window.devicePixelRatio;
+        const displayHeight = canvas.clientHeight * window.devicePixelRatio;
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+
+        if (!gl) initWebGL(canvas);
+        if (gl) currentProgram = compileShader(gl);
+
+        state.isCompiling = false;
+        document.getElementById('compilingIndicator').style.display = 'none';
+
+        if (!animationId) render();
+      }, 50);
+    }
+
+    function showNodePalette(x, y) {
+      let palette = document.getElementById('nodePalette');
+      if (palette) palette.remove();
+
+      palette = document.createElement('div');
+      palette.id = 'nodePalette';
+      palette.className = 'node-palette';
+      palette.style.left = x + 'px';
+      palette.style.top = y + 'px';
+
+      const categories = {
+        noise: ['perlin', 'curl', 'simplex'],
+        shapes: ['circle', 'box', 'torus'],
+        warps: ['polarWarp', 'twist', 'kaleido'],
+        effects: ['glow', 'bloom', 'crt', 'chromatic'],
+        math: ['mix', 'step', 'smoothstep', 'fractalize', 'sin', 'cos'],
+        input: ['time', 'mouse', 'resolution', 'uv'],
+        convert: ['colorize'],
+        output: ['output']
+      };
+
+      Object.entries(categories).forEach(([cat, nodes]) => {
+        palette.innerHTML += `<div class="palette-category">
+          <div class="palette-category-title">${cat}</div>
+          ${nodes.map(n => `<div class="palette-item" data-type="${n}">${n}</div>`).join('')}
+        </div>`;
+      });
+
+      document.body.appendChild(palette);
+
+      palette.querySelectorAll('.palette-item').forEach(item => {
+        item.addEventListener('mousedown', (e) => {
+          const type = item.dataset.type;
+          const def = NODE_DEFS[type];
+
+          const node = {
+            id: generateNodeId(),
+            type: type,
+            x: (e.clientX - palette.offsetLeft + state.camera.x * -state.camera.zoom) / state.camera.zoom,
+            y: (e.clientY - palette.offsetTop + state.camera.y * -state.camera.zoom) / state.camera.zoom,
+            params: {}
+          };
+
+          def.params.forEach(p => {
+            node.params[p.name] = p.default;
+          });
+
+          saveState();
+          state.nodes.set(node.id, node);
+          state.selected = node.id;
+          palette.remove();
+          updateGraph();
+          scheduleCompile();
+        });
+      });
+
+      palette.addEventListener('mousedown', (e) => e.stopPropagation());
+    }
+
+    document.addEventListener('mousedown', (e) => {
+      if (e.button === 1 || (e.button === 0 && e.target.id === 'graphPane')) {
+        e.preventDefault();
+        state.panning = true;
+        state.panStart = { x: e.clientX, y: e.clientY };
+        state.panCameraStart = { x: state.camera.x, y: state.camera.y };
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      state.mouseX = e.clientX;
+      state.mouseY = e.clientY;
+
+      if (state.connecting) {
+        state.connecting.mouseX = e.clientX;
+        state.connecting.mouseY = e.clientY;
+        updateWires();
+      }
+
+      if (state.dragging) {
+        const node = state.nodes.get(state.dragging.nodeId);
+        if (node) {
+          node.x = (e.clientX - state.dragging.offsetX + state.camera.x * -state.camera.zoom) / state.camera.zoom;
+          node.y = (e.clientY - state.dragging.offsetY + state.camera.y * -state.camera.zoom) / state.camera.zoom;
+          node.x = Math.round(node.x / 20) * 20;
+          node.y = Math.round(node.y / 20) * 20;
+          updateNodePosition(node);
+          updateWires();
+        }
+      }
+
+      if (state.panning) {
+        state.camera.x = state.panCameraStart.x + (e.clientX - state.panStart.x) / state.camera.zoom;
+        state.camera.y = state.panCameraStart.y + (e.clientY - state.panStart.y) / state.camera.zoom;
+        updateGraph();
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (state.connecting) {
+        const targetPort = e.target.closest('.node-port[data-direction="input"]');
+        if (targetPort) {
+          const toNodeId = targetPort.dataset.node;
+          const toPort = parseInt(targetPort.dataset.port);
+
+          const toNode = state.nodes.get(toNodeId);
+          const toDef = NODE_DEFS[toNode.type];
+          const inputDef = toDef.inputs[toPort];
+
+          const fromNode = state.nodes.get(state.connecting.from.node);
+          const fromDef = NODE_DEFS[fromNode.type];
+          const outputDef = fromDef.outputs[state.connecting.from.port];
+
+          if (canConnect(outputDef.type, inputDef.type)) {
+            saveState();
+            const existingWire = Array.from(state.wires).find(w => w.to.node === toNodeId && w.to.port === toPort);
+            if (existingWire) state.wires.delete(existingWire);
+
+            state.wires.add({
+            id: generateWireId(),
+            from: state.connecting.from,
+            to: { node: toNodeId, port: toPort }
+          });
+          scheduleCompile();
+        }
+        state.connecting = null;
+        updateWires();
+      }
+      state.dragging = null;
+      state.panning = false;
+    });
+
+    document.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = document.getElementById('graphPane').getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left);
+      const mouseY = (e.clientY - rect.top);
+      const worldX = (mouseX - state.camera.x * state.camera.zoom) / state.camera.zoom;
+      const worldY = (mouseY - state.camera.y * state.camera.zoom) / state.camera.zoom;
+
+      const zoomDelta = -e.deltaY * 0.001;
+      state.camera.zoom = Math.min(3, Math.max(0.5, state.camera.zoom + zoomDelta));
+
+      state.camera.x = mouseX - worldX * state.camera.zoom;
+      state.camera.y = mouseY - worldY * state.camera.zoom;
+
+      updateGraph();
+    }, { passive: false });
+
+    document.getElementById('graphPane').addEventListener('dblclick', (e) => {
+      showNodePalette(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (state.selected && document.activeElement.tagName !== 'INPUT') {
+          saveState();
+          state.nodes.delete(state.selected);
+          state.wires = new Set(Array.from(state.wires).filter(w => w.from.node !== state.selected && w.to.node !== state.selected));
+          state.selected = null;
+          updateGraph();
+          scheduleCompile();
+        }
+      }
+      if (e.ctrlKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      if (e.ctrlKey && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+      if (e.key === 'Escape') {
+        state.connecting = null;
+        const palette = document.getElementById('nodePalette');
+        if (palette) palette.remove();
+        updateWires();
+      }
+    });
+
+    document.getElementById('addNodeBtn').addEventListener('click', (e) => {
+      const rect = e.target.getBoundingClientRect();
+      showNodePalette(rect.left, rect.bottom + 10);
+    });
+
+    document.getElementById('presetSelect').addEventListener('change', (e) => {
+      const preset = e.target.value;
+      if (preset && PRESETS[preset]) {
+        saveState();
+        const { nodes, wires } = PRESETS[preset];
+        const offset = state.nodes.size > 0 ? 800 : 0;
+        state.nodes = new Map(Array.from(nodes.entries()).map(([k, v]) => [
+          generateNodeId(),
+          { ...v, id: generateNodeId(), x: v.x + offset, y: v.y + 100 }
+        ]));
+        state.wires = new Set(Array.from(wires).map(w => ({
+          id: generateWireId(),
+          from: { node: Array.from(state.nodes.keys())[(Array.from(nodes.keys()).indexOf(w.from.node) + Array.from(state.nodes.keys()).length - nodes.size) % state.nodes.size], port: w.from.port },
+          to: { node: Array.from(state.nodes.keys())[(Array.from(nodes.keys()).indexOf(w.to.node) + Array.from(state.nodes.keys()).length - nodes.size) % state.nodes.size], port: w.to.port }
+        })));
+        updateGraph();
+        scheduleCompile();
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('redoBtn').addEventListener('click', redo);
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const result = generateGLSL();
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
+
+      let modal = document.getElementById('exportModal');
+      if (modal) modal.remove();
+
+      modal = document.createElement('div');
+      modal.id = 'exportModal';
+      modal.className = 'export-modal';
+      modal.innerHTML = `
+        <div class="export-content">
+          <div class="export-header">
+            <span>Export Shader</span>
+            <button class="toolbar-btn" id="closeExport">Close</button>
+          </div>
+          <div class="export-tabs">
+            <button class="export-tab active" data-tab="glsl">GLSL Code</button>
+            <button class="export-tab" data-tab="json">JSON Graph</button>
+          </div>
+          <div class="export-body">
+            <textarea class="export-textarea" id="exportTextarea"></textarea>
+          </div>
+          <div class="export-footer">
+            <button class="toolbar-btn main-color" id="copyExport">Copy to Clipboard</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const textarea = document.getElementById('exportTextarea');
+      let currentTab = 'glsl';
+
+      const updateContent = () => {
+        if (currentTab === 'glsl') {
+          textarea.value = result.glsl;
+        } else {
+          textarea.value = JSON.stringify({
+            nodes: Array.from(state.nodes.entries()),
+            wires: Array.from(state.wires)
+          }, null, 2);
+        }
+      };
+
+      updateContent();
+
+      modal.querySelectorAll('.export-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          modal.querySelectorAll('.export-tab').forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
+          currentTab = e.target.dataset.tab;
+          updateContent();
+        });
+      });
+
+      document.getElementById('closeExport').addEventListener('click', () => modal.remove());
+      document.getElementById('copyExport').addEventListener('click', () => {
+        textarea.select();
+        document.execCommand('copy');
+        alert('Copied to clipboard!');
+      });
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+      });
+    });
+
+    document.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        state.pinchStart = { dist, x: state.camera.x, y: state.camera.y };
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && state.pinchStart) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const zoomDelta = (dist - state.pinchStart.dist) * 0.01;
+        state.camera.zoom = Math.min(3, Math.max(0.5, state.camera.zoom + zoomDelta));
+        updateGraph();
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+      state.pinchStart = null;
+    });
+
+    function init() {
+      state.camera.x = -16400;
+      state.camera.y = -100000;
+      updateGraph();
+      scheduleCompile();
+      requestAnimationFrame(render);
+    }
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
