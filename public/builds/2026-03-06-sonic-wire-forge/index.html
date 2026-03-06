@@ -1,0 +1,1694 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sonic Wire Forge</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --fg: #e4e4ed;
+      --panel: rgba(10, 10, 20, 0.85);
+      --panel-border: rgba(80, 120, 200, 0.4);
+      --accent: #00e5aa;
+      --warn: #ff2244;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      touch-action: none;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+    }
+
+    #simCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: var(--bg);
+      cursor: crosshair;
+    }
+
+    #hud {
+      position: absolute;
+      left: 50%;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      width: min(94vw, 780px);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+      backdrop-filter: blur(8px);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .hud-top,
+    .hud-bottom {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .hud-bottom {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    #modeLabel {
+      font-size: 14px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9ab7ff;
+      font-weight: 700;
+    }
+
+    #statusLine {
+      font-size: 11px;
+      line-height: 1.35;
+      color: #b9c3df;
+      opacity: 0.95;
+    }
+
+    #micBtn {
+      min-height: 44px;
+      min-width: 120px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 229, 170, 0.6);
+      background: rgba(0, 229, 170, 0.13);
+      color: #dffef5;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+    #micBtn:focus-visible {
+      outline: 2px solid #9ab7ff;
+      outline-offset: 2px;
+    }
+
+    #micBtn:active {
+      transform: scale(0.97);
+    }
+
+    #micBtn[data-on="1"] {
+      background: rgba(0, 229, 170, 0.26);
+      border-color: rgba(0, 229, 170, 0.92);
+    }
+
+    .meter-wrap {
+      display: grid;
+      gap: 6px;
+    }
+
+    .meter-label {
+      font-size: 11px;
+      color: #a5b0cc;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .meter {
+      position: relative;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(90, 115, 170, 0.5);
+      background: rgba(20, 30, 46, 0.75);
+      overflow: hidden;
+    }
+
+    .meter > span {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      transition: width 0.08s linear;
+    }
+
+    #micBar {
+      background: linear-gradient(90deg, #00e5aa, #6af7d4);
+    }
+
+    #resBar {
+      background: linear-gradient(90deg, #0098ff, #ff00aa);
+    }
+
+    #keyHint {
+      font-size: 11px;
+      color: #93a0c2;
+      line-height: 1.35;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+    }
+
+    #toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 92vw;
+      background: rgba(12, 18, 30, 0.9);
+      border: 1px solid rgba(110, 140, 220, 0.65);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #d9e2ff;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    #toast[data-show="1"] {
+      opacity: 1;
+    }
+
+    #liteTag {
+      position: absolute;
+      right: 14px;
+      top: 12px;
+      font-size: 11px;
+      color: #ffd09d;
+      border: 1px solid rgba(255, 149, 0, 0.55);
+      background: rgba(45, 26, 8, 0.65);
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: none;
+      pointer-events: none;
+    }
+
+    #liteTag[data-on="1"] {
+      display: block;
+    }
+
+    @media (max-width: 620px) {
+      #hud {
+        width: min(96vw, 700px);
+        padding: 9px;
+      }
+
+      .hud-top {
+        grid-template-columns: 1fr;
+      }
+
+      #micBtn {
+        width: 100%;
+      }
+
+      #statusLine {
+        font-size: 10px;
+      }
+
+      #modeLabel {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="simCanvas" aria-label="Sonic Wire Forge simulation canvas"></canvas>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="liteTag" aria-hidden="true">⚡ Lite mode</div>
+
+    <section id="hud" aria-label="Simulation controls and status">
+      <div class="hud-top">
+        <div>
+          <div id="modeLabel">FREE BUILD MODE</div>
+          <div id="statusLine">Click Mic to activate. Left-click places free node, right-click places anchor.</div>
+        </div>
+        <button id="micBtn" type="button" aria-label="Activate microphone">🎤 Activate Mic</button>
+      </div>
+
+      <div class="hud-bottom">
+        <div class="meter-wrap" aria-label="Microphone level">
+          <div class="meter-label">
+            <span>Mic Level</span>
+            <span id="micText">0%</span>
+          </div>
+          <div class="meter"><span id="micBar"></span></div>
+        </div>
+
+        <div class="meter-wrap" aria-label="Resonance score">
+          <div class="meter-label">
+            <span>Resonance</span>
+            <span id="resText">0%</span>
+          </div>
+          <div class="meter"><span id="resBar"></span></div>
+        </div>
+
+        <div id="keyHint">
+          <span><strong>Q</strong> quake</span>
+          <span><strong>D</strong> debug</span>
+          <span><strong>C</strong> reset harp</span>
+          <span><strong>S</strong> copy seed</span>
+          <span><strong>L</strong> load seed</span>
+          <span id="counts">Nodes 0 · Wires 0</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("simCanvas");
+      const ctx = canvas.getContext("2d", { alpha: false });
+
+      const micBtn = document.getElementById("micBtn");
+      const modeLabel = document.getElementById("modeLabel");
+      const statusLine = document.getElementById("statusLine");
+      const micBar = document.getElementById("micBar");
+      const micText = document.getElementById("micText");
+      const resBar = document.getElementById("resBar");
+      const resText = document.getElementById("resText");
+      const counts = document.getElementById("counts");
+      const toast = document.getElementById("toast");
+      const liteTag = document.getElementById("liteTag");
+
+      const COLORS = {
+        background: "#0a0a0f",
+        grid: "rgba(60,80,120,0.25)",
+        freeNode: "#4488ff",
+        freeNodeGlow: "rgba(68,136,255,0.30)",
+        pinnedNode: "#ddcc00",
+        pinnedNodeGlow: "rgba(220,200,0,0.40)",
+        resonanceA: "#00ffaa",
+        resonanceB: "#ff00aa",
+        wireRest: [0, 229, 170],
+        wireMid: [255, 149, 0],
+        wireHot: [255, 34, 68],
+      };
+
+      const CONFIG = {
+        gravity: 280,
+        baseStiffness: 5.4,
+        damping: 0.992,
+        nodeRadius: 10,
+        anchorSize: 12,
+        maxNodes: 80,
+        maxWires: 200,
+        snapStretch: 2.5,
+        spawnConnectCount: 2,
+        maxConnectionsPerNode: 6,
+        resonanceWindow: 0.15,
+        gridSize: 40,
+      };
+
+      const state = {
+        width: 0,
+        height: 0,
+        dpr: 1,
+        nodes: [],
+        wires: [],
+        particles: [],
+        nextNodeId: 1,
+        frame: 0,
+        substeps: 4,
+        liteMode: false,
+        avgDtMs: 16,
+        dtHistory: [],
+        pointer: {
+          activeId: null,
+          x: 0,
+          y: 0,
+          down: false,
+          dragNodeIndex: -1,
+          dragPrevX: 0,
+          dragPrevY: 0,
+          dragging: false,
+          spawnGhost: false,
+        },
+        ui: {
+          toastUntil: 0,
+          quakeFlashUntil: 0,
+          cameraShakeUntil: 0,
+        },
+        sim: {
+          mode: "FREE BUILD MODE",
+          earthquakeTimer: 0,
+          globalAmplitude: 0,
+          resonanceScore: 0,
+          debug: false,
+          dominantFreqHz: 0,
+          idlePhase: 0,
+          frameStressAccumulator: 0,
+        },
+        audio: {
+          enabled: false,
+          hasMic: false,
+          fallback: true,
+          ctx: null,
+          analyser: null,
+          source: null,
+          data: null,
+          bins: 0,
+          bands: {
+            sub: 0,
+            bass: 0,
+            mid: 0,
+            high: 0,
+            presence: 0,
+          },
+          dominantHz: 0,
+          smoothedLevel: 0,
+          startedAt: performance.now(),
+        },
+      };
+
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function mixColor(a, b, t) {
+        return [
+          Math.round(lerp(a[0], b[0], t)),
+          Math.round(lerp(a[1], b[1], t)),
+          Math.round(lerp(a[2], b[2], t)),
+        ];
+      }
+
+      function rgba(rgb, alpha) {
+        return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+      }
+
+      function rand(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function dist2(ax, ay, bx, by) {
+        const dx = bx - ax;
+        const dy = by - ay;
+        return dx * dx + dy * dy;
+      }
+
+      function dist(ax, ay, bx, by) {
+        return Math.sqrt(dist2(ax, ay, bx, by));
+      }
+
+      function now() {
+        return performance.now();
+      }
+
+      function setToast(text, ms = 1500) {
+        toast.textContent = text;
+        toast.dataset.show = "1";
+        state.ui.toastUntil = now() + ms;
+      }
+
+      function updateToast() {
+        if (state.ui.toastUntil && now() > state.ui.toastUntil) {
+          toast.dataset.show = "0";
+          state.ui.toastUntil = 0;
+        }
+      }
+
+      function createNode(x, y, pinned = false, mass = 1) {
+        const node = {
+          id: state.nextNodeId++,
+          x,
+          y,
+          px: x,
+          py: y,
+          mass,
+          pinned,
+          radius: pinned ? CONFIG.anchorSize : CONFIG.nodeRadius,
+          spawnT: 0,
+          hoverT: 0,
+          resonanceT: 0,
+          resonanceHueT: 0,
+          dragLock: false,
+          impulseX: 0,
+          impulseY: 0,
+        };
+        state.nodes.push(node);
+        return node;
+      }
+
+      function connectionCount(nodeId) {
+        let count = 0;
+        for (let i = 0; i < state.wires.length; i += 1) {
+          const w = state.wires[i];
+          if (w.a === nodeId || w.b === nodeId) {
+            count += 1;
+          }
+        }
+        return count;
+      }
+
+      function wireExists(a, b) {
+        for (let i = 0; i < state.wires.length; i += 1) {
+          const w = state.wires[i];
+          if ((w.a === a && w.b === b) || (w.a === b && w.b === a)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function addWire(nodeA, nodeB, stiffnessScale = 1) {
+        if (!nodeA || !nodeB || nodeA.id === nodeB.id) {
+          return null;
+        }
+        if (state.wires.length >= CONFIG.maxWires) {
+          return null;
+        }
+        if (wireExists(nodeA.id, nodeB.id)) {
+          return null;
+        }
+        if (connectionCount(nodeA.id) >= CONFIG.maxConnectionsPerNode) {
+          return null;
+        }
+        if (connectionCount(nodeB.id) >= CONFIG.maxConnectionsPerNode) {
+          return null;
+        }
+
+        const wire = {
+          a: nodeA.id,
+          b: nodeB.id,
+          restLength: dist(nodeA.x, nodeA.y, nodeB.x, nodeB.y),
+          stiffness: CONFIG.baseStiffness * stiffnessScale,
+          damping: 0.045,
+          stress: 0,
+          displayStress: 0,
+          age: 0,
+          wavePhase: Math.random() * Math.PI * 2,
+          resonating: false,
+          resonanceT: 0,
+          queuedSnap: false,
+        };
+        state.wires.push(wire);
+        return wire;
+      }
+
+      function getNodeById(id) {
+        for (let i = 0; i < state.nodes.length; i += 1) {
+          if (state.nodes[i].id === id) {
+            return state.nodes[i];
+          }
+        }
+        return null;
+      }
+
+      function clearScene() {
+        state.nodes.length = 0;
+        state.wires.length = 0;
+        for (let i = 0; i < state.particles.length; i += 1) {
+          state.particles[i].alive = false;
+        }
+      }
+
+      function resetToHarpSeed() {
+        clearScene();
+        state.nextNodeId = 1;
+
+        const topY = state.height * 0.2;
+        const centerX = state.width * 0.5;
+        const spacing = Math.min(86, state.width * 0.13);
+
+        const anchors = [];
+        for (let i = -2; i <= 2; i += 1) {
+          anchors.push(createNode(centerX + i * spacing, topY + Math.abs(i) * 6, true, 1.4));
+        }
+
+        const frees = [];
+        const rows = [
+          { count: 3, y: state.height * 0.34 },
+          { count: 3, y: state.height * 0.47 },
+          { count: 2, y: state.height * 0.60 },
+        ];
+
+        for (let r = 0; r < rows.length; r += 1) {
+          const row = rows[r];
+          for (let c = 0; c < row.count; c += 1) {
+            const offset = (c - (row.count - 1) * 0.5) * spacing * 0.78;
+            const jitter = rand(-6, 6);
+            frees.push(createNode(centerX + offset + jitter, row.y + rand(-6, 6), false, rand(0.8, 1.35)));
+          }
+        }
+
+        for (let i = 0; i < anchors.length; i += 1) {
+          for (let j = 0; j < frees.length; j += 1) {
+            const d = dist(anchors[i].x, anchors[i].y, frees[j].x, frees[j].y);
+            if (d < state.height * 0.46) {
+              addWire(anchors[i], frees[j], 1.0);
+            }
+          }
+        }
+
+        for (let i = 0; i < frees.length; i += 1) {
+          let nearest = null;
+          let second = null;
+          for (let j = 0; j < frees.length; j += 1) {
+            if (i === j) {
+              continue;
+            }
+            const d = dist2(frees[i].x, frees[i].y, frees[j].x, frees[j].y);
+            if (!nearest || d < nearest.d) {
+              second = nearest;
+              nearest = { n: frees[j], d };
+            } else if (!second || d < second.d) {
+              second = { n: frees[j], d };
+            }
+          }
+          if (nearest) {
+            addWire(frees[i], nearest.n, 0.95);
+          }
+          if (second && Math.random() > 0.2) {
+            addWire(frees[i], second.n, 0.9);
+          }
+        }
+
+        setToast("Harp seed loaded", 1100);
+      }
+
+      function nearestNodes(x, y, count = 2) {
+        const arr = [];
+        for (let i = 0; i < state.nodes.length; i += 1) {
+          const n = state.nodes[i];
+          arr.push({ n, d: dist2(x, y, n.x, n.y) });
+        }
+        arr.sort((a, b) => a.d - b.d);
+        return arr.slice(0, count).map((v) => v.n);
+      }
+
+      function spawnFreeNode(x, y) {
+        if (state.nodes.length >= CONFIG.maxNodes) {
+          setToast("Node limit reached", 1400);
+          return;
+        }
+        const n = createNode(x, y, false, rand(0.85, 1.4));
+        n.spawnT = 0.001;
+        const near = nearestNodes(x, y, 5);
+        let connected = 0;
+        for (let i = 0; i < near.length && connected < CONFIG.spawnConnectCount; i += 1) {
+          const target = near[i];
+          if (target.id === n.id) {
+            continue;
+          }
+          const w = addWire(n, target, rand(0.9, 1.08));
+          if (w) {
+            w.age = -0.15;
+            connected += 1;
+          }
+        }
+      }
+
+      function spawnPinnedNode(x, y) {
+        if (state.nodes.length >= CONFIG.maxNodes) {
+          setToast("Node limit reached", 1400);
+          return;
+        }
+        const n = createNode(x, y, true, 1.5);
+        n.spawnT = 0.001;
+        const near = nearestNodes(x, y, 4);
+        for (let i = 0; i < near.length; i += 1) {
+          if (near[i].id !== n.id) {
+            addWire(n, near[i], 1.05);
+          }
+        }
+      }
+
+      function allocateParticles(max = 200) {
+        state.particles.length = 0;
+        for (let i = 0; i < max; i += 1) {
+          state.particles.push({
+            alive: false,
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            life: 0,
+            maxLife: 0,
+            size: 0,
+            color: "rgba(255,255,255,1)",
+          });
+        }
+      }
+
+      function spawnParticles(x, y, intensity = 1) {
+        const count = Math.floor(8 + intensity * 8);
+        for (let i = 0; i < state.particles.length && count > 0; i += 1) {
+          const p = state.particles[i];
+          if (!p.alive) {
+            p.alive = true;
+            p.x = x;
+            p.y = y;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = rand(40, 170) * (0.8 + intensity);
+            p.vx = Math.cos(angle) * speed;
+            p.vy = Math.sin(angle) * speed;
+            p.life = 0.6;
+            p.maxLife = 0.6;
+            p.size = rand(1.2, 2.8);
+            p.color = Math.random() > 0.5 ? "rgba(0,255,200,1)" : "rgba(255,0,180,1)";
+            intensity -= 0.08;
+            if (intensity <= 0) {
+              break;
+            }
+          }
+        }
+      }
+
+      function toLocalPos(ev) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: ev.clientX - rect.left,
+          y: ev.clientY - rect.top,
+        };
+      }
+
+      function findNodeAt(x, y, radius = 22) {
+        let bestIndex = -1;
+        let bestD = radius * radius;
+        for (let i = state.nodes.length - 1; i >= 0; i -= 1) {
+          const n = state.nodes[i];
+          const d = dist2(x, y, n.x, n.y);
+          if (d < bestD) {
+            bestD = d;
+            bestIndex = i;
+          }
+        }
+        return bestIndex;
+      }
+
+      function handlePointerDown(ev) {
+        ev.preventDefault();
+        if (state.pointer.activeId !== null) {
+          return;
+        }
+
+        unlockAudioContext();
+
+        const p = toLocalPos(ev);
+        state.pointer.activeId = ev.pointerId;
+        state.pointer.down = true;
+        state.pointer.x = p.x;
+        state.pointer.y = p.y;
+        state.pointer.dragPrevX = p.x;
+        state.pointer.dragPrevY = p.y;
+
+        if (ev.button === 2) {
+          spawnPinnedNode(p.x, p.y);
+          return;
+        }
+
+        const hit = findNodeAt(p.x, p.y, 24);
+        if (hit >= 0) {
+          state.pointer.dragNodeIndex = hit;
+          state.pointer.dragging = true;
+          const n = state.nodes[hit];
+          n.dragLock = true;
+          canvas.style.cursor = "grabbing";
+        } else {
+          state.pointer.spawnGhost = true;
+        }
+      }
+
+      function handlePointerMove(ev) {
+        const p = toLocalPos(ev);
+        state.pointer.x = p.x;
+        state.pointer.y = p.y;
+
+        if (state.pointer.activeId !== ev.pointerId) {
+          const hover = findNodeAt(p.x, p.y, 24);
+          canvas.style.cursor = hover >= 0 ? "grab" : "crosshair";
+          return;
+        }
+
+        if (!state.pointer.down) {
+          return;
+        }
+
+        if (state.pointer.dragging && state.pointer.dragNodeIndex >= 0) {
+          const n = state.nodes[state.pointer.dragNodeIndex];
+          if (n) {
+            n.x = p.x;
+            n.y = p.y;
+            n.px = p.x - (p.x - state.pointer.dragPrevX) * 0.75;
+            n.py = p.y - (p.y - state.pointer.dragPrevY) * 0.75;
+          }
+        }
+
+        state.pointer.dragPrevX = p.x;
+        state.pointer.dragPrevY = p.y;
+      }
+
+      function releasePointer(ev) {
+        if (state.pointer.activeId !== ev.pointerId) {
+          return;
+        }
+
+        const p = toLocalPos(ev);
+
+        if (state.pointer.dragging && state.pointer.dragNodeIndex >= 0) {
+          const n = state.nodes[state.pointer.dragNodeIndex];
+          if (n) {
+            n.dragLock = false;
+            const throwVX = p.x - state.pointer.dragPrevX;
+            const throwVY = p.y - state.pointer.dragPrevY;
+            n.px = n.x - throwVX * 5;
+            n.py = n.y - throwVY * 5;
+          }
+        }
+
+        if (state.pointer.spawnGhost) {
+          const dx = Math.abs(p.x - state.pointer.dragPrevX);
+          const dy = Math.abs(p.y - state.pointer.dragPrevY);
+          if (dx < 120 && dy < 120) {
+            spawnFreeNode(p.x, p.y);
+          }
+        }
+
+        state.pointer.activeId = null;
+        state.pointer.down = false;
+        state.pointer.dragNodeIndex = -1;
+        state.pointer.dragging = false;
+        state.pointer.spawnGhost = false;
+        canvas.style.cursor = "crosshair";
+      }
+
+      function handleContextMenu(ev) {
+        ev.preventDefault();
+      }
+
+      function activateEarthquake() {
+        state.sim.earthquakeTimer = 2.0;
+        state.ui.quakeFlashUntil = now() + 850;
+        state.ui.cameraShakeUntil = now() + 500;
+        setToast("QUAKE!", 600);
+      }
+
+      function toggleDebug() {
+        state.sim.debug = !state.sim.debug;
+        setToast(state.sim.debug ? "Debug ON" : "Debug OFF", 850);
+      }
+
+      async function copySeed() {
+        try {
+          const seed = serializeSeed();
+          await navigator.clipboard.writeText(seed);
+          setToast("Seed copied to clipboard", 1300);
+        } catch (err) {
+          setToast("Clipboard copy failed", 1400);
+        }
+      }
+
+      async function loadSeedFromClipboard() {
+        try {
+          const text = await navigator.clipboard.readText();
+          const ok = deserializeSeed(text);
+          if (ok) {
+            setToast("Seed loaded", 1200);
+          } else {
+            setToast("Clipboard does not contain valid seed", 1400);
+          }
+        } catch (err) {
+          setToast("Clipboard read failed", 1400);
+        }
+      }
+
+      function handleKeyDown(ev) {
+        if (ev.repeat) {
+          return;
+        }
+
+        const key = ev.key.toLowerCase();
+
+        if (key === "q") {
+          activateEarthquake();
+        } else if (key === "d") {
+          toggleDebug();
+        } else if (key === "c") {
+          resetToHarpSeed();
+        } else if (key === "s") {
+          copySeed();
+        } else if (key === "l") {
+          loadSeedFromClipboard();
+        }
+      }
+
+      function serializeSeed() {
+        const nodeData = [];
+        for (let i = 0; i < state.nodes.length; i += 1) {
+          const n = state.nodes[i];
+          nodeData.push({
+            id: n.id,
+            x: Math.round(n.x * 10) / 10,
+            y: Math.round(n.y * 10) / 10,
+            p: n.pinned ? 1 : 0,
+            m: Math.round(n.mass * 100) / 100,
+          });
+        }
+
+        const wireData = [];
+        for (let i = 0; i < state.wires.length; i += 1) {
+          const w = state.wires[i];
+          wireData.push({
+            a: w.a,
+            b: w.b,
+            r: Math.round(w.restLength * 10) / 10,
+            s: Math.round((w.stiffness / CONFIG.baseStiffness) * 100) / 100,
+          });
+        }
+
+        const payload = {
+          version: 1,
+          width: Math.round(state.width),
+          height: Math.round(state.height),
+          nodes: nodeData,
+          wires: wireData,
+        };
+
+        return JSON.stringify(payload);
+      }
+
+      function deserializeSeed(text) {
+        if (!text || text.length > 300000) {
+          return false;
+        }
+        let data = null;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          return false;
+        }
+        if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.wires)) {
+          return false;
+        }
+
+        clearScene();
+        state.nextNodeId = 1;
+
+        const idMap = new Map();
+        for (let i = 0; i < data.nodes.length; i += 1) {
+          const src = data.nodes[i];
+          const n = createNode(clamp(src.x, 0, state.width), clamp(src.y, 0, state.height), !!src.p, clamp(src.m || 1, 0.4, 2.5));
+          n.id = src.id;
+          idMap.set(src.id, n);
+          state.nextNodeId = Math.max(state.nextNodeId, src.id + 1);
+        }
+
+        for (let i = 0; i < data.wires.length; i += 1) {
+          const src = data.wires[i];
+          const a = idMap.get(src.a);
+          const b = idMap.get(src.b);
+          if (!a || !b) {
+            continue;
+          }
+          const w = addWire(a, b, clamp(src.s || 1, 0.2, 2.6));
+          if (w) {
+            w.restLength = clamp(src.r || w.restLength, 8, Math.max(state.width, state.height));
+          }
+        }
+
+        return state.nodes.length > 0;
+      }
+
+      async function unlockAudioContext() {
+        if (!state.audio.ctx) {
+          return;
+        }
+        if (state.audio.ctx.state === "suspended") {
+          try {
+            await state.audio.ctx.resume();
+          } catch (err) {
+            // noop
+          }
+        }
+      }
+
+      async function activateMic() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          state.audio.enabled = true;
+          state.audio.hasMic = false;
+          state.audio.fallback = true;
+          micBtn.dataset.on = "1";
+          micBtn.textContent = "🎛 Tone Fallback";
+          statusLine.textContent = "Mic unavailable. Running tone fallback.";
+          setToast("Mic unavailable — tone fallback enabled", 1400);
+          return;
+        }
+
+        try {
+          if (!state.audio.ctx) {
+            state.audio.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          }
+
+          await unlockAudioContext();
+
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+
+          state.audio.source = state.audio.ctx.createMediaStreamSource(stream);
+          state.audio.analyser = state.audio.ctx.createAnalyser();
+          state.audio.analyser.fftSize = 512;
+          state.audio.analyser.smoothingTimeConstant = 0.75;
+          state.audio.source.connect(state.audio.analyser);
+          state.audio.bins = state.audio.analyser.frequencyBinCount;
+          state.audio.data = new Uint8Array(state.audio.bins);
+          state.audio.enabled = true;
+          state.audio.hasMic = true;
+          state.audio.fallback = false;
+
+          micBtn.dataset.on = "1";
+          micBtn.textContent = "🎤 Mic Active";
+          statusLine.textContent = "Mic live. Talk, sing, or play music to tune the wires.";
+          setToast("Mic activated", 900);
+        } catch (err) {
+          state.audio.enabled = true;
+          state.audio.hasMic = false;
+          state.audio.fallback = true;
+          micBtn.dataset.on = "1";
+          micBtn.textContent = "🎛 Tone Fallback";
+          statusLine.textContent = "Mic permission denied or blocked. Tone fallback running.";
+          setToast("Mic unavailable — using tone fallback", 1600);
+        }
+      }
+
+      function computeBandAverage(startHz, endHz, data, sampleRate, fftSize) {
+        const binHz = sampleRate / fftSize;
+        const startBin = Math.max(0, Math.floor(startHz / binHz));
+        const endBin = Math.min(data.length - 1, Math.ceil(endHz / binHz));
+        if (endBin <= startBin) {
+          return 0;
+        }
+        let sum = 0;
+        let count = 0;
+        for (let i = startBin; i <= endBin; i += 1) {
+          sum += data[i];
+          count += 1;
+        }
+        return count > 0 ? sum / count / 255 : 0;
+      }
+
+      function updateAudio(dt, t) {
+        const a = state.audio;
+
+        if (a.enabled && a.hasMic && a.analyser && a.data) {
+          a.analyser.getByteFrequencyData(a.data);
+
+          const sampleRate = a.ctx.sampleRate;
+          const fftSize = a.analyser.fftSize;
+
+          const sub = computeBandAverage(20, 100, a.data, sampleRate, fftSize);
+          const bass = computeBandAverage(100, 400, a.data, sampleRate, fftSize);
+          const mid = computeBandAverage(400, 2000, a.data, sampleRate, fftSize);
+          const high = computeBandAverage(2000, 8000, a.data, sampleRate, fftSize);
+          const presence = computeBandAverage(8000, 12000, a.data, sampleRate, fftSize);
+
+          a.bands.sub = lerp(a.bands.sub, sub, 0.24);
+          a.bands.bass = lerp(a.bands.bass, bass, 0.24);
+          a.bands.mid = lerp(a.bands.mid, mid, 0.2);
+          a.bands.high = lerp(a.bands.high, high, 0.18);
+          a.bands.presence = lerp(a.bands.presence, presence, 0.18);
+
+          let maxVal = 0;
+          let maxBin = 1;
+          for (let i = 1; i < a.data.length; i += 1) {
+            if (a.data[i] > maxVal) {
+              maxVal = a.data[i];
+              maxBin = i;
+            }
+          }
+          const binHz = sampleRate / fftSize;
+          a.dominantHz = maxBin * binHz;
+          a.smoothedLevel = lerp(a.smoothedLevel, clamp(maxVal / 255, 0, 1), 0.2);
+        } else {
+          const idle = 0.01 + 0.005 * Math.sin(t * 2.0);
+          const bass = 0.2 + 0.2 * Math.sin(t * 1.65) + 0.08 * Math.sin(t * 3.2);
+          const mid = 0.16 + 0.12 * Math.sin(t * 2.25 + 1.5);
+          const high = 0.08 + 0.08 * Math.sin(t * 6.5 + 0.4);
+
+          a.bands.sub = clamp(lerp(a.bands.sub, idle + Math.abs(bass) * 0.25, 0.08), 0, 1);
+          a.bands.bass = clamp(lerp(a.bands.bass, Math.abs(bass), 0.07), 0, 1);
+          a.bands.mid = clamp(lerp(a.bands.mid, Math.abs(mid), 0.08), 0, 1);
+          a.bands.high = clamp(lerp(a.bands.high, Math.abs(high), 0.08), 0, 1);
+          a.bands.presence = clamp(lerp(a.bands.presence, Math.abs(high) * 0.8, 0.08), 0, 1);
+          a.dominantHz = 80 + 60 * (0.5 + 0.5 * Math.sin(t * 1.8));
+          a.smoothedLevel = lerp(a.smoothedLevel, (a.bands.sub + a.bands.bass + a.bands.mid) / 3, 0.05);
+        }
+
+        state.sim.globalAmplitude = clamp((a.bands.sub * 0.4 + a.bands.bass * 0.35 + a.bands.mid * 0.2 + 0.01), 0, 1);
+        state.sim.dominantFreqHz = a.dominantHz;
+      }
+
+      function pushDt(dtMs) {
+        const arr = state.dtHistory;
+        arr.push(dtMs);
+        if (arr.length > 12) {
+          arr.shift();
+        }
+        let sum = 0;
+        for (let i = 0; i < arr.length; i += 1) {
+          sum += arr[i];
+        }
+        state.avgDtMs = arr.length ? sum / arr.length : dtMs;
+      }
+
+      function updatePerformanceTier() {
+        const wantsLite = state.avgDtMs > 25;
+        if (wantsLite !== state.liteMode) {
+          state.liteMode = wantsLite;
+          if (wantsLite) {
+            setToast("Performance dip detected — Lite mode", 1400);
+          } else {
+            setToast("Performance recovered — Full mode", 1200);
+          }
+        }
+        state.substeps = state.liteMode ? 2 : 4;
+        liteTag.dataset.on = state.liteMode ? "1" : "0";
+      }
+
+      function updatePhysics(dt) {
+        const dtSafe = clamp(dt, 0.001, 0.033);
+        const substeps = state.substeps;
+        const step = dtSafe / substeps;
+        const step2 = step * step;
+
+        const bands = state.audio.bands;
+        const globalStiffnessMul = 1 + bands.sub * 2 + 0.01 * Math.sin(state.sim.idlePhase);
+
+        state.sim.frameStressAccumulator = 0;
+
+        for (let stepIndex = 0; stepIndex < substeps; stepIndex += 1) {
+          for (let i = 0; i < state.nodes.length; i += 1) {
+            const n = state.nodes[i];
+            n.impulseX = 0;
+            n.impulseY = CONFIG.gravity;
+          }
+
+          for (let wIndex = 0; wIndex < state.wires.length; wIndex += 1) {
+            const w = state.wires[wIndex];
+            const a = getNodeById(w.a);
+            const b = getNodeById(w.b);
+            if (!a || !b) {
+              continue;
+            }
+
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const lenSq = dx * dx + dy * dy;
+            const len = Math.sqrt(lenSq) || 0.0001;
+
+            const nx = dx / len;
+            const ny = dy / len;
+
+            const stretchRaw = (len - w.restLength) / Math.max(4, w.restLength);
+            const stretch = clamp(stretchRaw, -4, 8);
+            w.stress = Math.abs(stretch);
+            w.displayStress = lerp(w.displayStress, clamp(w.stress, 0, 1.2), 0.2);
+            state.sim.frameStressAccumulator += w.displayStress;
+
+            const stiffness = w.stiffness * globalStiffnessMul;
+            const springForce = stiffness * (len - w.restLength);
+
+            const avx = a.x - a.px;
+            const avy = a.y - a.py;
+            const bvx = b.x - b.px;
+            const bvy = b.y - b.py;
+            const relVel = (bvx - avx) * nx + (bvy - avy) * ny;
+            const dampForce = relVel * w.damping;
+
+            const force = springForce + dampForce;
+
+            if (!a.pinned && !a.dragLock) {
+              a.impulseX += force * nx;
+              a.impulseY += force * ny;
+            }
+            if (!b.pinned && !b.dragLock) {
+              b.impulseX -= force * nx;
+              b.impulseY -= force * ny;
+            }
+
+            const bassWave = (bands.bass * 2 - 0.7) * 80;
+            const px = -ny;
+            const py = nx;
+            const waveForce = Math.sin(w.wavePhase) * bassWave;
+            if (!a.pinned && !a.dragLock) {
+              a.impulseX += px * waveForce;
+              a.impulseY += py * waveForce;
+            }
+            if (!b.pinned && !b.dragLock) {
+              b.impulseX -= px * waveForce;
+              b.impulseY -= py * waveForce;
+            }
+            w.wavePhase += 0.08 + bands.bass * 0.24;
+
+            if (state.frame % 3 === 0 && stretch > CONFIG.snapStretch) {
+              w.queuedSnap = true;
+            }
+
+            const avgMass = (a.mass + b.mass) * 0.5;
+            const fApprox = (stiffness / Math.max(6, w.restLength * avgMass * Math.PI * 2)) * 80;
+            const dom = Math.max(1, state.sim.dominantFreqHz);
+            const match = Math.abs(fApprox - dom) / dom;
+            const resonating = match < CONFIG.resonanceWindow;
+            w.resonating = resonating;
+            if (resonating) {
+              w.resonanceT = clamp(w.resonanceT + step * 1.8, 0, 1);
+              a.resonanceT = clamp(a.resonanceT + step * 1.6, 0, 1);
+              b.resonanceT = clamp(b.resonanceT + step * 1.6, 0, 1);
+              if (Math.random() < 0.12 + bands.high * 0.22) {
+                spawnParticles((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, 0.5 + bands.high);
+              }
+            } else {
+              w.resonanceT = clamp(w.resonanceT - step * 1.2, 0, 1);
+            }
+
+            if (bands.high > 0.3 && Math.random() < bands.high * 0.06) {
+              const n = Math.random() > 0.5 ? a : b;
+              spawnParticles(n.x, n.y, 0.4 + bands.high * 0.8);
+            }
+          }
+
+          if (state.sim.earthquakeTimer > 0) {
+            const quakeMag = 100 + Math.random() * 300;
+            for (let i = 0; i < state.nodes.length; i += 1) {
+              const n = state.nodes[i];
+              if (n.pinned || n.dragLock) {
+                continue;
+              }
+              const angle = Math.random() * Math.PI * 2;
+              n.impulseX += Math.cos(angle) * quakeMag;
+              n.impulseY += Math.sin(angle) * quakeMag;
+            }
+            state.sim.earthquakeTimer = clamp(state.sim.earthquakeTimer - step, 0, 99);
+          }
+
+          for (let i = 0; i < state.nodes.length; i += 1) {
+            const n = state.nodes[i];
+            n.hoverT = clamp(n.hoverT - step * 2.2, 0, 1);
+            n.resonanceT = clamp(n.resonanceT - step * 0.5, 0, 1);
+            n.resonanceHueT += step * 4;
+
+            if (n.spawnT < 1) {
+              n.spawnT = clamp(n.spawnT + step * 4.5, 0, 1);
+            }
+
+            if (n.pinned || n.dragLock) {
+              continue;
+            }
+
+            const ax = n.impulseX / n.mass;
+            const ay = n.impulseY / n.mass;
+
+            const vx = (n.x - n.px) * CONFIG.damping;
+            const vy = (n.y - n.py) * CONFIG.damping;
+
+            const nx = n.x + vx + ax * step2;
+            const ny = n.y + vy + ay * step2;
+
+            n.px = n.x;
+            n.py = n.y;
+            n.x = nx;
+            n.y = ny;
+
+            const pad = 6;
+            if (n.x < pad) {
+              n.x = pad;
+              n.px = n.x + vx * -0.3;
+            }
+            if (n.x > state.width - pad) {
+              n.x = state.width - pad;
+              n.px = n.x + vx * -0.3;
+            }
+            if (n.y < pad) {
+              n.y = pad;
+              n.py = n.y + vy * -0.2;
+            }
+            if (n.y > state.height - pad) {
+              n.y = state.height - pad;
+              n.py = n.y + vy * -0.45;
+            }
+          }
+        }
+
+        let snapped = 0;
+        if (state.wires.length) {
+          const kept = [];
+          for (let i = 0; i < state.wires.length; i += 1) {
+            const w = state.wires[i];
+            if (w.queuedSnap && snapped < 10) {
+              snapped += 1;
+            } else {
+              w.queuedSnap = false;
+              w.age += dtSafe;
+              kept.push(w);
+            }
+          }
+          state.wires = kept;
+          if (snapped > 0) {
+            setToast(`${snapped} wire${snapped > 1 ? "s" : ""} snapped`, 700);
+          }
+        }
+
+        const targetRes = clamp((state.sim.frameStressAccumulator / Math.max(1, state.wires.length)) * 0.7 + state.audio.bands.mid * 0.35 + state.audio.bands.high * 0.25, 0, 1);
+        state.sim.resonanceScore = lerp(state.sim.resonanceScore, targetRes, 0.1);
+
+        for (let i = 0; i < state.particles.length; i += 1) {
+          const p = state.particles[i];
+          if (!p.alive) {
+            continue;
+          }
+          p.life -= dtSafe;
+          if (p.life <= 0) {
+            p.alive = false;
+            continue;
+          }
+          p.x += p.vx * dtSafe;
+          p.y += p.vy * dtSafe;
+          p.vx *= 0.98;
+          p.vy = p.vy * 0.98 + 30 * dtSafe;
+        }
+      }
+
+      function drawGrid(offsetX, offsetY) {
+        const size = CONFIG.gridSize;
+        ctx.save();
+        ctx.fillStyle = COLORS.grid;
+        const startX = ((offsetX % size) + size) % size;
+        const startY = ((offsetY % size) + size) % size;
+        for (let y = startY; y < state.height; y += size) {
+          for (let x = startX; x < state.width; x += size) {
+            ctx.beginPath();
+            ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      function wireColorForStress(stress) {
+        const t = clamp(stress, 0, 1);
+        if (t < 0.3) {
+          return COLORS.wireRest;
+        }
+        if (t < 0.7) {
+          return mixColor(COLORS.wireRest, COLORS.wireMid, (t - 0.3) / 0.4);
+        }
+        return mixColor(COLORS.wireMid, COLORS.wireHot, (t - 0.7) / 0.3);
+      }
+
+      function drawWire(wire, amplitudeMul) {
+        const a = getNodeById(wire.a);
+        const b = getNodeById(wire.b);
+        if (!a || !b) {
+          return;
+        }
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+        const nx = dx / len;
+        const ny = dy / len;
+        const px = -ny;
+        const py = nx;
+
+        const waveAmp = Math.sin(wire.wavePhase) * amplitudeMul * len * 0.12;
+        const cx = (a.x + b.x) * 0.5 + px * waveAmp;
+        const cy = (a.y + b.y) * 0.5 + py * waveAmp;
+
+        const color = wireColorForStress(wire.displayStress);
+        let flash = 0;
+        if (wire.resonating) {
+          flash = 0.4 + 0.6 * Math.sin(performance.now() * 0.02 + wire.wavePhase);
+        }
+
+        const mult = 1 + amplitudeMul * 0.8;
+
+        const passes = state.liteMode
+          ? [
+              { w: 3 * mult, a: 0.45 },
+              { w: 1.2 * mult, a: 1.0 },
+            ]
+          : [
+              { w: 14 * mult, a: 0.04 },
+              { w: 7 * mult, a: 0.12 },
+              { w: 3 * mult, a: 0.55 },
+              { w: 1.2 * mult, a: 1.0 },
+            ];
+
+        for (let i = 0; i < passes.length; i += 1) {
+          const p = passes[i];
+          const alpha = clamp(p.a + flash * 0.08, 0, 1);
+          ctx.strokeStyle = rgba(color, alpha);
+          ctx.lineWidth = p.w;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+          ctx.stroke();
+        }
+
+        if (wire.displayStress > 0.95) {
+          ctx.strokeStyle = "rgba(255,255,255,0.7)";
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.quadraticCurveTo(cx, cy, b.x, b.y);
+          ctx.stroke();
+        }
+      }
+
+      function drawNode(node) {
+        const pulse = node.resonanceT > 0 ? (0.5 + 0.5 * Math.sin(node.resonanceHueT * 4)) : 0;
+
+        const baseRadius = node.pinned ? CONFIG.anchorSize : CONFIG.nodeRadius;
+        const spawnScale = node.spawnT < 1 ? Math.sin(node.spawnT * Math.PI * 0.5) : 1;
+        const hoverScale = 1 + node.hoverT * 0.4;
+        const resScale = 1 + node.resonanceT * 0.55;
+        const r = baseRadius * spawnScale * hoverScale * resScale;
+
+        let fill = node.pinned ? COLORS.pinnedNode : COLORS.freeNode;
+        let glow = node.pinned ? COLORS.pinnedNodeGlow : COLORS.freeNodeGlow;
+
+        if (node.resonanceT > 0.15) {
+          const t = 0.5 + 0.5 * Math.sin(node.resonanceHueT * 6);
+          const mix = mixColor([0, 255, 170], [255, 0, 170], t);
+          fill = `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
+          glow = `rgba(${mix[0]}, ${mix[1]}, ${mix[2]}, ${0.25 + 0.2 * pulse})`;
+        }
+
+        ctx.save();
+
+        if (node.pinned) {
+          const size = r;
+          ctx.fillStyle = glow;
+          ctx.fillRect(node.x - size - 6, node.y - size - 6, (size + 6) * 2, (size + 6) * 2);
+          ctx.fillStyle = fill;
+          ctx.fillRect(node.x - size, node.y - size, size * 2, size * 2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r + 6, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = fill;
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      function drawParticles() {
+        ctx.save();
+        for (let i = 0; i < state.particles.length; i += 1) {
+          const p = state.particles[i];
+          if (!p.alive) {
+            continue;
+          }
+          const lifeT = clamp(p.life / p.maxLife, 0, 1);
+          ctx.globalAlpha = lifeT;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * (0.6 + lifeT), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function drawGhost() {
+        if (!state.pointer.spawnGhost || !state.pointer.down) {
+          return;
+        }
+        const x = state.pointer.x;
+        const y = state.pointer.y;
+        const pulse = 0.5 + 0.5 * Math.sin(now() * 0.02);
+        const radius = CONFIG.nodeRadius * (1 + pulse * 0.2);
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(68,136,255,0.8)";
+        ctx.fillStyle = "rgba(68,136,255,0.12)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, radius + 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawDebugOverlay() {
+        if (!state.sim.debug) {
+          return;
+        }
+
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.font = "11px ui-monospace, monospace";
+
+        for (let i = 0; i < state.nodes.length; i += 1) {
+          const n = state.nodes[i];
+          const vx = (n.x - n.px) * 8;
+          const vy = (n.y - n.py) * 8;
+          ctx.strokeStyle = "rgba(255, 220, 60, 0.8)";
+          ctx.beginPath();
+          ctx.moveTo(n.x, n.y);
+          ctx.lineTo(n.x + vx, n.y + vy);
+          ctx.stroke();
+        }
+
+        for (let i = 0; i < state.wires.length; i += 1) {
+          const w = state.wires[i];
+          const a = getNodeById(w.a);
+          const b = getNodeById(w.b);
+          if (!a || !b) {
+            continue;
+          }
+          const mx = (a.x + b.x) * 0.5;
+          const my = (a.y + b.y) * 0.5;
+          const v = clamp(w.displayStress, 0, 1);
+          ctx.fillStyle = "rgba(255,255,255,0.13)";
+          ctx.fillRect(mx - 16, my - 22, 32, 4);
+          ctx.fillStyle = "rgba(255,80,80,0.88)";
+          ctx.fillRect(mx - 16, my - 22, 32 * v, 4);
+        }
+
+        const panelX = 12;
+        const panelY = 12;
+        const panelW = 212;
+        const panelH = 94;
+
+        ctx.fillStyle = "rgba(8,16,28,0.72)";
+        ctx.fillRect(panelX, panelY, panelW, panelH);
+        ctx.strokeStyle = "rgba(90,140,240,0.55)";
+        ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+        const b = state.audio.bands;
+        const lines = [
+          `SUB ${Math.round(b.sub * 100)}%`,
+          `BASS ${Math.round(b.bass * 100)}%`,
+          `MID ${Math.round(b.mid * 100)}%`,
+          `HIGH ${Math.round(b.high * 100)}%`,
+          `DOM ${Math.round(state.sim.dominantFreqHz)} Hz`,
+          `FPS ${Math.round(1000 / Math.max(1, state.avgDtMs))}`,
+        ];
+
+        ctx.fillStyle = "rgba(230,240,255,0.94)";
+        for (let i = 0; i < lines.length; i += 1) {
+          ctx.fillText(lines[i], panelX + 10, panelY + 16 + i * 13);
+        }
+
+        ctx.restore();
+      }
+
+      function render() {
+        const t = now();
+
+        let shakeX = 0;
+        let shakeY = 0;
+        if (t < state.ui.cameraShakeUntil) {
+          const left = (state.ui.cameraShakeUntil - t) / 500;
+          const amp = 4 * left;
+          shakeX = Math.sin(t * 0.06) * amp;
+          shakeY = Math.cos(t * 0.075) * amp;
+        }
+
+        ctx.save();
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+
+        ctx.fillStyle = COLORS.background;
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        ctx.translate(shakeX, shakeY);
+
+        drawGrid(shakeX, shakeY);
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        const amp = clamp(state.sim.globalAmplitude + state.audio.bands.mid * 0.35, 0, 1.4);
+        for (let i = 0; i < state.wires.length; i += 1) {
+          const w = state.wires[i];
+          if (state.liteMode && w.displayStress < 0.1) {
+            continue;
+          }
+          drawWire(w, amp);
+        }
+        ctx.restore();
+
+        drawParticles();
+
+        for (let i = 0; i < state.nodes.length; i += 1) {
+          drawNode(state.nodes[i]);
+        }
+
+        drawGhost();
+        drawDebugOverlay();
+
+        if (now() < state.ui.quakeFlashUntil) {
+          ctx.fillStyle = "rgba(255, 34, 68, 0.11)";
+          ctx.fillRect(0, 0, state.width, state.height);
+        }
+
+        ctx.restore();
+      }
+
+      function updateHud() {
+        counts.textContent = `Nodes ${state.nodes.length} · Wires ${state.wires.length}`;
+        modeLabel.textContent = state.sim.mode;
+
+        const micPct = Math.round(clamp(state.audio.smoothedLevel, 0, 1) * 100);
+        micText.textContent = `${micPct}%`;
+        micBar.style.width = `${micPct}%`;
+
+        const resPct = Math.round(clamp(state.sim.resonanceScore, 0, 1) * 100);
+        resText.textContent = `${resPct}%`;
+        resBar.style.width = `${resPct}%`;
+
+        if (state.sim.debug) {
+          statusLine.textContent = `DEBUG • Dominant ${Math.round(state.sim.dominantFreqHz)}Hz • Avg frame ${Math.round(state.avgDtMs)}ms`;
+        } else if (!state.audio.enabled) {
+          statusLine.textContent = "Click Mic to activate. Left-click places free node, right-click places anchor.";
+        } else if (state.audio.hasMic) {
+          statusLine.textContent = "Mic live. Build structures and find resonance lock points.";
+        } else {
+          statusLine.textContent = "Mic unavailable. Tone fallback is driving the simulation.";
+        }
+      }
+
+      function resize() {
+        state.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        canvas.style.width = `${state.width}px`;
+        canvas.style.height = `${state.height}px`;
+      }
+
+      let lastTs = performance.now();
+
+      function frame(ts) {
+        const dtMs = ts - lastTs;
+        lastTs = ts;
+
+        const dt = clamp(dtMs / 1000, 0.001, 0.033);
+
+        pushDt(dtMs);
+        updatePerformanceTier();
+
+        state.frame += 1;
+        state.sim.idlePhase += dt * 2;
+
+        updateAudio(dt, ts * 0.001);
+
+        const hoverIdx = findNodeAt(state.pointer.x, state.pointer.y, 24);
+        if (hoverIdx >= 0) {
+          const n = state.nodes[hoverIdx];
+          if (n) {
+            n.hoverT = clamp(n.hoverT + dt * 3.5, 0, 1);
+          }
+        }
+
+        updatePhysics(dt);
+        render();
+        updateHud();
+        updateToast();
+
+        requestAnimationFrame(frame);
+      }
+
+      function setupEvents() {
+        window.addEventListener("resize", resize);
+
+        canvas.addEventListener("pointerdown", handlePointerDown, { passive: false });
+        canvas.addEventListener("pointermove", handlePointerMove, { passive: false });
+        canvas.addEventListener("pointerup", releasePointer, { passive: false });
+        canvas.addEventListener("pointercancel", releasePointer, { passive: false });
+        canvas.addEventListener("contextmenu", handleContextMenu);
+
+        window.addEventListener("keydown", handleKeyDown);
+
+        micBtn.addEventListener("click", () => {
+          activateMic();
+        });
+
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            lastTs = performance.now();
+          }
+        });
+      }
+
+      function init() {
+        resize();
+        allocateParticles(200);
+        resetToHarpSeed();
+        setupEvents();
+        requestAnimationFrame(frame);
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
