@@ -592,11 +592,18 @@ export default function ClassroomZooPage() {
           }
 
           .print-card-controls,
-          .print-card-shell,
           nav,
           header,
           footer {
             display: none !important;
+          }
+
+          .print-card-shell {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
           }
         }
       `}</style>
