@@ -1,0 +1,2592 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ant Wars Arena</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --text: #e4e4ed;
+      --muted: #a2a2b6;
+      --panel: rgba(255, 255, 255, 0.06);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --red: #ff3344;
+      --red-dark: #cc1122;
+      --blue: #3388ff;
+      --blue-dark: #1144cc;
+      --food: #00ff99;
+      --warn: #ffd06b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      background: var(--bg);
+      color: var(--text);
+      overscroll-behavior: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle at 30% 20%, rgba(255, 60, 60, 0.08), transparent 35%),
+        radial-gradient(circle at 70% 80%, rgba(60, 120, 255, 0.08), transparent 35%),
+        var(--bg);
+    }
+
+    #viewport {
+      position: absolute;
+      inset: 0;
+      margin: 0 auto;
+      max-width: 900px;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #pheromoneCanvas {
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    #worldCanvas {
+      cursor: crosshair;
+    }
+
+    #hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      z-index: 8;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: center;
+      background: rgba(10, 10, 15, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 8px 10px;
+      backdrop-filter: blur(10px);
+    }
+
+    .scoreBlock {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .scoreLabel {
+      font-size: 0.66rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .scoreValue {
+      font-size: 1.08rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    #redScore {
+      color: var(--red);
+      text-align: left;
+    }
+
+    #blueScore {
+      color: var(--blue);
+      text-align: right;
+    }
+
+    #timer {
+      font-size: 1.12rem;
+      letter-spacing: 0.07em;
+      color: #ffffff;
+      text-align: center;
+      min-width: 92px;
+    }
+
+    #territoryTrack {
+      grid-column: 1 / 4;
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    #territoryRed,
+    #territoryBlue {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+    }
+
+    #territoryRed {
+      left: 0;
+      width: 50%;
+      background: linear-gradient(90deg, rgba(255, 51, 68, 0.7), rgba(255, 51, 68, 0.92));
+    }
+
+    #territoryBlue {
+      right: 0;
+      width: 50%;
+      background: linear-gradient(270deg, rgba(51, 136, 255, 0.7), rgba(51, 136, 255, 0.92));
+    }
+
+    #territoryMid {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 2px;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      opacity: 0.6;
+    }
+
+    #pauseToggle {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 10;
+      min-width: 46px;
+      min-height: 46px;
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      color: var(--text);
+      font-size: 1rem;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    #toolPanel {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      z-index: 9;
+      width: min(320px, calc(100vw - 24px));
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      background: rgba(10, 10, 15, 0.72);
+      backdrop-filter: blur(10px);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .panelRow {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .panelRow.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .toolBtn,
+    .casteBtn,
+    .actionBtn {
+      min-height: 48px;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    }
+
+    .toolBtn:focus-visible,
+    .casteBtn:focus-visible,
+    .actionBtn:focus-visible,
+    #pauseToggle:focus-visible,
+    #sameMapBtn:focus-visible,
+    #newRoundBtn:focus-visible,
+    #copySeedBtn:focus-visible {
+      outline: 2px solid #89e0ff;
+      outline-offset: 2px;
+    }
+
+    .toolBtn.active,
+    .casteBtn.active,
+    .actionBtn.active {
+      border-color: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+    }
+
+    #soldierBtn.active {
+      border-color: rgba(255, 51, 68, 0.8);
+      box-shadow: 0 0 12px rgba(255, 51, 68, 0.55);
+    }
+
+    #ffBtn.active {
+      border-color: rgba(255, 208, 107, 0.8);
+      box-shadow: 0 0 12px rgba(255, 208, 107, 0.5);
+      color: var(--warn);
+    }
+
+    #statusLine {
+      font-size: 0.68rem;
+      color: var(--muted);
+      min-height: 1.2em;
+      line-height: 1.3;
+    }
+
+    #hintBox {
+      position: absolute;
+      left: 14px;
+      bottom: 98px;
+      z-index: 10;
+      font-size: 0.7rem;
+      color: #d7d7e5;
+      background: rgba(10, 10, 15, 0.74);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 9px;
+      padding: 7px 10px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 220ms ease, transform 220ms ease;
+      pointer-events: none;
+      max-width: min(72vw, 280px);
+    }
+
+    #hintBox.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #toolPreview {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 255, 153, 0.9);
+      box-shadow: 0 0 10px rgba(0, 255, 153, 0.6);
+      pointer-events: none;
+      z-index: 10;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+    }
+
+    #seedBadge {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 9;
+      font-size: 0.7rem;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(10, 10, 15, 0.76);
+      padding: 6px 8px;
+      opacity: 0;
+      transform: translateY(5px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    #seedBadge.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #perfBadge {
+      position: absolute;
+      top: 74px;
+      right: 14px;
+      z-index: 9;
+      font-size: 0.64rem;
+      color: #9fffd2;
+      border: 1px solid rgba(159, 255, 210, 0.35);
+      border-radius: 999px;
+      padding: 4px 8px;
+      opacity: 0;
+      transition: opacity 180ms ease;
+      background: rgba(10, 10, 15, 0.7);
+    }
+
+    #perfBadge.visible {
+      opacity: 1;
+    }
+
+    #endOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 12;
+      background: rgba(0, 0, 0, 0.64);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      padding: 20px;
+    }
+
+    #endOverlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #endCard {
+      width: min(460px, 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(10, 10, 15, 0.9);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    #endTitle {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+
+    #statsGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 0.84rem;
+    }
+
+    .statCell {
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 8px;
+      line-height: 1.3;
+    }
+
+    .statLabel {
+      color: var(--muted);
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .statValue {
+      font-size: 1rem;
+      margin-top: 3px;
+    }
+
+    #seedRow {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 8px;
+      font-size: 0.85rem;
+    }
+
+    #seedValue {
+      overflow-wrap: anywhere;
+      color: #f4f4ff;
+    }
+
+    #copySeedBtn,
+    #sameMapBtn,
+    #newRoundBtn {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      font-family: inherit;
+      cursor: pointer;
+      font-size: 0.76rem;
+    }
+
+    #endActions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    #pausedOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 140ms ease;
+      background: rgba(0, 0, 0, 0.45);
+    }
+
+    #pausedOverlay.visible {
+      opacity: 1;
+    }
+
+    #pausedText {
+      font-size: clamp(2rem, 7vw, 2.5rem);
+      letter-spacing: 0.06em;
+      color: #f2f2ff;
+    }
+
+    #fallback {
+      position: absolute;
+      inset: 0;
+      display: none;
+      z-index: 20;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      color: #d7d7e5;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      background: #0a0a0f;
+    }
+
+    @media (max-width: 700px) {
+      #viewport {
+        max-width: none;
+      }
+
+      #hud {
+        top: 6px;
+        left: 6px;
+        right: 6px;
+      }
+
+      .scoreLabel {
+        font-size: 0.62rem;
+      }
+
+      .scoreValue {
+        font-size: 0.95rem;
+      }
+
+      #timer {
+        font-size: 1rem;
+      }
+
+      #toolPanel {
+        right: 6px;
+        bottom: 6px;
+        left: 6px;
+        width: auto;
+      }
+
+      #hintBox {
+        bottom: 118px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="viewport" aria-label="Ant Wars Arena viewport">
+      <canvas id="pheromoneCanvas" aria-hidden="true"></canvas>
+      <canvas id="worldCanvas" aria-label="Ant simulation canvas"></canvas>
+
+      <div id="hud">
+        <div class="scoreBlock">
+          <div class="scoreLabel">Red Colony</div>
+          <div id="redScore" class="scoreValue">0</div>
+        </div>
+        <div id="timer">05:00</div>
+        <div class="scoreBlock">
+          <div class="scoreLabel" style="text-align:right;">Blue Colony</div>
+          <div id="blueScore" class="scoreValue">0</div>
+        </div>
+        <div id="territoryTrack" aria-label="territory control bar">
+          <div id="territoryRed"></div>
+          <div id="territoryBlue"></div>
+          <div id="territoryMid"></div>
+        </div>
+      </div>
+
+      <button id="pauseToggle" type="button" aria-label="Pause simulation">⏸</button>
+
+      <div id="hintBox" aria-live="polite"></div>
+      <div id="toolPreview" aria-hidden="true"></div>
+      <div id="seedBadge" aria-live="polite"></div>
+      <div id="perfBadge" aria-live="polite">LITE MODE</div>
+
+      <div id="pausedOverlay" aria-hidden="true">
+        <div id="pausedText">PAUSED</div>
+      </div>
+
+      <div id="endOverlay" aria-hidden="true">
+        <div id="endCard">
+          <h2 id="endTitle">RED WINS</h2>
+          <div id="statsGrid">
+            <div class="statCell"><div class="statLabel">Territory</div><div id="territoryStat" class="statValue">50% / 50%</div></div>
+            <div class="statCell"><div class="statLabel">Food Collected</div><div id="foodStat" class="statValue">0 / 0</div></div>
+            <div class="statCell"><div class="statLabel">Kills</div><div id="killStat" class="statValue">0 / 0</div></div>
+            <div class="statCell"><div class="statLabel">Nest Result</div><div id="nestStat" class="statValue">Timer Expired</div></div>
+          </div>
+          <div id="seedRow">
+            <div id="seedValue">seed: 0</div>
+            <button id="copySeedBtn" type="button" aria-label="Copy seed">Copy</button>
+          </div>
+          <div id="endActions">
+            <button id="sameMapBtn" type="button" aria-label="Restart same map">Same Map (R)</button>
+            <button id="newRoundBtn" type="button" aria-label="Start new arena">New Arena (N)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toolPanel" aria-label="Ant war controls">
+      <div class="panelRow">
+        <button id="foodToolBtn" class="toolBtn active" type="button" aria-label="Food tool">Food Tool</button>
+        <button id="pherToolBtn" class="toolBtn" type="button" aria-label="Pheromone tool">Pheromone Tool</button>
+      </div>
+      <div class="panelRow">
+        <button id="workerBtn" class="casteBtn active" type="button" aria-label="Spawn workers">Workers (W)</button>
+        <button id="soldierBtn" class="casteBtn" type="button" aria-label="Spawn soldiers">Soldiers (S)</button>
+      </div>
+      <div class="panelRow three">
+        <button id="ffBtn" class="actionBtn" type="button" aria-label="Fast forward">2× (F)</button>
+        <button id="restartBtn" class="actionBtn" type="button" aria-label="Restart same seed">Same (R)</button>
+        <button id="newBtn" class="actionBtn" type="button" aria-label="New seed">New (N)</button>
+      </div>
+      <div id="statusLine">Left click: food · Right drag: pheromone · Space: pause</div>
+    </div>
+
+    <div id="fallback" aria-live="polite">Your browser doesn't support canvas. Try Chrome or Firefox.</div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const worldCanvas = document.getElementById('worldCanvas');
+      const pheromoneCanvas = document.getElementById('pheromoneCanvas');
+      const fallback = document.getElementById('fallback');
+
+      if (!worldCanvas.getContext || !pheromoneCanvas.getContext) {
+        fallback.style.display = 'flex';
+        return;
+      }
+
+      const wctx = worldCanvas.getContext('2d');
+      const pctx = pheromoneCanvas.getContext('2d');
+
+      if (!wctx || !pctx) {
+        fallback.style.display = 'flex';
+        return;
+      }
+
+      const ui = {
+        redScore: document.getElementById('redScore'),
+        blueScore: document.getElementById('blueScore'),
+        timer: document.getElementById('timer'),
+        territoryRed: document.getElementById('territoryRed'),
+        territoryBlue: document.getElementById('territoryBlue'),
+        pauseToggle: document.getElementById('pauseToggle'),
+        hintBox: document.getElementById('hintBox'),
+        toolPreview: document.getElementById('toolPreview'),
+        foodToolBtn: document.getElementById('foodToolBtn'),
+        pherToolBtn: document.getElementById('pherToolBtn'),
+        workerBtn: document.getElementById('workerBtn'),
+        soldierBtn: document.getElementById('soldierBtn'),
+        ffBtn: document.getElementById('ffBtn'),
+        restartBtn: document.getElementById('restartBtn'),
+        newBtn: document.getElementById('newBtn'),
+        statusLine: document.getElementById('statusLine'),
+        perfBadge: document.getElementById('perfBadge'),
+        pausedOverlay: document.getElementById('pausedOverlay'),
+        endOverlay: document.getElementById('endOverlay'),
+        endTitle: document.getElementById('endTitle'),
+        territoryStat: document.getElementById('territoryStat'),
+        foodStat: document.getElementById('foodStat'),
+        killStat: document.getElementById('killStat'),
+        nestStat: document.getElementById('nestStat'),
+        seedBadge: document.getElementById('seedBadge'),
+        seedValue: document.getElementById('seedValue'),
+        copySeedBtn: document.getElementById('copySeedBtn'),
+        sameMapBtn: document.getElementById('sameMapBtn'),
+        newRoundBtn: document.getElementById('newRoundBtn')
+      };
+
+      const GAME = {
+        width: 900,
+        height: 620,
+        roundSeconds: 300,
+        frame: 0,
+        elapsed: 0,
+        phase: 'active',
+        fastForward: false,
+        paused: false,
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        seed: 0,
+        endReason: 'Timer Expired',
+        territoryRed: 50,
+        dpr: 1,
+        viewportCssW: 1,
+        viewportCssH: 1,
+        viewportPxW: 1,
+        viewportPxH: 1,
+        fpsSamples: [],
+        liteMode: false,
+        halfResMode: false,
+        halfResStable: 0,
+        lastTs: 0,
+        aiTimer: 0,
+        territoryTimer: 0,
+        pheromoneTimer: 0,
+        tooltipStart: performance.now()
+      };
+
+      const COLORS = {
+        red: '#ff3344',
+        redSoldier: '#cc1122',
+        blue: '#3388ff',
+        blueSoldier: '#1144cc',
+        food: '#00ff99',
+        nestRock: '#1e1a1a',
+        nestEdge: '#2e2828',
+        text: '#e4e4ed'
+      };
+
+      const ANT_STATE = {
+        EXPLORING: 0,
+        FORAGING: 1,
+        RETURNING: 2,
+        FIGHTING: 3,
+        FLEEING: 4
+      };
+
+      const STATE_NAME = ['EXPLORING', 'FORAGING', 'RETURNING', 'FIGHTING', 'FLEEING'];
+
+      const WEIGHTS = {
+        EXPLORING: { seekFood: 0, seekNest: 0, fleeEnemy: 0, seekEnemy: 0, wander: 0.6, phero: 0.4, sep: 0.5 },
+        FORAGING: { seekFood: 1, seekNest: 0, fleeEnemy: 0.1, seekEnemy: 0, wander: 0, phero: 0.2, sep: 0.3 },
+        RETURNING: { seekFood: 0, seekNest: 1, fleeEnemy: 0.1, seekEnemy: 0, wander: 0, phero: 0, sep: 0.3 },
+        FIGHTING: { seekFood: 0, seekNest: 0.1, fleeEnemy: 0, seekEnemy: 1, wander: 0, phero: 0, sep: 0.2 },
+        FLEEING: { seekFood: 0, seekNest: 0.5, fleeEnemy: 1, seekEnemy: 0, wander: 0, phero: 0, sep: 0.4 }
+      };
+
+      const CASTE = {
+        worker: { speed: 2.4, hp: 20, damage: 1, range: 6, phero: 1.0, carry: true, cost: 10, size: 3.1 },
+        soldier: { speed: 1.5, hp: 50, damage: 4, range: 10, phero: 0.5, carry: false, cost: 30, size: 4.3 }
+      };
+
+      const TEAMS = [
+        {
+          id: 0,
+          name: 'Red',
+          color: COLORS.red,
+          soldierColor: COLORS.redSoldier,
+          nestX: 130,
+          nestY: 120,
+          food: 120,
+          foodCollected: 0,
+          kills: 0,
+          live: 0,
+          castePref: 'worker',
+          spawnCooldown: 0,
+          spawnCostDebt: 0,
+          soldierBurst: 0,
+          nestPressure: 0
+        },
+        {
+          id: 1,
+          name: 'Blue',
+          color: COLORS.blue,
+          soldierColor: COLORS.blueSoldier,
+          nestX: GAME.width - 130,
+          nestY: GAME.height - 120,
+          food: 120,
+          foodCollected: 0,
+          kills: 0,
+          live: 0,
+          castePref: 'worker',
+          spawnCooldown: 0,
+          spawnCostDebt: 0,
+          soldierBurst: 0,
+          nestPressure: 0
+        }
+      ];
+
+      const MAX_ANTS = 500;
+      const ants = [];
+      const foods = [];
+      const sparks = [];
+      const obstacles = [];
+
+      const spatial = {
+        cellSize: 24,
+        cols: 1,
+        rows: 1,
+        buckets: []
+      };
+
+      const pheromone = {
+        cellSize: 6,
+        cols: 1,
+        rows: 1,
+        data: new Float32Array(4),
+        next: new Float32Array(4),
+        highwayRed: new Uint8Array(1),
+        highwayBlue: new Uint8Array(1),
+        renderCanvas: null,
+        renderCtx: null,
+        imageData: null
+      };
+
+      const input = {
+        pointerX: 0,
+        pointerY: 0,
+        worldX: 0,
+        worldY: 0,
+        leftDown: false,
+        rightDown: false,
+        middleDown: false,
+        panning: false,
+        paintDrag: false,
+        tool: 'food',
+        lastPaintX: 0,
+        lastPaintY: 0,
+        touchMode: 'none',
+        touchPaintIdA: -1,
+        touchPaintIdB: -1,
+        twoTouchPanStartDist: 0,
+        panStartX: 0,
+        panStartY: 0,
+        panOriginX: 0,
+        panOriginY: 0,
+        prevMouseX: 0,
+        prevMouseY: 0
+      };
+
+      let rng = createRng(Date.now() >>> 0);
+      let foodId = 0;
+      let antSpawnCursor = 0;
+
+      function createRng(seed) {
+        let state = seed >>> 0;
+        return {
+          seed: seed >>> 0,
+          nextUint() {
+            state ^= state << 13;
+            state >>>= 0;
+            state ^= state >>> 17;
+            state >>>= 0;
+            state ^= state << 5;
+            state >>>= 0;
+            return state >>> 0;
+          },
+          next() {
+            return this.nextUint() / 4294967295;
+          },
+          range(min, max) {
+            return min + (max - min) * this.next();
+          },
+          int(min, max) {
+            return Math.floor(this.range(min, max + 1));
+          }
+        };
+      }
+
+      function setStatus(text) {
+        ui.statusLine.textContent = text;
+      }
+
+      function clamp(v, min, max) {
+        if (v < min) return min;
+        if (v > max) return max;
+        return v;
+      }
+
+      function dist2(ax, ay, bx, by) {
+        const dx = ax - bx;
+        const dy = ay - by;
+        return dx * dx + dy * dy;
+      }
+
+      function dist(ax, ay, bx, by) {
+        return Math.sqrt(dist2(ax, ay, bx, by));
+      }
+
+      function initPools() {
+        ants.length = 0;
+        for (let i = 0; i < MAX_ANTS; i += 1) {
+          ants.push({
+            id: i,
+            active: false,
+            team: 0,
+            caste: 'worker',
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            hp: 0,
+            hpMax: 0,
+            state: ANT_STATE.EXPLORING,
+            stateClock: 0,
+            carrying: false,
+            targetFood: -1,
+            lastEnemySeen: 999,
+            lastEnemyClose: 999,
+            lastHit: 999,
+            wanderTheta: 0,
+            aliveClock: 0,
+            cooldown: 0
+          });
+        }
+      }
+
+      function resetCollections() {
+        foods.length = 0;
+        sparks.length = 0;
+        obstacles.length = 0;
+        for (let i = 0; i < ants.length; i += 1) {
+          ants[i].active = false;
+        }
+        antSpawnCursor = 0;
+      }
+
+      function configureSpatial() {
+        spatial.cols = Math.ceil(GAME.width / spatial.cellSize);
+        spatial.rows = Math.ceil(GAME.height / spatial.cellSize);
+        const needed = spatial.cols * spatial.rows;
+        spatial.buckets = new Array(needed);
+        for (let i = 0; i < needed; i += 1) {
+          spatial.buckets[i] = [];
+        }
+      }
+
+      function configurePheromone() {
+        pheromone.cols = Math.ceil(GAME.width / pheromone.cellSize);
+        pheromone.rows = Math.ceil(GAME.height / pheromone.cellSize);
+        const len = pheromone.cols * pheromone.rows * 4;
+        pheromone.data = new Float32Array(len);
+        pheromone.next = new Float32Array(len);
+        pheromone.highwayRed = new Uint8Array(pheromone.cols * pheromone.rows);
+        pheromone.highwayBlue = new Uint8Array(pheromone.cols * pheromone.rows);
+
+        if (typeof OffscreenCanvas !== 'undefined') {
+          pheromone.renderCanvas = new OffscreenCanvas(pheromone.cols, pheromone.rows);
+        } else {
+          pheromone.renderCanvas = document.createElement('canvas');
+          pheromone.renderCanvas.width = pheromone.cols;
+          pheromone.renderCanvas.height = pheromone.rows;
+        }
+
+        pheromone.renderCtx = pheromone.renderCanvas.getContext('2d');
+        if (!pheromone.renderCtx) {
+          pheromone.renderCtx = pctx;
+        }
+
+        if (pheromone.renderCtx && pheromone.renderCtx.createImageData) {
+          pheromone.imageData = pheromone.renderCtx.createImageData(pheromone.cols, pheromone.rows);
+        }
+      }
+
+      function clearPheromones() {
+        pheromone.data.fill(0);
+        pheromone.next.fill(0);
+        pheromone.highwayRed.fill(0);
+        pheromone.highwayBlue.fill(0);
+      }
+
+      function makeObstacles() {
+        obstacles.length = 0;
+
+        const count = 7;
+        for (let i = 0; i < count; i += 1) {
+          const angle = (Math.PI * 2 * i) / count + rng.range(-0.35, 0.35);
+          const radius = rng.range(120, 260);
+          const cx = GAME.width * 0.5 + Math.cos(angle) * radius + rng.range(-40, 40);
+          const cy = GAME.height * 0.5 + Math.sin(angle) * radius * 0.68 + rng.range(-30, 30);
+          const r = rng.range(34, 56);
+          const points = [];
+          const segments = rng.int(7, 10);
+
+          for (let p = 0; p < segments; p += 1) {
+            const t = (Math.PI * 2 * p) / segments;
+            const rr = r * rng.range(0.68, 1.14);
+            points.push({ x: cx + Math.cos(t) * rr, y: cy + Math.sin(t) * rr });
+          }
+
+          if (dist(cx, cy, TEAMS[0].nestX, TEAMS[0].nestY) < 110 || dist(cx, cy, TEAMS[1].nestX, TEAMS[1].nestY) < 110) {
+            continue;
+          }
+
+          obstacles.push({ cx, cy, r, points });
+        }
+      }
+
+      function spawnAnt(teamId, caste, x, y) {
+        const colony = TEAMS[teamId];
+        let ant = null;
+
+        for (let i = 0; i < MAX_ANTS; i += 1) {
+          antSpawnCursor = (antSpawnCursor + 1) % MAX_ANTS;
+          if (!ants[antSpawnCursor].active) {
+            ant = ants[antSpawnCursor];
+            break;
+          }
+        }
+
+        if (!ant) {
+          return null;
+        }
+
+        const cfg = CASTE[caste];
+        ant.active = true;
+        ant.team = teamId;
+        ant.caste = caste;
+        ant.x = x;
+        ant.y = y;
+        ant.vx = rng.range(-0.8, 0.8);
+        ant.vy = rng.range(-0.8, 0.8);
+        ant.hp = cfg.hp;
+        ant.hpMax = cfg.hp;
+        ant.state = ANT_STATE.EXPLORING;
+        ant.stateClock = 0;
+        ant.carrying = false;
+        ant.targetFood = -1;
+        ant.lastEnemySeen = 99;
+        ant.lastEnemyClose = 99;
+        ant.lastHit = 99;
+        ant.wanderTheta = rng.range(0, Math.PI * 2);
+        ant.aliveClock = 0;
+        ant.cooldown = 0;
+        colony.live += 1;
+        return ant;
+      }
+
+      function killAnt(ant, killerTeamId) {
+        if (!ant.active) {
+          return;
+        }
+
+        const colony = TEAMS[ant.team];
+        colony.live = Math.max(0, colony.live - 1);
+        if (killerTeamId >= 0) {
+          TEAMS[killerTeamId].kills += 1;
+        }
+
+        spawnFood(ant.x, ant.y, 14);
+        spawnSparkBurst(ant.x, ant.y);
+        ant.active = false;
+      }
+
+      function spawnSparkBurst(x, y) {
+        for (let i = 0; i < 6; i += 1) {
+          const a = (Math.PI * 2 * i) / 6 + rng.range(-0.2, 0.2);
+          const s = rng.range(34, 70);
+          sparks.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            life: 0.4,
+            maxLife: 0.4
+          });
+        }
+      }
+
+      function spawnFood(x, y, amount) {
+        foods.push({ id: foodId++, x, y, amount });
+      }
+
+      function spawnFoodBurst(x, y, pellets, amount) {
+        for (let i = 0; i < pellets; i += 1) {
+          const a = rng.range(0, Math.PI * 2);
+          const r = rng.range(2, 10);
+          spawnFood(x + Math.cos(a) * r, y + Math.sin(a) * r, amount);
+        }
+      }
+
+      function dropFoodAt(x, y, byTeamId) {
+        const jitter = 10;
+        spawnFoodBurst(x, y, 3, 20);
+        if (byTeamId === 0) {
+          setStatus('Food dropped. Nearby workers are converging.');
+        }
+        pulseFoodEffect(x, y, jitter);
+      }
+
+      const pulseBursts = [];
+
+      function pulseFoodEffect(x, y) {
+        pulseBursts.push({ x, y, t: 0, life: 0.3 });
+      }
+
+      function buildInitialColonies() {
+        TEAMS[0].food = 120;
+        TEAMS[1].food = 120;
+        TEAMS[0].foodCollected = 0;
+        TEAMS[1].foodCollected = 0;
+        TEAMS[0].kills = 0;
+        TEAMS[1].kills = 0;
+        TEAMS[0].live = 0;
+        TEAMS[1].live = 0;
+        TEAMS[0].spawnCooldown = 0;
+        TEAMS[1].spawnCooldown = 0;
+        TEAMS[0].castePref = 'worker';
+        TEAMS[1].castePref = 'worker';
+        TEAMS[0].soldierBurst = 0;
+        TEAMS[1].soldierBurst = 0;
+        TEAMS[0].nestPressure = 0;
+        TEAMS[1].nestPressure = 0;
+
+        for (let i = 0; i < 30; i += 1) {
+          const ar = rng.range(0, Math.PI * 2);
+          const rr = rng.range(10, 36);
+          spawnAnt(0, 'worker', TEAMS[0].nestX + Math.cos(ar) * rr, TEAMS[0].nestY + Math.sin(ar) * rr);
+          const ab = rng.range(0, Math.PI * 2);
+          const rb = rng.range(10, 36);
+          spawnAnt(1, 'worker', TEAMS[1].nestX + Math.cos(ab) * rb, TEAMS[1].nestY + Math.sin(ab) * rb);
+        }
+      }
+
+      function setupRound(seedValue, keepMap) {
+        GAME.seed = seedValue >>> 0;
+        rng = createRng(GAME.seed);
+
+        GAME.frame = 0;
+        GAME.elapsed = 0;
+        GAME.phase = 'active';
+        GAME.endReason = 'Timer Expired';
+        GAME.fastForward = false;
+        GAME.paused = false;
+        GAME.aiTimer = 0;
+        GAME.territoryTimer = 0;
+        GAME.pheromoneTimer = 0;
+        GAME.territoryRed = 50;
+        GAME.tooltipStart = performance.now();
+        ui.endOverlay.classList.remove('visible');
+        ui.endOverlay.setAttribute('aria-hidden', 'true');
+        ui.seedBadge.classList.remove('visible');
+
+        if (!keepMap) {
+          resetCollections();
+          makeObstacles();
+        } else {
+          foods.length = 0;
+          sparks.length = 0;
+          for (let i = 0; i < ants.length; i += 1) {
+            ants[i].active = false;
+          }
+        }
+
+        clearPheromones();
+        buildInitialColonies();
+
+        ui.pauseToggle.textContent = '⏸';
+        ui.pauseToggle.setAttribute('aria-label', 'Pause simulation');
+        ui.ffBtn.classList.remove('active');
+
+        setCastePreference('worker');
+        updateHud(true);
+        showHintSequence();
+      }
+
+      function showHintSequence() {
+        const messages = [
+          '[Left Click] Drop food',
+          '[Right Drag] Paint pheromone highways',
+          '[S] Spawn soldiers'
+        ];
+
+        ui.hintBox.classList.add('visible');
+        ui.hintBox.textContent = messages[0];
+
+        setTimeout(function () {
+          if (GAME.phase !== 'active') return;
+          ui.hintBox.textContent = messages[1];
+        }, 2000);
+
+        setTimeout(function () {
+          if (GAME.phase !== 'active') return;
+          ui.hintBox.textContent = messages[2];
+        }, 4000);
+
+        setTimeout(function () {
+          ui.hintBox.classList.remove('visible');
+        }, 6000);
+      }
+
+      function setTool(toolName) {
+        input.tool = toolName;
+        ui.foodToolBtn.classList.toggle('active', toolName === 'food');
+        ui.pherToolBtn.classList.toggle('active', toolName === 'pheromone');
+
+        if (toolName === 'food') {
+          ui.toolPreview.style.borderColor = 'rgba(0,255,153,0.85)';
+          ui.toolPreview.style.boxShadow = '0 0 10px rgba(0,255,153,0.6)';
+          ui.toolPreview.style.width = '16px';
+          ui.toolPreview.style.height = '16px';
+        } else {
+          ui.toolPreview.style.borderColor = 'rgba(255,60,60,0.9)';
+          ui.toolPreview.style.boxShadow = '0 0 12px rgba(255,60,60,0.6)';
+          ui.toolPreview.style.width = '30px';
+          ui.toolPreview.style.height = '30px';
+        }
+      }
+
+      function setCastePreference(caste) {
+        TEAMS[0].castePref = caste;
+        ui.workerBtn.classList.toggle('active', caste === 'worker');
+        ui.soldierBtn.classList.toggle('active', caste === 'soldier');
+      }
+
+      function togglePause(forceState) {
+        if (GAME.phase === 'ended') {
+          return;
+        }
+
+        if (typeof forceState === 'boolean') {
+          GAME.paused = forceState;
+        } else {
+          GAME.paused = !GAME.paused;
+        }
+
+        ui.pauseToggle.textContent = GAME.paused ? '▶' : '⏸';
+        ui.pauseToggle.setAttribute('aria-label', GAME.paused ? 'Resume simulation' : 'Pause simulation');
+        ui.pausedOverlay.classList.toggle('visible', GAME.paused);
+      }
+
+      function toggleFastForward() {
+        GAME.fastForward = !GAME.fastForward;
+        ui.ffBtn.classList.toggle('active', GAME.fastForward);
+        setStatus(GAME.fastForward ? 'Fast-forward enabled (2×).' : 'Fast-forward disabled.');
+      }
+
+      function screenToWorld(clientX, clientY) {
+        const rect = worldCanvas.getBoundingClientRect();
+        const sx = clientX - rect.left;
+        const sy = clientY - rect.top;
+
+        const vx = sx / rect.width * GAME.viewportCssW;
+        const vy = sy / rect.height * GAME.viewportCssH;
+
+        const wx = (vx - GAME.viewportCssW * 0.5) / GAME.zoom + GAME.width * 0.5 + GAME.panX;
+        const wy = (vy - GAME.viewportCssH * 0.5) / GAME.zoom + GAME.height * 0.5 + GAME.panY;
+
+        return { x: wx, y: wy, sx: vx, sy: vy };
+      }
+
+      function worldToScreen(x, y) {
+        const sx = (x - GAME.width * 0.5 - GAME.panX) * GAME.zoom + GAME.viewportCssW * 0.5;
+        const sy = (y - GAME.height * 0.5 - GAME.panY) * GAME.zoom + GAME.viewportCssH * 0.5;
+        return { x: sx, y: sy };
+      }
+
+      function updatePreview(clientX, clientY) {
+        const rect = worldCanvas.getBoundingClientRect();
+        ui.toolPreview.style.left = (clientX - rect.left) + 'px';
+        ui.toolPreview.style.top = (clientY - rect.top) + 'px';
+        ui.toolPreview.style.opacity = '1';
+      }
+
+      function hidePreview() {
+        ui.toolPreview.style.opacity = '0';
+      }
+
+      function handleWheel(event) {
+        event.preventDefault();
+        const oldZoom = GAME.zoom;
+        const delta = event.deltaY < 0 ? 1.1 : 0.9;
+        GAME.zoom = clamp(GAME.zoom * delta, 1, 2.5);
+
+        const before = screenToWorld(event.clientX, event.clientY);
+        const after = screenToWorld(event.clientX, event.clientY);
+
+        GAME.panX += before.x - after.x;
+        GAME.panY += before.y - after.y;
+
+        if (Math.abs(GAME.zoom - oldZoom) > 0.01) {
+          setStatus('Zoom ' + GAME.zoom.toFixed(2) + '×');
+        }
+      }
+
+      function beginPaintPath(x, y) {
+        input.paintDrag = true;
+        input.lastPaintX = x;
+        input.lastPaintY = y;
+        paintLinePheromone(0, x, y, x, y, true);
+      }
+
+      function continuePaintPath(x, y) {
+        if (!input.paintDrag) {
+          return;
+        }
+
+        paintLinePheromone(0, input.lastPaintX, input.lastPaintY, x, y, true);
+        input.lastPaintX = x;
+        input.lastPaintY = y;
+      }
+
+      function endPaintPath() {
+        input.paintDrag = false;
+      }
+
+      function addPheromoneAt(teamId, channelOffset, x, y, value, highway) {
+        const gx = Math.floor(clamp(x / pheromone.cellSize, 0, pheromone.cols - 1));
+        const gy = Math.floor(clamp(y / pheromone.cellSize, 0, pheromone.rows - 1));
+        const idx = gy * pheromone.cols + gx;
+        const base = idx * 4;
+        const channel = teamId === 0 ? channelOffset : channelOffset + 2;
+
+        pheromone.data[base + channel] = Math.max(pheromone.data[base + channel], value);
+
+        if (highway) {
+          if (teamId === 0 && channelOffset === 0) {
+            pheromone.highwayRed[idx] = 255;
+          }
+          if (teamId === 1 && channelOffset === 0) {
+            pheromone.highwayBlue[idx] = 255;
+          }
+        }
+      }
+
+      function paintLinePheromone(teamId, x0, y0, x1, y1, highway) {
+        const dx = x1 - x0;
+        const dy = y1 - y0;
+        const length = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+        const steps = Math.ceil(length / 8);
+
+        for (let i = 0; i <= steps; i += 1) {
+          const t = steps === 0 ? 0 : i / steps;
+          const px = x0 + dx * t;
+          const py = y0 + dy * t;
+          addPheromoneAt(teamId, 0, px, py, 255, highway);
+        }
+      }
+
+      function paintHighwayBetween(teamId, sx, sy, ex, ey) {
+        paintLinePheromone(teamId, sx, sy, ex, ey, true);
+      }
+
+      function updateSpatialGrid() {
+        const buckets = spatial.buckets;
+        for (let i = 0; i < buckets.length; i += 1) {
+          buckets[i].length = 0;
+        }
+
+        for (let i = 0; i < ants.length; i += 1) {
+          const ant = ants[i];
+          if (!ant.active) continue;
+          const cx = clamp(Math.floor(ant.x / spatial.cellSize), 0, spatial.cols - 1);
+          const cy = clamp(Math.floor(ant.y / spatial.cellSize), 0, spatial.rows - 1);
+          const bi = cy * spatial.cols + cx;
+          buckets[bi].push(ant.id);
+        }
+      }
+
+      function gatherNearby(ant, radius, filterTeam) {
+        const results = [];
+        const cx = clamp(Math.floor(ant.x / spatial.cellSize), 0, spatial.cols - 1);
+        const cy = clamp(Math.floor(ant.y / spatial.cellSize), 0, spatial.rows - 1);
+        const span = Math.ceil(radius / spatial.cellSize);
+        const r2 = radius * radius;
+
+        for (let y = cy - span; y <= cy + span; y += 1) {
+          if (y < 0 || y >= spatial.rows) continue;
+          for (let x = cx - span; x <= cx + span; x += 1) {
+            if (x < 0 || x >= spatial.cols) continue;
+            const list = spatial.buckets[y * spatial.cols + x];
+            for (let i = 0; i < list.length; i += 1) {
+              const other = ants[list[i]];
+              if (!other.active || other.id === ant.id) continue;
+              if (filterTeam >= 0 && other.team !== filterTeam) continue;
+              const d2 = dist2(ant.x, ant.y, other.x, other.y);
+              if (d2 <= r2) {
+                results.push(other);
+              }
+            }
+          }
+        }
+
+        return results;
+      }
+
+      function nearestFood(ant, maxDist) {
+        let best = null;
+        let bestD2 = maxDist * maxDist;
+        for (let i = 0; i < foods.length; i += 1) {
+          const f = foods[i];
+          if (f.amount <= 0) continue;
+          const d2 = dist2(ant.x, ant.y, f.x, f.y);
+          if (d2 < bestD2) {
+            bestD2 = d2;
+            best = f;
+          }
+        }
+        return best;
+      }
+
+      function samplePhero(teamId, channelOffset, x, y) {
+        const gx = clamp(Math.floor(x / pheromone.cellSize), 0, pheromone.cols - 1);
+        const gy = clamp(Math.floor(y / pheromone.cellSize), 0, pheromone.rows - 1);
+        const idx = (gy * pheromone.cols + gx) * 4;
+        const channel = teamId === 0 ? channelOffset : channelOffset + 2;
+        return pheromone.data[idx + channel];
+      }
+
+      function pheroGradient(teamId, channelOffset, x, y) {
+        const c = samplePhero(teamId, channelOffset, x, y);
+        const l = samplePhero(teamId, channelOffset, x - pheromone.cellSize, y);
+        const r = samplePhero(teamId, channelOffset, x + pheromone.cellSize, y);
+        const u = samplePhero(teamId, channelOffset, x, y - pheromone.cellSize);
+        const d = samplePhero(teamId, channelOffset, x, y + pheromone.cellSize);
+        return {
+          x: (r - l) * 0.5,
+          y: (d - u) * 0.5,
+          c
+        };
+      }
+
+      function setAntState(ant, newState) {
+        if (ant.state !== newState) {
+          ant.state = newState;
+          ant.stateClock = 0;
+        }
+      }
+
+      function applyObstacleCollision(ant) {
+        for (let i = 0; i < obstacles.length; i += 1) {
+          const ob = obstacles[i];
+          const dx = ant.x - ob.cx;
+          const dy = ant.y - ob.cy;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < ob.r + 3) {
+            const nx = d > 0.0001 ? dx / d : 1;
+            const ny = d > 0.0001 ? dy / d : 0;
+            const push = ob.r + 3 - d;
+            ant.x += nx * push;
+            ant.y += ny * push;
+            ant.vx += nx * 0.4;
+            ant.vy += ny * 0.4;
+          }
+        }
+      }
+
+      function updateAntStateMachine(ant, nearEnemies, nearAllies, nearFood) {
+        const colony = TEAMS[ant.team];
+        const enemyCount = nearEnemies.length;
+        const allyCount = nearAllies.length;
+        const isSoldier = ant.caste === 'soldier';
+
+        if (ant.state === ANT_STATE.EXPLORING) {
+          if (nearFood && !ant.carrying) {
+            setAntState(ant, ANT_STATE.FORAGING);
+          }
+
+          if (enemyCount > 0) {
+            const nearestEnemy = nearEnemies[0];
+            const close = dist(ant.x, ant.y, nearestEnemy.x, nearestEnemy.y);
+            if (close < 40 && (isSoldier || allyCount >= enemyCount * 2)) {
+              setAntState(ant, ANT_STATE.FIGHTING);
+            }
+          }
+        } else if (ant.state === ANT_STATE.FORAGING) {
+          if (ant.carrying) {
+            setAntState(ant, ANT_STATE.RETURNING);
+          }
+
+          if (enemyCount > 0 && isSoldier) {
+            const nearestEnemy = nearEnemies[0];
+            if (dist(ant.x, ant.y, nearestEnemy.x, nearestEnemy.y) < 12) {
+              setAntState(ant, ANT_STATE.FIGHTING);
+            }
+          }
+        } else if (ant.state === ANT_STATE.RETURNING) {
+          if (dist(ant.x, ant.y, colony.nestX, colony.nestY) < 20) {
+            ant.carrying = false;
+            colony.food += 8;
+            colony.foodCollected += 8;
+            setAntState(ant, ANT_STATE.EXPLORING);
+          }
+
+          if (enemyCount > 0 && isSoldier) {
+            const nearestEnemy = nearEnemies[0];
+            if (dist(ant.x, ant.y, nearestEnemy.x, nearestEnemy.y) < 12) {
+              setAntState(ant, ANT_STATE.FIGHTING);
+            }
+          }
+        } else if (ant.state === ANT_STATE.FIGHTING) {
+          if (ant.hp < ant.hpMax * 0.2) {
+            setAntState(ant, ANT_STATE.FLEEING);
+          }
+
+          if (enemyCount === 0 && ant.stateClock > 1.5) {
+            setAntState(ant, ANT_STATE.EXPLORING);
+          }
+        } else if (ant.state === ANT_STATE.FLEEING) {
+          if (enemyCount === 0 && ant.stateClock > 2.0) {
+            setAntState(ant, ANT_STATE.EXPLORING);
+          }
+        }
+      }
+
+      function steeringForce(ant, nearEnemies, nearAllies, targetFood) {
+        const key = STATE_NAME[ant.state];
+        const weights = WEIGHTS[key];
+        const colony = TEAMS[ant.team];
+
+        let fx = 0;
+        let fy = 0;
+
+        if (weights.wander > 0) {
+          ant.wanderTheta += rng.range(-0.4, 0.4);
+          fx += Math.cos(ant.wanderTheta) * weights.wander;
+          fy += Math.sin(ant.wanderTheta) * weights.wander;
+        }
+
+        if (weights.seekFood > 0 && targetFood) {
+          const dx = targetFood.x - ant.x;
+          const dy = targetFood.y - ant.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
+          fx += (dx / d) * weights.seekFood;
+          fy += (dy / d) * weights.seekFood;
+        }
+
+        if (weights.seekNest > 0) {
+          const dx = colony.nestX - ant.x;
+          const dy = colony.nestY - ant.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
+          fx += (dx / d) * weights.seekNest;
+          fy += (dy / d) * weights.seekNest;
+        }
+
+        if (weights.seekEnemy > 0 && nearEnemies.length > 0) {
+          const target = nearEnemies[0];
+          const dx = target.x - ant.x;
+          const dy = target.y - ant.y;
+          const d = Math.sqrt(dx * dx + dy * dy) || 1;
+          fx += (dx / d) * weights.seekEnemy;
+          fy += (dy / d) * weights.seekEnemy;
+        }
+
+        if (weights.fleeEnemy > 0 && nearEnemies.length > 0) {
+          let ex = 0;
+          let ey = 0;
+          for (let i = 0; i < nearEnemies.length; i += 1) {
+            const e = nearEnemies[i];
+            const dx = ant.x - e.x;
+            const dy = ant.y - e.y;
+            const d2 = dx * dx + dy * dy + 0.01;
+            ex += dx / d2;
+            ey += dy / d2;
+          }
+          const d = Math.sqrt(ex * ex + ey * ey) || 1;
+          fx += (ex / d) * weights.fleeEnemy;
+          fy += (ey / d) * weights.fleeEnemy;
+        }
+
+        if (weights.sep > 0 && nearAllies.length > 0) {
+          let sx = 0;
+          let sy = 0;
+          for (let i = 0; i < nearAllies.length; i += 1) {
+            const ally = nearAllies[i];
+            const dx = ant.x - ally.x;
+            const dy = ant.y - ally.y;
+            const d2 = dx * dx + dy * dy + 0.01;
+            sx += dx / d2;
+            sy += dy / d2;
+          }
+          const d = Math.sqrt(sx * sx + sy * sy) || 1;
+          fx += (sx / d) * weights.sep;
+          fy += (sy / d) * weights.sep;
+        }
+
+        if (weights.phero > 0) {
+          const gradFood = pheroGradient(ant.team, 0, ant.x, ant.y);
+          const gradDanger = pheroGradient(ant.team, 1, ant.x, ant.y);
+          const pStrength = ant.caste === 'soldier' ? CASTE.soldier.phero : CASTE.worker.phero;
+          fx += gradFood.x * weights.phero * 0.025 * pStrength;
+          fy += gradFood.y * weights.phero * 0.025 * pStrength;
+          fx -= gradDanger.x * 0.008;
+          fy -= gradDanger.y * 0.008;
+        }
+
+        return { x: fx, y: fy };
+      }
+
+      function applyCombat(ant, nearEnemies, dt) {
+        const cfg = CASTE[ant.caste];
+        for (let i = 0; i < nearEnemies.length; i += 1) {
+          const enemy = nearEnemies[i];
+          const dx = enemy.x - ant.x;
+          const dy = enemy.y - ant.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+
+          if (d < cfg.range) {
+            const antDamage = cfg.damage + (ant.caste === 'soldier' ? 1 : 0);
+            const enemyCfg = CASTE[enemy.caste];
+            enemy.hp -= antDamage * dt * 60;
+            enemy.lastHit = 0;
+
+            const nx = d > 0.0001 ? dx / d : 1;
+            const ny = d > 0.0001 ? dy / d : 0;
+            const impulse = 0.8;
+            ant.vx -= nx * impulse;
+            ant.vy -= ny * impulse;
+            enemy.vx += nx * impulse;
+            enemy.vy += ny * impulse;
+
+            if (enemy.hp <= 0) {
+              killAnt(enemy, ant.team);
+            }
+
+            if (ant.hp <= 0) {
+              killAnt(ant, enemy.team);
+              return;
+            }
+
+            if (enemyCfg && enemyCfg.damage > 0 && rng.next() < 0.3 * dt * 60) {
+              ant.hp -= enemyCfg.damage * 0.2;
+            }
+          }
+        }
+      }
+
+      function updateAnts(dt) {
+        updateSpatialGrid();
+
+        for (let i = 0; i < ants.length; i += 1) {
+          const ant = ants[i];
+          if (!ant.active) continue;
+
+          ant.aliveClock += dt;
+          ant.stateClock += dt;
+          ant.lastEnemySeen += dt;
+          ant.lastEnemyClose += dt;
+          ant.lastHit += dt;
+          ant.cooldown = Math.max(0, ant.cooldown - dt);
+
+          const nearEnemies = gatherNearby(ant, 70, 1 - ant.team);
+          const nearAllies = gatherNearby(ant, 24, ant.team);
+
+          nearEnemies.sort(function (a, b) {
+            return dist2(ant.x, ant.y, a.x, a.y) - dist2(ant.x, ant.y, b.x, b.y);
+          });
+
+          if (nearEnemies.length > 0) {
+            ant.lastEnemySeen = 0;
+            if (dist(ant.x, ant.y, nearEnemies[0].x, nearEnemies[0].y) < 12) {
+              ant.lastEnemyClose = 0;
+            }
+          }
+
+          const targetFood = nearestFood(ant, 80);
+          updateAntStateMachine(ant, nearEnemies, nearAllies, targetFood);
+
+          if (ant.state === ANT_STATE.FORAGING && targetFood && CASTE[ant.caste].carry) {
+            if (dist(ant.x, ant.y, targetFood.x, targetFood.y) < 6) {
+              targetFood.amount -= 8;
+              ant.carrying = true;
+              ant.targetFood = targetFood.id;
+              setAntState(ant, ANT_STATE.RETURNING);
+            }
+          }
+
+          const force = steeringForce(ant, nearEnemies, nearAllies, targetFood);
+          const cfg = CASTE[ant.caste];
+
+          ant.vx += force.x * dt * 24;
+          ant.vy += force.y * dt * 24;
+
+          const speed = Math.sqrt(ant.vx * ant.vx + ant.vy * ant.vy) || 1;
+          const maxSpeed = cfg.speed;
+          if (speed > maxSpeed) {
+            ant.vx = (ant.vx / speed) * maxSpeed;
+            ant.vy = (ant.vy / speed) * maxSpeed;
+          }
+
+          ant.x += ant.vx * dt * 60;
+          ant.y += ant.vy * dt * 60;
+
+          if (ant.x < 0 || ant.x > GAME.width) {
+            ant.vx *= -0.7;
+            ant.x = clamp(ant.x, 0, GAME.width);
+          }
+
+          if (ant.y < 0 || ant.y > GAME.height) {
+            ant.vy *= -0.7;
+            ant.y = clamp(ant.y, 0, GAME.height);
+          }
+
+          applyObstacleCollision(ant);
+
+          if (ant.state === ANT_STATE.RETURNING) {
+            addPheromoneAt(ant.team, 0, ant.x, ant.y, 180, false);
+          }
+
+          if (ant.state === ANT_STATE.FIGHTING || ant.state === ANT_STATE.FLEEING) {
+            addPheromoneAt(ant.team, 1, ant.x, ant.y, 200, false);
+          }
+
+          if (ant.state === ANT_STATE.FIGHTING || ant.caste === 'soldier') {
+            applyCombat(ant, nearEnemies, dt);
+            if (!ant.active) continue;
+          }
+        }
+      }
+
+      function updateFoods() {
+        for (let i = foods.length - 1; i >= 0; i -= 1) {
+          const f = foods[i];
+          if (f.amount <= 0) {
+            foods.splice(i, 1);
+          }
+        }
+      }
+
+      function updateSparks(dt) {
+        for (let i = sparks.length - 1; i >= 0; i -= 1) {
+          const s = sparks[i];
+          s.life -= dt;
+          s.x += s.vx * dt;
+          s.y += s.vy * dt;
+          s.vx *= 0.95;
+          s.vy *= 0.95;
+          if (s.life <= 0) {
+            sparks.splice(i, 1);
+          }
+        }
+
+        for (let i = pulseBursts.length - 1; i >= 0; i -= 1) {
+          const p = pulseBursts[i];
+          p.t += dt;
+          if (p.t >= p.life) {
+            pulseBursts.splice(i, 1);
+          }
+        }
+      }
+
+      function updateColonies(dt) {
+        for (let teamId = 0; teamId < TEAMS.length; teamId += 1) {
+          const colony = TEAMS[teamId];
+          colony.spawnCooldown -= dt;
+
+          if (colony.spawnCooldown <= 0) {
+            let desired = colony.castePref;
+            if (colony.soldierBurst > 0) {
+              desired = 'soldier';
+              colony.soldierBurst -= 1;
+            }
+
+            const cost = CASTE[desired].cost;
+            const maxColonyAnts = GAME.liteMode ? 150 : 250;
+
+            if (colony.food >= cost && colony.live < maxColonyAnts) {
+              colony.food -= cost;
+              const a = rng.range(0, Math.PI * 2);
+              const r = rng.range(10, 26);
+              const nx = colony.nestX + Math.cos(a) * r;
+              const ny = colony.nestY + Math.sin(a) * r;
+              spawnAnt(teamId, desired, nx, ny);
+            }
+
+            colony.spawnCooldown = desired === 'soldier' ? 1.9 : 1.2;
+          }
+
+          const enemyTeam = TEAMS[1 - teamId];
+          let soldiersNearNest = 0;
+
+          for (let i = 0; i < ants.length; i += 1) {
+            const ant = ants[i];
+            if (!ant.active) continue;
+            if (ant.team !== enemyTeam.id) continue;
+            if (ant.caste !== 'soldier') continue;
+            if (dist(ant.x, ant.y, colony.nestX, colony.nestY) < 30) {
+              soldiersNearNest += 1;
+            }
+          }
+
+          if (soldiersNearNest >= 5) {
+            colony.nestPressure += dt;
+          } else {
+            colony.nestPressure = Math.max(0, colony.nestPressure - dt * 0.6);
+          }
+
+          if (colony.nestPressure >= 3 && GAME.phase === 'active') {
+            GAME.endReason = colony.name + ' nest captured';
+            finishRound(enemyTeam.id);
+          }
+        }
+      }
+
+      function aiDecision() {
+        const red = TEAMS[0];
+        const blue = TEAMS[1];
+        const ratio = blue.food / Math.max(red.food, 1);
+        const killLead = blue.kills - red.kills;
+
+        if (ratio < 0.6 || killLead < -5) {
+          const p = randomSafePoint(blue.nestX, blue.nestY, 120, 200);
+          dropFoodAt(p.x, p.y, 1);
+          blue.castePref = 'worker';
+        } else if (ratio > 1.4 && killLead > 3) {
+          const mid = pointToward(blue.nestX, blue.nestY, red.nestX, red.nestY, 0.6);
+          dropFoodAt(mid.x, mid.y, 1);
+          paintHighwayBetween(1, blue.nestX, blue.nestY, mid.x, mid.y);
+          blue.castePref = 'soldier';
+          blue.soldierBurst = 5;
+        } else {
+          const centerX = GAME.width * 0.5 + rng.range(-80, 80);
+          const centerY = GAME.height * 0.5 + rng.range(-80, 80);
+          dropFoodAt(centerX, centerY, 1);
+          paintHighwayBetween(1, blue.nestX, blue.nestY, centerX, centerY);
+          blue.castePref = 'worker';
+        }
+      }
+
+      function randomSafePoint(originX, originY, minR, maxR) {
+        for (let i = 0; i < 12; i += 1) {
+          const a = rng.range(0, Math.PI * 2);
+          const r = rng.range(minR, maxR);
+          const x = clamp(originX + Math.cos(a) * r, 40, GAME.width - 40);
+          const y = clamp(originY + Math.sin(a) * r, 40, GAME.height - 40);
+          let closeEnemy = false;
+          for (let j = 0; j < ants.length; j += 1) {
+            const ant = ants[j];
+            if (!ant.active || ant.team !== 0) continue;
+            if (dist(ant.x, ant.y, x, y) < 80) {
+              closeEnemy = true;
+              break;
+            }
+          }
+          if (!closeEnemy) {
+            return { x, y };
+          }
+        }
+        return { x: originX, y: originY };
+      }
+
+      function pointToward(ax, ay, bx, by, t) {
+        return {
+          x: ax + (bx - ax) * t,
+          y: ay + (by - ay) * t
+        };
+      }
+
+      function updatePheromone(dt) {
+        GAME.pheromoneTimer += dt;
+        if (GAME.pheromoneTimer < 1 / 20) {
+          return;
+        }
+        GAME.pheromoneTimer = 0;
+
+        const cols = pheromone.cols;
+        const rows = pheromone.rows;
+        const src = pheromone.data;
+        const dst = pheromone.next;
+        const hRed = pheromone.highwayRed;
+        const hBlue = pheromone.highwayBlue;
+
+        for (let y = 0; y < rows; y += 1) {
+          const yN = y > 0 ? y - 1 : rows - 1;
+          const yS = y < rows - 1 ? y + 1 : 0;
+          for (let x = 0; x < cols; x += 1) {
+            const xW = x > 0 ? x - 1 : cols - 1;
+            const xE = x < cols - 1 ? x + 1 : 0;
+
+            const i = y * cols + x;
+            const idx = i * 4;
+
+            const idxN = (yN * cols + x) * 4;
+            const idxS = (yS * cols + x) * 4;
+            const idxW = (y * cols + xW) * 4;
+            const idxE = (y * cols + xE) * 4;
+
+            for (let ch = 0; ch < 4; ch += 1) {
+              const oldVal = src[idx + ch];
+              const avg = (src[idxN + ch] + src[idxS + ch] + src[idxW + ch] + src[idxE + ch]) * 0.25;
+              let decay = 0.992;
+              if (ch === 0 && hRed[i] > 0) decay = 0.998;
+              if (ch === 2 && hBlue[i] > 0) decay = 0.998;
+              const nextVal = clamp(oldVal * decay + avg * 0.25, 0, 255);
+              dst[idx + ch] = nextVal;
+            }
+
+            if (hRed[i] > 0) {
+              hRed[i] = Math.max(0, hRed[i] - 1);
+            }
+            if (hBlue[i] > 0) {
+              hBlue[i] = Math.max(0, hBlue[i] - 1);
+            }
+          }
+        }
+
+        pheromone.data = dst;
+        pheromone.next = src;
+      }
+
+      function updateTerritory(dt) {
+        GAME.territoryTimer += dt;
+        if (GAME.territoryTimer < 1) {
+          return;
+        }
+
+        GAME.territoryTimer = 0;
+
+        let red = 0;
+        let blue = 0;
+        const cols = pheromone.cols;
+        const rows = pheromone.rows;
+
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < cols; x += 1) {
+            const idx = (y * cols + x) * 4;
+            const r = pheromone.data[idx] + pheromone.data[idx + 1];
+            const b = pheromone.data[idx + 2] + pheromone.data[idx + 3];
+            if (r > b) {
+              red += 1;
+            } else if (b > r) {
+              blue += 1;
+            }
+          }
+        }
+
+        const total = red + blue;
+        if (total > 0) {
+          GAME.territoryRed = (red / total) * 100;
+        }
+      }
+
+      function finishRound(winnerTeamId) {
+        GAME.phase = 'ended';
+        GAME.paused = true;
+        GAME.fastForward = false;
+        ui.ffBtn.classList.remove('active');
+        ui.pausedOverlay.classList.remove('visible');
+
+        const red = TEAMS[0];
+        const blue = TEAMS[1];
+
+        const title = winnerTeamId === 0 ? 'RED WINS' : 'BLUE WINS';
+        ui.endTitle.textContent = title;
+        ui.endTitle.style.color = winnerTeamId === 0 ? COLORS.red : COLORS.blue;
+
+        const redTerr = Math.round(GAME.territoryRed);
+        const blueTerr = Math.max(0, 100 - redTerr);
+        ui.territoryStat.textContent = redTerr + '% / ' + blueTerr + '%';
+        ui.foodStat.textContent = Math.round(red.foodCollected) + ' / ' + Math.round(blue.foodCollected);
+        ui.killStat.textContent = red.kills + ' / ' + blue.kills;
+        ui.nestStat.textContent = GAME.endReason;
+
+        ui.seedValue.textContent = 'seed: ' + GAME.seed;
+        ui.seedBadge.textContent = 'Replay seed: ' + GAME.seed;
+        ui.seedBadge.classList.add('visible');
+
+        ui.endOverlay.classList.add('visible');
+        ui.endOverlay.setAttribute('aria-hidden', 'false');
+      }
+
+      function updateRoundClock(dt) {
+        if (GAME.phase !== 'active') {
+          return;
+        }
+
+        GAME.elapsed += dt;
+
+        if (GAME.elapsed >= GAME.roundSeconds) {
+          GAME.elapsed = GAME.roundSeconds;
+          const redControl = GAME.territoryRed;
+          const winner = redControl >= 50 ? 0 : 1;
+          GAME.endReason = 'Timer Expired';
+          finishRound(winner);
+        }
+      }
+
+      function updatePerformance(dtMs) {
+        GAME.fpsSamples.push(dtMs);
+        if (GAME.fpsSamples.length > 60) {
+          GAME.fpsSamples.shift();
+        }
+
+        const sum = GAME.fpsSamples.reduce(function (acc, n) { return acc + n; }, 0);
+        const avg = sum / Math.max(1, GAME.fpsSamples.length);
+
+        if (avg > 33) {
+          GAME.liteMode = true;
+          ui.perfBadge.classList.add('visible');
+          ui.perfBadge.textContent = 'LITE MODE';
+        } else if (avg < 25) {
+          GAME.liteMode = false;
+          ui.perfBadge.classList.remove('visible');
+        }
+
+        if (avg > 50) {
+          GAME.halfResMode = true;
+          GAME.halfResStable = 0;
+          ui.perfBadge.classList.add('visible');
+          ui.perfBadge.textContent = 'HALF-RES MODE';
+        } else if (avg < 30 && GAME.halfResMode) {
+          GAME.halfResStable += 1;
+          if (GAME.halfResStable > 120) {
+            GAME.halfResMode = false;
+            ui.perfBadge.textContent = 'LITE MODE';
+            resizeCanvases();
+          }
+        }
+      }
+
+      function updateHud(force) {
+        const red = TEAMS[0];
+        const blue = TEAMS[1];
+
+        ui.redScore.textContent = red.live + ' ants · ' + red.kills + ' K';
+        ui.blueScore.textContent = blue.live + ' ants · ' + blue.kills + ' K';
+
+        const left = Math.max(0, GAME.roundSeconds - GAME.elapsed);
+        const m = Math.floor(left / 60);
+        const s = Math.floor(left % 60);
+        ui.timer.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+
+        const redPct = clamp(GAME.territoryRed, 0, 100);
+        const bluePct = 100 - redPct;
+        ui.territoryRed.style.width = redPct + '%';
+        ui.territoryBlue.style.width = bluePct + '%';
+
+        if (force) {
+          ui.workerBtn.classList.toggle('active', TEAMS[0].castePref === 'worker');
+          ui.soldierBtn.classList.toggle('active', TEAMS[0].castePref === 'soldier');
+        }
+      }
+
+      function renderPheromoneLayer() {
+        if (!pheromone.imageData || !pheromone.renderCtx) {
+          return;
+        }
+
+        const img = pheromone.imageData.data;
+        const cols = pheromone.cols;
+        const rows = pheromone.rows;
+        const src = pheromone.data;
+
+        let ptr = 0;
+        for (let y = 0; y < rows; y += 1) {
+          for (let x = 0; x < cols; x += 1) {
+            const idx = (y * cols + x) * 4;
+            const redFood = src[idx];
+            const redDanger = src[idx + 1];
+            const blueFood = src[idx + 2];
+            const blueDanger = src[idx + 3];
+
+            const r = clamp(redFood * 0.95 + redDanger * 0.45, 0, 255);
+            const b = clamp(blueFood * 0.95 + blueDanger * 0.45, 0, 255);
+            const g = clamp(Math.max(redDanger, blueDanger) * 0.14, 0, 70);
+            const a = clamp(Math.max(r, b) * 0.45, 0, 180);
+
+            img[ptr] = r;
+            img[ptr + 1] = g;
+            img[ptr + 2] = b;
+            img[ptr + 3] = a;
+            ptr += 4;
+          }
+        }
+
+        pheromone.renderCtx.putImageData(pheromone.imageData, 0, 0);
+
+        pctx.save();
+        pctx.setTransform(1, 0, 0, 1, 0, 0);
+        pctx.clearRect(0, 0, GAME.viewportCssW, GAME.viewportCssH);
+        pctx.globalCompositeOperation = GAME.liteMode ? 'source-over' : 'lighter';
+
+        applyWorldTransform(pctx);
+        pctx.imageSmoothingEnabled = true;
+        pctx.drawImage(pheromone.renderCanvas, 0, 0, GAME.width, GAME.height);
+        pctx.restore();
+      }
+
+      function applyWorldTransform(ctx) {
+        ctx.translate(GAME.viewportCssW * 0.5, GAME.viewportCssH * 0.5);
+        ctx.scale(GAME.zoom, GAME.zoom);
+        ctx.translate(-GAME.width * 0.5 - GAME.panX, -GAME.height * 0.5 - GAME.panY);
+      }
+
+      function drawNests(ctx, t) {
+        for (let i = 0; i < TEAMS.length; i += 1) {
+          const colony = TEAMS[i];
+          const pulse = 0.8 + Math.sin(t * 2 + i) * 0.2;
+          const alpha = 0.35 * pulse;
+          const color = colony.id === 0 ? '255,51,68' : '51,136,255';
+
+          for (let ring = 0; ring < 3; ring += 1) {
+            const r = 18 + ring * 14 + pulse * 2;
+            ctx.beginPath();
+            for (let k = 0; k < 6; k += 1) {
+              const ang = (Math.PI * 2 * k) / 6 + Math.PI / 6;
+              const px = colony.nestX + Math.cos(ang) * r;
+              const py = colony.nestY + Math.sin(ang) * r;
+              if (k === 0) {
+                ctx.moveTo(px, py);
+              } else {
+                ctx.lineTo(px, py);
+              }
+            }
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(' + color + ',' + (alpha - ring * 0.07) + ')';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+          }
+        }
+      }
+
+      function drawObstacles(ctx) {
+        for (let i = 0; i < obstacles.length; i += 1) {
+          const ob = obstacles[i];
+          ctx.beginPath();
+          for (let p = 0; p < ob.points.length; p += 1) {
+            const cur = ob.points[p];
+            const next = ob.points[(p + 1) % ob.points.length];
+            const mx = (cur.x + next.x) * 0.5;
+            const my = (cur.y + next.y) * 0.5;
+            if (p === 0) ctx.moveTo(mx, my);
+            ctx.quadraticCurveTo(cur.x, cur.y, mx, my);
+          }
+          ctx.closePath();
+          ctx.fillStyle = COLORS.nestRock;
+          ctx.fill();
+          ctx.strokeStyle = COLORS.nestEdge;
+          ctx.lineWidth = 1.3;
+          ctx.stroke();
+        }
+      }
+
+      function drawFoods(ctx) {
+        for (let i = 0; i < foods.length; i += 1) {
+          const f = foods[i];
+          const glow = ctx.createRadialGradient(f.x, f.y, 1, f.x, f.y, 12);
+          glow.addColorStop(0, 'rgba(0,255,153,0.9)');
+          glow.addColorStop(1, 'rgba(0,255,153,0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, 12, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = COLORS.food;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        for (let i = 0; i < pulseBursts.length; i += 1) {
+          const p = pulseBursts[i];
+          const t = p.t / p.life;
+          const r = 20 * t;
+          const alpha = clamp(1 - t, 0, 1);
+          wctx.beginPath();
+          wctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          wctx.strokeStyle = 'rgba(0,255,153,' + alpha.toFixed(3) + ')';
+          wctx.lineWidth = 1.5;
+          wctx.stroke();
+        }
+      }
+
+      function drawAnt(ctx, ant) {
+        const speed = Math.sqrt(ant.vx * ant.vx + ant.vy * ant.vy);
+        let angle = Math.atan2(ant.vy, ant.vx);
+        if (speed < 0.01) angle = ant.wanderTheta;
+
+        const cfg = CASTE[ant.caste];
+        const color = ant.team === 0 ? (ant.caste === 'soldier' ? COLORS.redSoldier : COLORS.red) : (ant.caste === 'soldier' ? COLORS.blueSoldier : COLORS.blue);
+
+        ctx.save();
+        ctx.translate(ant.x, ant.y);
+        ctx.rotate(angle);
+
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(-1, 0, cfg.size * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(-2, -cfg.size * 0.7);
+        ctx.lineTo(cfg.size * 2.1, 0);
+        ctx.lineTo(-2, cfg.size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+
+        if (ant.carrying) {
+          ctx.fillStyle = COLORS.food;
+          ctx.beginPath();
+          ctx.arc(cfg.size * 2.3, 0, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (ant.hp < ant.hpMax * 0.5) {
+          const hpPct = ant.hp / ant.hpMax;
+          ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(-cfg.size * 1.4, -cfg.size - 2);
+          ctx.lineTo(-cfg.size * 1.4 + cfg.size * 2.8 * hpPct, -cfg.size - 2);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function drawSparks(ctx) {
+        for (let i = 0; i < sparks.length; i += 1) {
+          const s = sparks[i];
+          const a = clamp(s.life / s.maxLife, 0, 1);
+          ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+          ctx.fillRect(s.x, s.y, 2, 2);
+        }
+      }
+
+      function drawArenaGrain(ctx) {
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, GAME.width, GAME.height);
+
+        const g = ctx.createLinearGradient(0, 0, GAME.width, GAME.height);
+        g.addColorStop(0, 'rgba(255,60,60,0.03)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0.015)');
+        g.addColorStop(1, 'rgba(60,120,255,0.03)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, GAME.width, GAME.height);
+
+        ctx.globalAlpha = 0.08;
+        for (let i = 0; i < 160; i += 1) {
+          const x = (i * 53 + GAME.frame * 0.7) % GAME.width;
+          const y = (i * 97 + GAME.frame * 0.45) % GAME.height;
+          ctx.fillStyle = i % 2 === 0 ? '#121018' : '#0f0d14';
+          ctx.fillRect(x, y, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function renderWorldLayer(ts) {
+        wctx.save();
+        wctx.setTransform(1, 0, 0, 1, 0, 0);
+        wctx.clearRect(0, 0, GAME.viewportCssW, GAME.viewportCssH);
+
+        applyWorldTransform(wctx);
+
+        drawArenaGrain(wctx);
+        drawObstacles(wctx);
+        drawNests(wctx, ts * 0.001);
+        drawFoods(wctx);
+
+        for (let i = 0; i < ants.length; i += 1) {
+          if (ants[i].active) {
+            drawAnt(wctx, ants[i]);
+          }
+        }
+
+        drawSparks(wctx);
+
+        wctx.restore();
+      }
+
+      function resizeCanvases() {
+        const rect = worldCanvas.getBoundingClientRect();
+        GAME.viewportCssW = rect.width;
+        GAME.viewportCssH = rect.height;
+
+        GAME.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const scale = GAME.halfResMode ? 0.5 : 1;
+
+        GAME.viewportPxW = Math.max(1, Math.floor(rect.width * GAME.dpr * scale));
+        GAME.viewportPxH = Math.max(1, Math.floor(rect.height * GAME.dpr * scale));
+
+        worldCanvas.width = GAME.viewportPxW;
+        worldCanvas.height = GAME.viewportPxH;
+        pheromoneCanvas.width = GAME.viewportPxW;
+        pheromoneCanvas.height = GAME.viewportPxH;
+
+        wctx.setTransform((GAME.viewportPxW / GAME.viewportCssW), 0, 0, (GAME.viewportPxH / GAME.viewportCssH), 0, 0);
+        pctx.setTransform((GAME.viewportPxW / GAME.viewportCssW), 0, 0, (GAME.viewportPxH / GAME.viewportCssH), 0, 0);
+      }
+
+      function handleInputPointerDown(event) {
+        if (event.button === 2) {
+          event.preventDefault();
+        }
+
+        const pos = screenToWorld(event.clientX, event.clientY);
+        input.pointerX = event.clientX;
+        input.pointerY = event.clientY;
+        input.worldX = pos.x;
+        input.worldY = pos.y;
+
+        if (event.button === 0) {
+          input.leftDown = true;
+          if (input.tool === 'food') {
+            dropFoodAt(pos.x, pos.y, 0);
+          } else {
+            beginPaintPath(pos.x, pos.y);
+          }
+        } else if (event.button === 2) {
+          input.rightDown = true;
+          beginPaintPath(pos.x, pos.y);
+        } else if (event.button === 1) {
+          input.middleDown = true;
+          input.panning = true;
+          input.panStartX = event.clientX;
+          input.panStartY = event.clientY;
+          input.panOriginX = GAME.panX;
+          input.panOriginY = GAME.panY;
+        }
+      }
+
+      function handleInputPointerMove(event) {
+        const pos = screenToWorld(event.clientX, event.clientY);
+        input.pointerX = event.clientX;
+        input.pointerY = event.clientY;
+        input.worldX = pos.x;
+        input.worldY = pos.y;
+
+        updatePreview(event.clientX, event.clientY);
+
+        if (input.rightDown || (input.leftDown && input.tool === 'pheromone')) {
+          continuePaintPath(pos.x, pos.y);
+        }
+
+        if (input.panning) {
+          const dx = (event.clientX - input.panStartX) / GAME.zoom;
+          const dy = (event.clientY - input.panStartY) / GAME.zoom;
+          GAME.panX = input.panOriginX - dx;
+          GAME.panY = input.panOriginY - dy;
+        }
+      }
+
+      function handleInputPointerUp(event) {
+        if (event.button === 0) {
+          input.leftDown = false;
+          if (input.tool === 'pheromone') {
+            endPaintPath();
+          }
+        }
+
+        if (event.button === 2) {
+          input.rightDown = false;
+          endPaintPath();
+        }
+
+        if (event.button === 1) {
+          input.middleDown = false;
+          input.panning = false;
+        }
+      }
+
+      function touchDistance(a, b) {
+        const dx = a.clientX - b.clientX;
+        const dy = a.clientY - b.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function touchMidpoint(a, b) {
+        return {
+          x: (a.clientX + b.clientX) * 0.5,
+          y: (a.clientY + b.clientY) * 0.5
+        };
+      }
+
+      function handleTouchStart(event) {
+        if (event.touches.length === 1) {
+          input.touchMode = 'single';
+          const t = event.touches[0];
+          updatePreview(t.clientX, t.clientY);
+
+          const pos = screenToWorld(t.clientX, t.clientY);
+          if (input.tool === 'food') {
+            dropFoodAt(pos.x, pos.y, 0);
+          } else {
+            beginPaintPath(pos.x, pos.y);
+          }
+        } else if (event.touches.length === 2) {
+          event.preventDefault();
+          input.touchMode = 'double';
+          const a = event.touches[0];
+          const b = event.touches[1];
+          input.touchPaintIdA = a.identifier;
+          input.touchPaintIdB = b.identifier;
+          input.twoTouchPanStartDist = touchDistance(a, b);
+
+          const mid = touchMidpoint(a, b);
+          const pos = screenToWorld(mid.x, mid.y);
+          beginPaintPath(pos.x, pos.y);
+        }
+      }
+
+      function handleTouchMove(event) {
+        if (event.touches.length === 1 && input.touchMode === 'single') {
+          const t = event.touches[0];
+          updatePreview(t.clientX, t.clientY);
+
+          if (input.tool === 'pheromone') {
+            const pos = screenToWorld(t.clientX, t.clientY);
+            continuePaintPath(pos.x, pos.y);
+            event.preventDefault();
+          }
+        } else if (event.touches.length === 2) {
+          event.preventDefault();
+          const a = event.touches[0];
+          const b = event.touches[1];
+
+          const mid = touchMidpoint(a, b);
+          const pos = screenToWorld(mid.x, mid.y);
+          continuePaintPath(pos.x, pos.y);
+
+          const d = touchDistance(a, b);
+          const ratio = d / Math.max(1, input.twoTouchPanStartDist);
+          GAME.zoom = clamp(GAME.zoom * ratio, 1, 2.5);
+          input.twoTouchPanStartDist = d;
+        }
+      }
+
+      function handleTouchEnd(event) {
+        if (event.touches.length === 0) {
+          input.touchMode = 'none';
+          endPaintPath();
+          hidePreview();
+        }
+      }
+
+      function bindEvents() {
+        worldCanvas.addEventListener('contextmenu', function (event) {
+          event.preventDefault();
+        });
+
+        worldCanvas.addEventListener('pointerdown', handleInputPointerDown);
+        worldCanvas.addEventListener('pointermove', handleInputPointerMove);
+        window.addEventListener('pointerup', handleInputPointerUp);
+        worldCanvas.addEventListener('pointerleave', hidePreview);
+
+        worldCanvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        worldCanvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        worldCanvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        worldCanvas.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+        worldCanvas.addEventListener('wheel', handleWheel, { passive: false });
+
+        window.addEventListener('resize', function () {
+          resizeCanvases();
+        });
+
+        document.addEventListener('keydown', function (event) {
+          const key = event.key.toLowerCase();
+
+          if (key === ' ') {
+            event.preventDefault();
+            togglePause();
+            return;
+          }
+
+          if (key === 'f') {
+            toggleFastForward();
+            return;
+          }
+
+          if (key === 's') {
+            setCastePreference('soldier');
+            return;
+          }
+
+          if (key === 'w') {
+            setCastePreference('worker');
+            return;
+          }
+
+          if (key === 'r' && GAME.phase === 'ended') {
+            setupRound(GAME.seed, true);
+            return;
+          }
+
+          if (key === 'n' && GAME.phase === 'ended') {
+            setupRound(Date.now() >>> 0, false);
+          }
+        });
+
+        ui.pauseToggle.addEventListener('click', function () {
+          togglePause();
+        });
+
+        ui.foodToolBtn.addEventListener('click', function () {
+          setTool('food');
+        });
+
+        ui.pherToolBtn.addEventListener('click', function () {
+          setTool('pheromone');
+        });
+
+        ui.workerBtn.addEventListener('click', function () {
+          setCastePreference('worker');
+        });
+
+        ui.soldierBtn.addEventListener('click', function () {
+          if (TEAMS[0].food < CASTE.soldier.cost) {
+            ui.soldierBtn.animate(
+              [
+                { transform: 'translateX(0px)', background: 'rgba(255,255,255,0.05)' },
+                { transform: 'translateX(-3px)', background: 'rgba(255,51,68,0.25)' },
+                { transform: 'translateX(3px)', background: 'rgba(255,51,68,0.25)' },
+                { transform: 'translateX(0px)', background: 'rgba(255,255,255,0.05)' }
+              ],
+              { duration: 260, easing: 'ease-out' }
+            );
+            setStatus('Need more food for soldiers.');
+            return;
+          }
+          setCastePreference('soldier');
+        });
+
+        ui.ffBtn.addEventListener('click', function () {
+          toggleFastForward();
+        });
+
+        ui.restartBtn.addEventListener('click', function () {
+          if (GAME.phase === 'ended') {
+            setupRound(GAME.seed, true);
+          } else {
+            setStatus('Round restart is available after the timer ends.');
+          }
+        });
+
+        ui.newBtn.addEventListener('click', function () {
+          if (GAME.phase === 'ended') {
+            setupRound(Date.now() >>> 0, false);
+          } else {
+            setStatus('New arena is available after round end.');
+          }
+        });
+
+        ui.copySeedBtn.addEventListener('click', function () {
+          const text = String(GAME.seed);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              setStatus('Seed copied to clipboard.');
+            }).catch(function () {
+              setStatus('Could not copy seed.');
+            });
+          } else {
+            setStatus('Clipboard unavailable in this browser.');
+          }
+        });
+
+        ui.sameMapBtn.addEventListener('click', function () {
+          setupRound(GAME.seed, true);
+        });
+
+        ui.newRoundBtn.addEventListener('click', function () {
+          setupRound(Date.now() >>> 0, false);
+        });
+      }
+
+      function update(ts) {
+        if (!GAME.lastTs) {
+          GAME.lastTs = ts;
+        }
+
+        const rawDt = Math.min((ts - GAME.lastTs) / 1000, 0.033);
+        GAME.lastTs = ts;
+        updatePerformance(rawDt * 1000);
+
+        const speedMul = GAME.fastForward ? 2 : 1;
+        const dt = rawDt * speedMul;
+
+        if (GAME.phase === 'active' && !GAME.paused) {
+          GAME.frame += 1;
+          updateRoundClock(dt);
+          updateAnts(dt);
+          updateFoods();
+          updateColonies(dt);
+          updateSparks(dt);
+
+          GAME.aiTimer += dt;
+          if (GAME.aiTimer >= 15) {
+            GAME.aiTimer = 0;
+            aiDecision();
+          }
+        } else {
+          updateSparks(rawDt);
+        }
+
+        updatePheromone(rawDt);
+        updateTerritory(rawDt);
+        updateHud(false);
+      }
+
+      function render(ts) {
+        renderPheromoneLayer();
+        renderWorldLayer(ts);
+      }
+
+      function loop(ts) {
+        update(ts);
+        render(ts);
+        requestAnimationFrame(loop);
+      }
+
+      function primeScene() {
+        for (let i = 0; i < 14; i += 1) {
+          const x = rng.range(GAME.width * 0.3, GAME.width * 0.7);
+          const y = rng.range(GAME.height * 0.3, GAME.height * 0.7);
+          spawnFood(x, y, rng.range(18, 32));
+        }
+
+        for (let i = 0; i < 500; i += 1) {
+          updatePheromone(1 / 20);
+        }
+      }
+
+      function boot() {
+        initPools();
+        configureSpatial();
+        configurePheromone();
+        bindEvents();
+        resizeCanvases();
+
+        setTool('food');
+        setCastePreference('worker');
+
+        setupRound(Date.now() >>> 0, false);
+        primeScene();
+
+        setStatus('Drop food to lure workers. Paint red highways with right-drag.');
+        requestAnimationFrame(loop);
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
