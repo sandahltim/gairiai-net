@@ -151,6 +151,18 @@ export default function ClassroomZooPage() {
     setListError('');
   }
 
+  function useDemoClass() {
+    const demoList = [...DEMO_NAMES];
+    setNames(demoList);
+    setDoneNames([]);
+    setWinner(null);
+    setPreviewName('');
+    setShowPrintCard(false);
+    setEditorText(demoList.join('\n'));
+    setListError('');
+    setEditing(false);
+  }
+
   function clearClassList() {
     setNames([]);
     setDoneNames([]);
@@ -331,7 +343,14 @@ export default function ClassroomZooPage() {
                   onClick={loadDemoClass}
                   className="inline-flex items-center justify-center rounded-xl border border-zinc-700 hover:border-zinc-500 text-zinc-300 hover:text-white px-3 py-2 text-xs"
                 >
-                  Load demo class
+                  Load demo names
+                </button>
+                <button
+                  type="button"
+                  onClick={useDemoClass}
+                  className="inline-flex items-center justify-center rounded-xl border border-cyan-500/60 bg-cyan-500/10 hover:border-cyan-400 text-cyan-100 hover:text-white px-3 py-2 text-xs"
+                >
+                  Use demo class now
                 </button>
               </div>
               <button
@@ -422,6 +441,19 @@ export default function ClassroomZooPage() {
               </button>
             </div>
           </div>
+
+          {names.length === 0 && (
+            <div className="mb-4 rounded-xl border border-cyan-500/40 bg-cyan-950/20 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs sm:text-sm text-cyan-100">Need a quick demo? Load a sample class instantly.</p>
+              <button
+                type="button"
+                onClick={useDemoClass}
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/60 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:border-cyan-300 hover:text-white"
+              >
+                Use demo class
+              </button>
+            </div>
+          )}
 
           <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4">
             <div className={`relative ${winner ? 'zoo-wiggle' : ''}`}>
