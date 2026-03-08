@@ -23,6 +23,17 @@ export interface ContentItem extends ContentMeta {
 
 const CONTENT_DIR = path.join(process.cwd(), 'content');
 
+function normalizeDate(value: unknown): string {
+  if (typeof value === 'string' && value.trim()) return value;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value).toISOString().slice(0, 10);
+  }
+  return '2026-01-01';
+}
+
 function readContentDir(subdir: string): ContentMeta[] {
   const dir = path.join(CONTENT_DIR, subdir);
   if (!fs.existsSync(dir)) return [];
@@ -36,7 +47,7 @@ function readContentDir(subdir: string): ContentMeta[] {
       return {
         slug,
         title: data.title || slug,
-        date: data.date || '2026-01-01',
+        date: normalizeDate(data.date),
         description: data.description || '',
         type: data.type || subdir as ContentMeta['type'],
         tags: data.tags || [],
@@ -60,7 +71,7 @@ function readContentItem(subdir: string, slug: string): ContentItem | null {
   return {
     slug,
     title: data.title || slug,
-    date: data.date || '2026-01-01',
+    date: normalizeDate(data.date),
     description: data.description || '',
     type: data.type || subdir as ContentMeta['type'],
     tags: data.tags || [],
