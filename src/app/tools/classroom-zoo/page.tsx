@@ -530,23 +530,21 @@ export default function ClassroomZooPage() {
             </div>
           )}
 
+          <div className="mb-2 flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+            <span className="rounded-full border border-amber-300/40 bg-amber-300/20 px-2 py-1 font-semibold text-amber-100">✨ Hooray!</span>
+            <span className="rounded-full border border-cyan-300/40 bg-cyan-300/20 px-2 py-1 font-semibold text-cyan-100">🎉 Preschool Power</span>
+          </div>
+
           <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4 overflow-hidden">
-            <div className="pointer-events-none absolute -left-6 top-6 rounded-full border border-amber-300/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold text-amber-100">✨ Hooray!</div>
-            <div className="pointer-events-none absolute -right-6 top-12 rounded-full border border-cyan-300/40 bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">🎉 Preschool Power</div>
 
-            <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 flex items-center gap-2 text-xs">
-              <span className="rounded-full border border-fuchsia-300/45 bg-fuchsia-400/15 px-2 py-0.5 text-fuchsia-100">🌈 Joyful pick</span>
-              <span className="rounded-full border border-emerald-300/45 bg-emerald-400/15 px-2 py-0.5 text-emerald-100">🧸 Kid-friendly</span>
-            </div>
-
-            <div className={`relative ${winner ? 'zoo-wiggle' : ''}`}>
+            <div className={`relative z-10 ${winner ? 'zoo-wiggle' : ''}`}>
               <Image
                 src={activeAnimal.image}
                 alt={`${activeAnimal.name} classroom mascot`}
                 width={360}
                 height={360}
                 priority
-                className={`w-[220px] sm:w-[300px] h-auto drop-shadow-[0_14px_30px_rgba(0,0,0,0.5)] ${isSpinning ? 'opacity-85' : ''}`}
+                className={`w-[184px] sm:w-[300px] h-auto drop-shadow-[0_14px_30px_rgba(0,0,0,0.5)] ${isSpinning ? 'opacity-85' : ''}`}
               />
 
               <div
@@ -627,7 +625,7 @@ export default function ClassroomZooPage() {
                 <p className="mt-0.5 text-[11px] sm:text-xs text-fuchsia-800">A joyful take-home moment from class</p>
               </div>
 
-              <div className="mt-4 grid grid-cols-[1fr_1.2fr] gap-4 items-center rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-fuchsia-50 p-3">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-[1fr_1.2fr] gap-4 items-center rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-fuchsia-50 p-3">
                 <div className="relative flex items-center justify-center">
                   <span className="absolute -top-1 -left-1 rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-900">Great helper</span>
                   <Image
@@ -640,7 +638,7 @@ export default function ClassroomZooPage() {
                 </div>
 
                 <div className="text-center sm:text-left">
-                  <p className="zoo-fun-font text-3xl sm:text-4xl font-black leading-tight text-fuchsia-900">{activeAnimal.name}</p>
+                  <p className="zoo-fun-font text-2xl sm:text-4xl font-black leading-tight text-fuchsia-900">{activeAnimal.name}</p>
                   <p className="mt-1 text-sm sm:text-base text-zinc-700">{printTagline}</p>
 
                   <div className="mt-4 rounded-2xl border-2 border-cyan-300 bg-white px-3 py-3 shadow-sm">
@@ -684,6 +682,17 @@ export default function ClassroomZooPage() {
           min-height: 360px;
           background-image: radial-gradient(circle at 12px 12px, rgba(236, 72, 153, 0.12) 2px, transparent 0), radial-gradient(circle at 36px 36px, rgba(34, 211, 238, 0.12) 2px, transparent 0);
           background-size: 48px 48px;
+        }
+
+        @media (max-width: 640px) {
+          .print-card {
+            aspect-ratio: auto;
+            min-height: 0;
+          }
+
+          .print-card-inner {
+            padding: 1rem;
+          }
         }
 
         @keyframes zoo-wiggle {
