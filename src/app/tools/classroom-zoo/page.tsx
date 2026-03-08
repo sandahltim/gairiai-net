@@ -72,6 +72,9 @@ export default function ClassroomZooPage() {
     [names, doneNames],
   );
 
+  const completedCount = doneNames.filter(name => names.includes(name)).length;
+  const progressPercent = names.length > 0 ? Math.round((completedCount / names.length) * 100) : 0;
+
   useEffect(() => {
     let nextNames: string[] = [];
     let nextDoneNames: string[] = [];
@@ -297,13 +300,17 @@ export default function ClassroomZooPage() {
         <h1 className="zoo-fun-font text-3xl sm:text-5xl font-black leading-tight mt-2">
           Classroom Zoo <span className="gradient-text-warm">Name Picker</span>
         </h1>
-        <p className="text-zinc-400 mt-3 max-w-3xl">
-          Meet the full Classroom Zoo cast — <strong>{characterRosterText}</strong> — then tap <strong>Spin the Zoo!</strong>
-          to pick a student with a joyful reveal. Names and progress save on this device for daily classroom use.
+        <p className="text-zinc-300 mt-3 max-w-3xl text-base sm:text-lg">
+          Meet the full Classroom Zoo cast — <strong>{characterRosterText}</strong> — then tap <strong>Spin the Zoo!</strong>{' '}
+          to reveal today&apos;s classroom star with confetti and a take-home print card.
         </p>
-        <p className="text-zinc-500 mt-2 max-w-2xl text-sm">
-          Built for quick teacher setup, smartboard visibility, and easy re-use during the school day.
-        </p>
+        <div className="mt-3 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300/35 bg-gradient-to-r from-amber-400/15 via-fuchsia-400/10 to-cyan-400/15 px-3 py-2 text-xs sm:text-sm text-amber-100">
+          <span>🖍️ Preschool-friendly</span>
+          <span>•</span>
+          <span>📺 Smartboard-ready</span>
+          <span>•</span>
+          <span>💾 Saves your class list</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.2fr] gap-4 sm:gap-5">
@@ -416,14 +423,39 @@ export default function ClassroomZooPage() {
         <section className="card-glow rounded-2xl p-4 sm:p-5 relative overflow-hidden min-h-[430px]">
           <canvas ref={confettiCanvasRef} className="pointer-events-none absolute inset-0 z-20" />
 
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <div>
-              <p className="text-sm text-zinc-400">Today&apos;s picker host</p>
-              <p className="zoo-fun-font inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-3 py-1.5 font-black text-fuchsia-100 shadow-[0_0_20px_rgba(217,70,239,0.25)]">
-                {activeAnimal.emoji} {activeAnimal.name}
-              </p>
+          <div className="mb-4 rounded-2xl border border-zinc-700/80 bg-zinc-950/60 p-3 sm:p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-zinc-400">Today&apos;s picker host</p>
+                <p className="zoo-fun-font inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-3 py-1.5 font-black text-fuchsia-100 shadow-[0_0_20px_rgba(217,70,239,0.25)]">
+                  {activeAnimal.emoji} {activeAnimal.name}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <span className="rounded-full border border-emerald-300/40 bg-emerald-500/15 px-3 py-1 text-emerald-100">
+                  Picked: <strong>{completedCount}</strong>
+                </span>
+                <span className="rounded-full border border-cyan-300/40 bg-cyan-500/15 px-3 py-1 text-cyan-100">
+                  Left: <strong>{remainingNames.length}</strong>
+                </span>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 print-card-controls">
+
+            <div className="mt-3">
+              <div className="mb-1 flex items-center justify-between text-[11px] sm:text-xs text-zinc-400">
+                <span>Class progress</span>
+                <span>{progressPercent}% complete</span>
+              </div>
+              <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-fuchsia-400 transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2 print-card-controls">
               {winner && (
                 <button
                   type="button"
@@ -437,7 +469,7 @@ export default function ClassroomZooPage() {
                 type="button"
                 onClick={spinTheZoo}
                 disabled={isSpinning || remainingNames.length === 0}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-gradient-to-r from-amber-500 to-pink-500 text-black font-black disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-gradient-to-r from-amber-400 via-pink-400 to-cyan-400 text-zinc-950 font-black disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_24px_rgba(236,72,153,0.3)]"
               >
                 <Sparkles size={16} /> {isSpinning ? 'Spinning...' : 'Spin the Zoo!'}
               </button>
@@ -460,6 +492,11 @@ export default function ClassroomZooPage() {
           <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4 overflow-hidden">
             <div className="pointer-events-none absolute -left-6 top-6 rounded-full border border-amber-300/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold text-amber-100">✨ Hooray!</div>
             <div className="pointer-events-none absolute -right-6 top-12 rounded-full border border-cyan-300/40 bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">🎉 Preschool Power</div>
+
+            <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 flex items-center gap-2 text-xs">
+              <span className="rounded-full border border-fuchsia-300/45 bg-fuchsia-400/15 px-2 py-0.5 text-fuchsia-100">🌈 Joyful pick</span>
+              <span className="rounded-full border border-emerald-300/45 bg-emerald-400/15 px-2 py-0.5 text-emerald-100">🧸 Kid-friendly</span>
+            </div>
 
             <div className={`relative ${winner ? 'zoo-wiggle' : ''}`}>
               <Image
@@ -488,10 +525,16 @@ export default function ClassroomZooPage() {
               {activeAnimal.emoji} {activeAnimal.name}
             </p>
 
-            <p className="mt-2 text-sm text-zinc-500 text-center max-w-sm">
+            {winner && (
+              <p className="mt-2 rounded-full border border-cyan-300/35 bg-cyan-400/15 px-4 py-1.5 text-xs sm:text-sm text-cyan-100 text-center max-w-lg">
+                {printTagline}
+              </p>
+            )}
+
+            <p className="mt-3 text-sm text-zinc-400 text-center max-w-sm">
               {remainingNames.length === 0 && names.length > 0
                 ? 'Everyone has been picked! Reset the round to spin again.'
-                : 'Press spin for a random student. Picked students auto-check off to avoid repeats.'}
+                : 'Tap spin for a random student. Picked students auto-check off to avoid repeats.'}
             </p>
           </div>
         </section>
@@ -512,30 +555,41 @@ export default function ClassroomZooPage() {
 
           <article className="print-card bg-white text-zinc-900 rounded-2xl border border-zinc-300 shadow-2xl overflow-hidden mx-auto">
             <div className="print-card-inner h-full flex flex-col p-6">
-              <div className="print-card-banner rounded-2xl border border-fuchsia-300/40 bg-gradient-to-r from-fuchsia-100 via-amber-100 to-cyan-100 px-4 py-2 text-center">
-                <p className="zoo-fun-font text-sm sm:text-base font-black tracking-wide text-fuchsia-900">🌟 Classroom Zoo Star Card 🌟</p>
+              <div className="print-card-banner rounded-2xl border border-fuchsia-300/40 bg-gradient-to-r from-fuchsia-200 via-amber-100 to-cyan-100 px-4 py-2 text-center shadow-sm">
+                <p className="zoo-fun-font text-base sm:text-lg font-black tracking-wide text-fuchsia-900">🌟 Classroom Zoo Star Card 🌟</p>
+                <p className="mt-0.5 text-[11px] sm:text-xs text-fuchsia-800">A joyful take-home moment from class</p>
               </div>
 
-              <div className="mt-4 flex-1 grid grid-cols-[1fr_1.15fr] gap-5 items-center">
-                <div className="flex items-center justify-center">
+              <div className="mt-4 grid grid-cols-[1fr_1.2fr] gap-4 items-center rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 to-fuchsia-50 p-3">
+                <div className="relative flex items-center justify-center">
+                  <span className="absolute -top-1 -left-1 rounded-full bg-amber-300 px-2 py-0.5 text-[10px] font-bold text-amber-900">Great helper</span>
                   <Image
                     src={activeAnimal.image}
                     alt={`${activeAnimal.name} print card mascot`}
                     width={420}
                     height={420}
-                    className="h-auto w-[220px] sm:w-[250px]"
+                    className="h-auto w-[205px] sm:w-[235px]"
                   />
                 </div>
 
                 <div className="text-center sm:text-left">
                   <p className="zoo-fun-font text-3xl sm:text-4xl font-black leading-tight text-fuchsia-900">{activeAnimal.name}</p>
-                  <p className="mt-2 text-sm sm:text-base text-zinc-600">{printTagline}</p>
-                  <p className="mt-5 text-sm uppercase tracking-[0.15em] text-zinc-500">Today&apos;s student</p>
-                  <p className="zoo-fun-font mt-2 text-4xl sm:text-5xl font-black leading-tight break-words text-cyan-900">{winner}</p>
+                  <p className="mt-1 text-sm sm:text-base text-zinc-700">{printTagline}</p>
+
+                  <div className="mt-4 rounded-2xl border-2 border-cyan-300 bg-white px-3 py-3 shadow-sm">
+                    <p className="text-xs font-semibold text-zinc-500">Today&apos;s star student</p>
+                    <p className="zoo-fun-font mt-1 text-4xl sm:text-5xl font-black leading-tight break-words text-cyan-900">{winner}</p>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-1.5 text-[10px] sm:text-xs">
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-900">⭐ Kindness</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-900">🧠 Focus</span>
+                    <span className="rounded-full bg-fuchsia-100 px-2 py-1 text-fuchsia-900">👏 Great effort</span>
+                  </div>
                 </div>
               </div>
 
-              <footer className="mt-4 pt-3 border-t border-zinc-200 text-center text-xs sm:text-sm text-zinc-600">
+              <footer className="mt-3 pt-3 border-t border-zinc-200 text-center text-xs sm:text-sm text-zinc-600">
                 🐾 Little Learners Studio · gairiai.net
               </footer>
             </div>
@@ -561,6 +615,8 @@ export default function ClassroomZooPage() {
           width: min(100%, 700px);
           aspect-ratio: 7 / 5;
           min-height: 360px;
+          background-image: radial-gradient(circle at 12px 12px, rgba(236, 72, 153, 0.12) 2px, transparent 0), radial-gradient(circle at 36px 36px, rgba(34, 211, 238, 0.12) 2px, transparent 0);
+          background-size: 48px 48px;
         }
 
         @keyframes zoo-wiggle {
