@@ -1,7 +1,7 @@
 ---
 title: Classroom Zoo Name Picker
 date: 2026-03-07
-description: Spin a delightful animal-powered name picker for preschool classrooms. Saves your class list and avoids repeats.
+description: Spin a delightful preschool name picker with Tilly the Turtle, Leo the Lion, Bibi the Bee, and the full Classroom Zoo cast. Saves your class list and avoids repeats.
 type: tools
 tags:
   - preschool
