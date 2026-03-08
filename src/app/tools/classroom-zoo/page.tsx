@@ -3,33 +3,15 @@
 import Link from 'next/link';
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Sparkles, RotateCcw, Save, Pencil, CheckCircle2 } from 'lucide-react';
-
-type Animal = {
-  id: string;
-  label: string;
-  emoji: string;
-  image: string;
-  accent: string;
-};
+import { Sparkles, RotateCcw, Save, Pencil, CheckCircle2, Printer } from 'lucide-react';
+import { ZOO_CHARACTERS, ZOO_CHARACTER_NAMES, type ZooCharacter } from '@/lib/zoo-characters';
 
 const STORAGE_NAMES = 'classroom-zoo:names';
 const STORAGE_DONE = 'classroom-zoo:done';
 
 const DEMO_NAMES = ['Ava', 'Noah', 'Mila', 'Luca', 'Ivy', 'Mason', 'Nora', 'Eli'];
 
-const ANIMALS: Animal[] = [
-  { id: 'turtle', label: 'Tilly the Turtle', emoji: '🐢', image: '/images/classroom-zoo/turtle.png', accent: '#22c55e' },
-  { id: 'lion', label: 'Leo the Lion', emoji: '🦁', image: '/images/classroom-zoo/lion.png', accent: '#f59e0b' },
-  { id: 'bee', label: 'Bibi the Bee', emoji: '🐝', image: '/images/classroom-zoo/bee.png', accent: '#eab308' },
-  { id: 'owl', label: 'Olive the Owl', emoji: '🦉', image: '/images/classroom-zoo/owl.png', accent: '#a78bfa' },
-  { id: 'frog', label: 'Freddy the Frog', emoji: '🐸', image: '/images/classroom-zoo/frog.png', accent: '#10b981' },
-  { id: 'elephant', label: 'Ellie the Elephant', emoji: '🐘', image: '/images/classroom-zoo/elephant.png', accent: '#38bdf8' },
-  { id: 'giraffe', label: 'Gigi the Giraffe', emoji: '🦒', image: '/images/classroom-zoo/giraffe.png', accent: '#f97316' },
-  { id: 'penguin', label: 'Penny the Penguin', emoji: '🐧', image: '/images/classroom-zoo/penguin.png', accent: '#06b6d4' },
-  { id: 'bunny', label: 'Benny the Bunny', emoji: '🐰', image: '/images/classroom-zoo/bunny.png', accent: '#ec4899' },
-  { id: 'bear', label: 'Bruno the Bear', emoji: '🐻', image: '/images/classroom-zoo/bear.png', accent: '#f43f5e' },
-];
+const ANIMALS = ZOO_CHARACTERS;
 
 function parseNames(input: string): string[] {
   const seen = new Set<string>();
@@ -73,7 +55,14 @@ export default function ClassroomZooPage() {
   const [winner, setWinner] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState('');
   const [isSpinning, setIsSpinning] = useState(false);
-  const [activeAnimal, setActiveAnimal] = useState<Animal>(ANIMALS[0]);
+  const [activeAnimal, setActiveAnimal] = useState<ZooCharacter>(ANIMALS[0]);
+  const [showPrintCard, setShowPrintCard] = useState(false);
+
+  const characterRosterText = useMemo(() => ZOO_CHARACTER_NAMES.join(', '), []);
+  const printTagline = useMemo(() => {
+    if (!winner) return '';
+    return activeAnimal.tagline.replace('{student}', winner);
+  }, [activeAnimal.tagline, winner]);
 
   const confettiCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
@@ -167,6 +156,7 @@ export default function ClassroomZooPage() {
     setDoneNames([]);
     setWinner(null);
     setPreviewName('');
+    setShowPrintCard(false);
     setEditorText('');
     setListError('');
     setEditing(true);
@@ -176,6 +166,7 @@ export default function ClassroomZooPage() {
     setDoneNames([]);
     setWinner(null);
     setPreviewName('');
+    setShowPrintCard(false);
   }
 
   function toggleDone(name: string) {
@@ -250,6 +241,7 @@ export default function ClassroomZooPage() {
 
     setIsSpinning(true);
     setWinner(null);
+    setShowPrintCard(false);
 
     const localPool = [...remainingNames];
 
@@ -293,9 +285,9 @@ export default function ClassroomZooPage() {
         <h1 className="text-3xl sm:text-5xl font-black leading-tight mt-2">
           Classroom Zoo <span className="gradient-text-warm">Name Picker</span>
         </h1>
-        <p className="text-zinc-400 mt-3 max-w-2xl">
-          Enter your class list once, then tap <strong>Spin the Zoo!</strong> for a delightful random picker.
-          Names and progress save on this device for daily classroom use.
+        <p className="text-zinc-400 mt-3 max-w-3xl">
+          Meet the full Classroom Zoo cast — <strong>{characterRosterText}</strong> — then tap <strong>Spin the Zoo!</strong>
+          to pick a student with a joyful reveal. Names and progress save on this device for daily classroom use.
         </p>
         <p className="text-zinc-500 mt-2 max-w-2xl text-sm">
           Built for quick teacher setup, smartboard visibility, and easy re-use during the school day.
@@ -408,23 +400,34 @@ export default function ClassroomZooPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
               <p className="text-sm text-zinc-500">Today&apos;s picker host</p>
-              <p className="font-bold text-zinc-100">{activeAnimal.label} {activeAnimal.emoji}</p>
+              <p className="font-bold text-zinc-100">{activeAnimal.name} {activeAnimal.emoji}</p>
             </div>
-            <button
-              type="button"
-              onClick={spinTheZoo}
-              disabled={isSpinning || remainingNames.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-gradient-to-r from-amber-500 to-pink-500 text-black font-black disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={16} /> {isSpinning ? 'Spinning...' : 'Spin the Zoo!'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2 print-card-controls">
+              {winner && (
+                <button
+                  type="button"
+                  onClick={() => setShowPrintCard(true)}
+                  className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 border border-cyan-400/50 text-cyan-100 hover:text-white hover:border-cyan-300"
+                >
+                  <Printer size={16} /> Print Card
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={spinTheZoo}
+                disabled={isSpinning || remainingNames.length === 0}
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-gradient-to-r from-amber-500 to-pink-500 text-black font-black disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles size={16} /> {isSpinning ? 'Spinning...' : 'Spin the Zoo!'}
+              </button>
+            </div>
           </div>
 
           <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4">
             <div className={`relative ${winner ? 'zoo-wiggle' : ''}`}>
               <Image
                 src={activeAnimal.image}
-                alt={`${activeAnimal.label} classroom mascot`}
+                alt={`${activeAnimal.name} classroom mascot`}
                 width={360}
                 height={360}
                 priority
@@ -444,7 +447,11 @@ export default function ClassroomZooPage() {
               </div>
             </div>
 
-            <p className="mt-8 text-sm text-zinc-500 text-center max-w-sm">
+            <p className="mt-8 text-lg sm:text-xl font-black text-zinc-100 text-center">
+              {activeAnimal.name} {activeAnimal.emoji}
+            </p>
+
+            <p className="mt-2 text-sm text-zinc-500 text-center max-w-sm">
               {remainingNames.length === 0 && names.length > 0
                 ? 'Everyone has been picked! Reset the round to spin again.'
                 : 'Press spin for a random student. Picked students auto-check off to avoid repeats.'}
@@ -452,6 +459,48 @@ export default function ClassroomZooPage() {
           </div>
         </section>
       </div>
+
+      {winner && showPrintCard && (
+        <section className="mt-5 card-glow rounded-2xl p-4 sm:p-5 print-card-shell">
+          <div className="print-card-controls mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs sm:text-sm text-zinc-400">Print preview ready. Use browser print for a half-sheet classroom card.</p>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 border border-emerald-400/60 text-emerald-100 hover:text-white hover:border-emerald-300"
+            >
+              <Printer size={16} /> Open print dialog
+            </button>
+          </div>
+
+          <article className="print-card bg-white text-zinc-900 rounded-2xl border border-zinc-300 shadow-2xl overflow-hidden mx-auto">
+            <div className="print-card-inner h-full flex flex-col p-6">
+              <div className="flex-1 grid grid-cols-[1fr_1.15fr] gap-5 items-center">
+                <div className="flex items-center justify-center">
+                  <Image
+                    src={activeAnimal.image}
+                    alt={`${activeAnimal.name} print card mascot`}
+                    width={420}
+                    height={420}
+                    className="h-auto w-[220px] sm:w-[250px]"
+                  />
+                </div>
+
+                <div className="text-center sm:text-left">
+                  <p className="text-2xl sm:text-3xl font-black leading-tight">{activeAnimal.name}</p>
+                  <p className="mt-2 text-sm sm:text-base text-zinc-600">{printTagline}</p>
+                  <p className="mt-5 text-sm uppercase tracking-[0.15em] text-zinc-500">Today&apos;s student</p>
+                  <p className="mt-2 text-4xl sm:text-5xl font-black leading-tight break-words">{winner}</p>
+                </div>
+              </div>
+
+              <footer className="mt-4 pt-3 border-t border-zinc-200 text-center text-xs sm:text-sm text-zinc-600">
+                🐾 Little Learners Studio · gairiai.net
+              </footer>
+            </div>
+          </article>
+        </section>
+      )}
 
       <div className="mt-4 card-glow rounded-xl px-4 py-3 text-xs sm:text-sm text-zinc-400">
         <strong className="text-zinc-200">Teacher note:</strong> animal art has zero text embedded; all names are rendered as live page text for classroom clarity.
@@ -462,12 +511,61 @@ export default function ClassroomZooPage() {
           animation: zoo-wiggle 700ms ease-in-out 2;
         }
 
+        .print-card {
+          width: min(100%, 700px);
+          aspect-ratio: 7 / 5;
+          min-height: 360px;
+        }
+
         @keyframes zoo-wiggle {
           0% { transform: rotate(0deg) scale(1); }
           25% { transform: rotate(-4deg) scale(1.02); }
           50% { transform: rotate(4deg) scale(1.03); }
           75% { transform: rotate(-2deg) scale(1.01); }
           100% { transform: rotate(0deg) scale(1); }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: 7in 5in;
+            margin: 0.15in;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .print-card,
+          .print-card * {
+            visibility: visible !important;
+          }
+
+          .print-card {
+            position: fixed !important;
+            inset: 0 !important;
+            margin: auto !important;
+            width: 7in !important;
+            height: 5in !important;
+            max-width: 7in !important;
+            border-radius: 0.2in !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
+            break-inside: avoid !important;
+          }
+
+          .print-card-inner {
+            padding: 0.35in !important;
+          }
+
+          .print-card-controls,
+          .print-card-shell,
+          nav,
+          header,
+          footer {
+            display: none !important;
+          }
         }
       `}</style>
     </div>
