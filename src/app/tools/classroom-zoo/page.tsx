@@ -294,7 +294,7 @@ export default function ClassroomZooPage() {
           </Link>
         </div>
         <p className="text-xs uppercase tracking-[0.2em] text-amber-300/80 font-semibold">Little Learners Tool</p>
-        <h1 className="text-3xl sm:text-5xl font-black leading-tight mt-2">
+        <h1 className="zoo-fun-font text-3xl sm:text-5xl font-black leading-tight mt-2">
           Classroom Zoo <span className="gradient-text-warm">Name Picker</span>
         </h1>
         <p className="text-zinc-400 mt-3 max-w-3xl">
@@ -418,8 +418,10 @@ export default function ClassroomZooPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <div>
-              <p className="text-sm text-zinc-500">Today&apos;s picker host</p>
-              <p className="font-bold text-zinc-100">{activeAnimal.name} {activeAnimal.emoji}</p>
+              <p className="text-sm text-zinc-400">Today&apos;s picker host</p>
+              <p className="zoo-fun-font inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/15 px-3 py-1.5 font-black text-fuchsia-100 shadow-[0_0_20px_rgba(217,70,239,0.25)]">
+                {activeAnimal.emoji} {activeAnimal.name}
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 print-card-controls">
               {winner && (
@@ -455,7 +457,10 @@ export default function ClassroomZooPage() {
             </div>
           )}
 
-          <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4">
+          <div className="relative rounded-2xl border border-zinc-800 bg-black/30 min-h-[320px] flex flex-col items-center justify-center p-4 overflow-hidden">
+            <div className="pointer-events-none absolute -left-6 top-6 rounded-full border border-amber-300/40 bg-amber-300/20 px-3 py-1 text-xs font-semibold text-amber-100">✨ Hooray!</div>
+            <div className="pointer-events-none absolute -right-6 top-12 rounded-full border border-cyan-300/40 bg-cyan-300/20 px-3 py-1 text-xs font-semibold text-cyan-100">🎉 Preschool Power</div>
+
             <div className={`relative ${winner ? 'zoo-wiggle' : ''}`}>
               <Image
                 src={activeAnimal.image}
@@ -467,20 +472,20 @@ export default function ClassroomZooPage() {
               />
 
               <div
-                className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-2xl border border-white/20 px-5 py-2 shadow-2xl"
-                style={{ backgroundColor: `${activeAnimal.accent}D9` }}
+                className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-[1.4rem] border-4 border-white/80 px-5 sm:px-6 py-2.5 shadow-[0_14px_30px_rgba(0,0,0,0.38)]"
+                style={{ backgroundColor: `${activeAnimal.accent}E6` }}
               >
                 <p
                   aria-live="polite"
-                  className="max-w-[min(70vw,20rem)] sm:max-w-[24rem] text-center text-black font-black text-2xl sm:text-4xl tracking-wide whitespace-normal break-words leading-tight"
+                  className="zoo-fun-font max-w-[min(74vw,21rem)] sm:max-w-[25rem] text-center text-zinc-950 font-black text-3xl sm:text-5xl tracking-wide whitespace-normal break-words leading-tight"
                 >
                   {isSpinning ? (previewName || '...') : (winner || 'Ready?')}
                 </p>
               </div>
             </div>
 
-            <p className="mt-8 text-lg sm:text-xl font-black text-zinc-100 text-center">
-              {activeAnimal.name} {activeAnimal.emoji}
+            <p className="zoo-fun-font mt-8 inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-4 py-1.5 text-lg sm:text-xl font-black text-amber-100 text-center">
+              {activeAnimal.emoji} {activeAnimal.name}
             </p>
 
             <p className="mt-2 text-sm text-zinc-500 text-center max-w-sm">
@@ -507,7 +512,11 @@ export default function ClassroomZooPage() {
 
           <article className="print-card bg-white text-zinc-900 rounded-2xl border border-zinc-300 shadow-2xl overflow-hidden mx-auto">
             <div className="print-card-inner h-full flex flex-col p-6">
-              <div className="flex-1 grid grid-cols-[1fr_1.15fr] gap-5 items-center">
+              <div className="print-card-banner rounded-2xl border border-fuchsia-300/40 bg-gradient-to-r from-fuchsia-100 via-amber-100 to-cyan-100 px-4 py-2 text-center">
+                <p className="zoo-fun-font text-sm sm:text-base font-black tracking-wide text-fuchsia-900">🌟 Classroom Zoo Star Card 🌟</p>
+              </div>
+
+              <div className="mt-4 flex-1 grid grid-cols-[1fr_1.15fr] gap-5 items-center">
                 <div className="flex items-center justify-center">
                   <Image
                     src={activeAnimal.image}
@@ -519,10 +528,10 @@ export default function ClassroomZooPage() {
                 </div>
 
                 <div className="text-center sm:text-left">
-                  <p className="text-2xl sm:text-3xl font-black leading-tight">{activeAnimal.name}</p>
+                  <p className="zoo-fun-font text-3xl sm:text-4xl font-black leading-tight text-fuchsia-900">{activeAnimal.name}</p>
                   <p className="mt-2 text-sm sm:text-base text-zinc-600">{printTagline}</p>
                   <p className="mt-5 text-sm uppercase tracking-[0.15em] text-zinc-500">Today&apos;s student</p>
-                  <p className="mt-2 text-4xl sm:text-5xl font-black leading-tight break-words">{winner}</p>
+                  <p className="zoo-fun-font mt-2 text-4xl sm:text-5xl font-black leading-tight break-words text-cyan-900">{winner}</p>
                 </div>
               </div>
 
@@ -539,6 +548,11 @@ export default function ClassroomZooPage() {
       </div>
 
       <style jsx>{`
+        .zoo-fun-font {
+          font-family: 'Baloo 2', 'Fredoka', 'Comic Sans MS', 'Trebuchet MS', 'Arial Rounded MT Bold', system-ui, sans-serif;
+          letter-spacing: 0.01em;
+        }
+
         .zoo-wiggle {
           animation: zoo-wiggle 700ms ease-in-out 2;
         }
