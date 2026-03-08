@@ -73,6 +73,12 @@ function nextZone(current: Zone, direction: 'up' | 'down'): Zone {
   return ZONE_ORDER[Math.min(ZONE_ORDER.length - 1, index + 1)];
 }
 
+function nextCharacterId(currentId: string): string {
+  const index = ZOO_CHARACTERS.findIndex(character => character.id === currentId);
+  if (index < 0) return ZOO_CHARACTERS[0].id;
+  return ZOO_CHARACTERS[(index + 1) % ZOO_CHARACTERS.length].id;
+}
+
 export default function BehaviorBuddyPage() {
   const [students, setStudents] = useState<BuddyStudent[]>([]);
   const [draftNames, setDraftNames] = useState('');
@@ -172,6 +178,10 @@ export default function BehaviorBuddyPage() {
     setStudents(prev => prev.map(student => ({ ...student, zone: 'green' })));
   }
 
+  function clearStarDay() {
+    setStudents(prev => prev.map(student => ({ ...student, starDay: false })));
+  }
+
   function clearBoard() {
     setStudents([]);
     setDraftNames('');
@@ -267,6 +277,14 @@ export default function BehaviorBuddyPage() {
               </button>
               <button
                 type="button"
+                onClick={clearStarDay}
+                disabled={starCount === 0}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-fuchsia-300/45 bg-fuchsia-500/10 text-fuchsia-100 py-2 hover:border-fuchsia-300 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Star size={15} /> Clear all Star Day tags
+              </button>
+              <button
+                type="button"
                 onClick={clearBoard}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-rose-700/60 hover:border-rose-500 text-rose-200 py-2"
               >
@@ -281,6 +299,7 @@ export default function BehaviorBuddyPage() {
               <li>Load names once, board remembers your class</li>
               <li>Tap ▲ / ▼ to move students between zones</li>
               <li>Tap ⭐ when a student earns Star Day</li>
+              <li>Tap “Swap buddy” to cycle avatars per student</li>
             </ul>
           </div>
         </section>
@@ -342,6 +361,18 @@ export default function BehaviorBuddyPage() {
                               <p className="text-[11px] text-zinc-400 truncate">
                                 {character.emoji} {character.name}
                               </p>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateStudent(student.id, current => ({
+                                    ...current,
+                                    characterId: nextCharacterId(current.characterId),
+                                  }))
+                                }
+                                className="mt-1 rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-100 hover:border-cyan-200"
+                              >
+                                Swap buddy
+                              </button>
                               {student.starDay && (
                                 <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-fuchsia-300/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] text-fuchsia-100">
                                   <Star size={11} /> Star Day
