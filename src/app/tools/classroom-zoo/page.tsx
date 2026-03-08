@@ -74,6 +74,8 @@ export default function ClassroomZooPage() {
 
   const completedCount = doneNames.filter(name => names.includes(name)).length;
   const progressPercent = names.length > 0 ? Math.round((completedCount / names.length) * 100) : 0;
+  const roundComplete = names.length > 0 && remainingNames.length === 0;
+  const currentStage = !names.length ? 'setup' : winner ? (roundComplete ? 'complete' : 'celebrate') : 'spin';
 
   useEffect(() => {
     let nextNames: string[] = [];
@@ -280,6 +282,7 @@ export default function ClassroomZooPage() {
       setWinner(selectedName);
       setActiveAnimal(selectedAnimal);
       setDoneNames(prev => (prev.includes(selectedName) ? prev : [...prev, selectedName]));
+      setShowPrintCard(true);
       setIsSpinning(false);
       burstConfetti();
     }, 2600);
@@ -459,10 +462,19 @@ export default function ClassroomZooPage() {
               {winner && (
                 <button
                   type="button"
-                  onClick={() => setShowPrintCard(true)}
+                  onClick={() => setShowPrintCard(prev => !prev)}
                   className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 border border-cyan-400/50 text-cyan-100 hover:text-white hover:border-cyan-300"
                 >
-                  <Printer size={16} /> Print Card
+                  <Printer size={16} /> {showPrintCard ? 'Hide Print Card' : 'Show Print Card'}
+                </button>
+              )}
+              {winner && showPrintCard && (
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 border border-emerald-400/60 bg-emerald-500/15 text-emerald-100 hover:text-white hover:border-emerald-300"
+                >
+                  <Printer size={16} /> Print now
                 </button>
               )}
               <button
@@ -473,6 +485,35 @@ export default function ClassroomZooPage() {
               >
                 <Sparkles size={16} /> {isSpinning ? 'Spinning...' : 'Spin the Zoo!'}
               </button>
+            </div>
+          </div>
+
+          <div className="mb-4 rounded-xl border border-zinc-700/70 bg-zinc-950/60 px-3 py-2.5">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Classroom flow</p>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs sm:text-sm">
+              <div
+                className={`rounded-lg border px-3 py-2 ${
+                  currentStage === 'setup' ? 'border-amber-300/55 bg-amber-300/20 text-amber-100' : 'border-zinc-700 text-zinc-300'
+                }`}
+              >
+                1) Add class list
+              </div>
+              <div
+                className={`rounded-lg border px-3 py-2 ${
+                  currentStage === 'spin' ? 'border-cyan-300/55 bg-cyan-300/20 text-cyan-100' : 'border-zinc-700 text-zinc-300'
+                }`}
+              >
+                2) Spin and reveal
+              </div>
+              <div
+                className={`rounded-lg border px-3 py-2 ${
+                  currentStage === 'celebrate' || currentStage === 'complete'
+                    ? 'border-fuchsia-300/55 bg-fuchsia-300/20 text-fuchsia-100'
+                    : 'border-zinc-700 text-zinc-300'
+                }`}
+              >
+                3) Celebrate + print
+              </div>
             </div>
           </div>
 
@@ -532,11 +573,37 @@ export default function ClassroomZooPage() {
             )}
 
             <p className="mt-3 text-sm text-zinc-400 text-center max-w-sm">
-              {remainingNames.length === 0 && names.length > 0
+              {roundComplete
                 ? 'Everyone has been picked! Reset the round to spin again.'
                 : 'Tap spin for a random student. Picked students auto-check off to avoid repeats.'}
             </p>
           </div>
+
+          {winner && (
+            <div className="mt-4 rounded-2xl border border-fuchsia-400/35 bg-gradient-to-r from-fuchsia-500/15 via-cyan-500/10 to-amber-500/15 p-3.5">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-fuchsia-200">Winner spotlight</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="zoo-fun-font text-2xl sm:text-3xl font-black text-white">{winner}</span>
+                <span className="rounded-full border border-fuchsia-300/40 bg-fuchsia-400/15 px-2 py-1 text-xs text-fuchsia-100">
+                  Picked by {activeAnimal.name}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {roundComplete && (
+            <div className="mt-4 rounded-2xl border border-emerald-300/40 bg-emerald-500/10 p-3.5">
+              <p className="zoo-fun-font text-xl font-black text-emerald-100">🎊 Round complete!</p>
+              <p className="mt-1 text-sm text-emerald-100/90">Your whole class was picked once. Reset to start the next round.</p>
+              <button
+                type="button"
+                onClick={resetRound}
+                className="mt-2 inline-flex items-center gap-2 rounded-xl border border-emerald-300/60 bg-emerald-400/10 px-3.5 py-2 text-sm font-semibold text-emerald-100 hover:border-emerald-200 hover:text-white"
+              >
+                <RotateCcw size={15} /> Start a new round
+              </button>
+            </div>
+          )}
         </section>
       </div>
 
