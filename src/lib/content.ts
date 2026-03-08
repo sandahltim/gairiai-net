@@ -77,6 +77,10 @@ export function getDailyBuilds(): ContentMeta[] { return readContentDir('daily')
 export function getFeedPosts(): ContentMeta[] { return readContentDir('feed'); }
 export function getLittleLearners(): ContentMeta[] { return readContentDir('little-learners'); }
 export function getTools(): ContentMeta[] { return readContentDir('tools'); }
+export function getToolsByTags(tags: string[]): ContentMeta[] {
+  const wanted = new Set(tags.map(tag => tag.toLowerCase()));
+  return getTools().filter(item => item.tags.some(tag => wanted.has(tag.toLowerCase())));
+}
 
 export function getDailyBuild(slug: string) { return readContentItem('daily', slug); }
 export function getFeedPost(slug: string) { return readContentItem('feed', slug); }
