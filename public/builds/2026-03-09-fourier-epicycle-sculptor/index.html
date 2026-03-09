@@ -1,0 +1,1500 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Fourier Epicycle Sculptor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --fg: #e4e4ed;
+      --muted: #88889a;
+      --panel: rgba(255, 255, 255, 0.04);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent: #00d4ff;
+      --accent2: #a855f7;
+      --danger: #ff3366;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    body {
+      touch-action: none;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 30%, rgba(30, 40, 70, 0.24), transparent 45%), var(--bg);
+      cursor: crosshair;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    #header {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: 12px;
+      right: 12px;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    #titleBlock {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 12px;
+      backdrop-filter: blur(10px);
+      max-width: min(540px, calc(100vw - 24px));
+    }
+
+    #title {
+      margin: 0;
+      font-size: clamp(0.92rem, 2.5vw, 1rem);
+      letter-spacing: 0.02em;
+      color: var(--fg);
+      font-weight: 700;
+    }
+
+    #subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.76rem;
+      line-height: 1.35;
+    }
+
+    #perfBadge {
+      display: none;
+      align-self: flex-start;
+      background: rgba(255, 51, 102, 0.15);
+      color: #ff7ea2;
+      border: 1px solid rgba(255, 51, 102, 0.4);
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    #controls {
+      position: fixed;
+      z-index: 11;
+      right: 12px;
+      top: 88px;
+      width: min(370px, calc(100vw - 24px));
+      max-height: calc(100vh - 220px - var(--safe-bottom));
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .section {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      display: grid;
+      gap: 8px;
+    }
+
+    .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #8c8ca3;
+      font-weight: 700;
+    }
+
+    .button,
+    .chip,
+    .toggle,
+    .preset {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--fg);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 0.84rem;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease;
+      cursor: pointer;
+    }
+
+    .button:hover,
+    .chip:hover,
+    .toggle:hover,
+    .preset:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .button:active,
+    .chip:active,
+    .toggle:active,
+    .preset:active {
+      transform: translateY(0);
+    }
+
+    .button.primary {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(168, 85, 247, 0.2));
+      border-color: rgba(0, 212, 255, 0.42);
+      color: #f4fbff;
+      font-weight: 700;
+    }
+
+    .button.warn {
+      border-color: rgba(255, 140, 172, 0.45);
+      background: rgba(255, 51, 102, 0.14);
+      color: #ff9eb8;
+    }
+
+    .chipRow,
+    .toggleRow,
+    .presetGrid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .chipRow {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .presetGrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .toggleRow {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .preset.active,
+    .chip.active,
+    .toggle.active {
+      border-color: rgba(0, 212, 255, 0.56);
+      background: rgba(0, 212, 255, 0.18);
+      color: #f2fbff;
+    }
+
+    .sliderRow {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sliderHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.76rem;
+      color: #c5c5d4;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      height: 30px;
+      background: transparent;
+    }
+
+    #statusLine {
+      font-size: 0.74rem;
+      color: #8f8fa1;
+      min-height: 1.25em;
+    }
+
+    #spectrumPanel {
+      position: fixed;
+      z-index: 12;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 8px 10px calc(8px + var(--safe-bottom));
+      transition: transform 280ms ease, opacity 280ms ease;
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    #spectrumPanel.hidden {
+      transform: translateY(120%);
+      opacity: 0;
+    }
+
+    #spectrumShell {
+      pointer-events: auto;
+      margin: 0 auto;
+      width: min(1080px, calc(100vw - 12px));
+      height: 116px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+      display: grid;
+    }
+
+    #spectrum {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%) translateY(120px);
+      bottom: calc(130px + var(--safe-bottom));
+      z-index: 20;
+      background: rgba(12, 18, 28, 0.92);
+      border: 1px solid rgba(0, 212, 255, 0.42);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 0.74rem;
+      color: #dff8ff;
+      transition: transform 240ms ease, opacity 240ms ease;
+      opacity: 0;
+      pointer-events: none;
+      max-width: min(90vw, 640px);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 860px) {
+      #controls {
+        left: 12px;
+        right: 12px;
+        top: auto;
+        bottom: calc(126px + var(--safe-bottom));
+        width: auto;
+        max-height: min(48vh, 420px);
+      }
+
+      .presetGrid,
+      .toggleRow,
+      .chipRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 480px) {
+      #header {
+        gap: 8px;
+      }
+
+      #titleBlock {
+        padding: 8px 10px;
+      }
+
+      #subtitle {
+        font-size: 0.72rem;
+      }
+
+      #controls {
+        padding: 10px;
+        gap: 10px;
+      }
+
+      .section {
+        padding: 8px;
+        gap: 6px;
+      }
+
+      .presetGrid,
+      .chipRow,
+      .toggleRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .button,
+      .chip,
+      .toggle,
+      .preset {
+        min-height: 44px;
+        font-size: 0.8rem;
+        padding: 8px 10px;
+      }
+
+      #spectrumShell {
+        height: 104px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage" aria-label="Fourier epicycle canvas"></canvas>
+
+  <div id="header">
+    <div id="titleBlock">
+      <h1 id="title">Fourier Epicycle Sculptor</h1>
+      <p id="subtitle">Draw a closed path, then scrub harmonic count to watch convergence. Preset butterfly auto-runs on load.</p>
+    </div>
+    <div id="perfBadge" role="status" aria-live="polite">Performance mode</div>
+  </div>
+
+  <aside id="controls" aria-label="Controls drawer">
+    <section class="section">
+      <div class="label">Create</div>
+      <div class="chipRow">
+        <button class="button primary" id="drawBtn" aria-label="Draw your own closed shape">Draw Your Own</button>
+        <button class="button" id="exportBtn" aria-label="Export current path as SVG">Export SVG</button>
+      </div>
+      <button class="button warn" id="closePathBtn" aria-label="Close open path" hidden>Close Path</button>
+      <div id="statusLine" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="section">
+      <div class="label">Presets</div>
+      <div class="presetGrid" id="presetGrid"></div>
+    </section>
+
+    <section class="section">
+      <div class="label">Harmonics</div>
+      <div class="sliderRow">
+        <div class="sliderHeader"><span>N circles</span><strong id="nValue">40</strong></div>
+        <input id="nSlider" type="range" min="1" max="300" step="1" value="40" aria-label="Number of harmonics" />
+      </div>
+      <div class="sliderRow">
+        <div class="sliderHeader"><span>Speed</span><strong id="speedValue">1.00×</strong></div>
+        <input id="speedSlider" type="range" min="0.2" max="2.5" step="0.05" value="1" aria-label="Animation speed" />
+      </div>
+      <div class="sliderRow">
+        <div class="sliderHeader"><span>Trail length</span><strong id="trailValue">100%</strong></div>
+        <input id="trailSlider" type="range" min="0.1" max="1" step="0.01" value="1" aria-label="Trail visibility" />
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="label">View</div>
+      <div class="toggleRow">
+        <button class="toggle active" id="circlesToggle" aria-pressed="true" aria-label="Toggle epicycle circles">Circles On</button>
+        <button class="toggle active" id="spectrumToggle" aria-pressed="true" aria-label="Toggle frequency spectrum">Spectrum On</button>
+      </div>
+    </section>
+  </aside>
+
+  <div id="spectrumPanel">
+    <div id="spectrumShell" aria-label="Frequency spectrum panel">
+      <canvas id="spectrum"></canvas>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const TAU = Math.PI * 2;
+      const SAMPLE_COUNT = 512;
+      const MAX_TRAIL = 2200;
+      const AUTO_CLOSE_DIST = 30;
+
+      const canvas = document.getElementById("stage");
+      const ctx = canvas.getContext("2d");
+
+      const spectrumCanvas = document.getElementById("spectrum");
+      const sctx = spectrumCanvas.getContext("2d");
+      const spectrumPanel = document.getElementById("spectrumPanel");
+
+      const drawBtn = document.getElementById("drawBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const closePathBtn = document.getElementById("closePathBtn");
+      const statusLine = document.getElementById("statusLine");
+
+      const nSlider = document.getElementById("nSlider");
+      const speedSlider = document.getElementById("speedSlider");
+      const trailSlider = document.getElementById("trailSlider");
+
+      const nValue = document.getElementById("nValue");
+      const speedValue = document.getElementById("speedValue");
+      const trailValue = document.getElementById("trailValue");
+
+      const circlesToggle = document.getElementById("circlesToggle");
+      const spectrumToggle = document.getElementById("spectrumToggle");
+      const presetGrid = document.getElementById("presetGrid");
+      const perfBadge = document.getElementById("perfBadge");
+      const toast = document.getElementById("toast");
+
+      const state = {
+        mode: "preset",
+        activePreset: "Butterfly",
+        phase: 0,
+        speed: 1,
+        userN: 40,
+        activeN: 40,
+        trailFraction: 1,
+        showCircles: true,
+        showSpectrum: true,
+        drawing: false,
+        pendingClose: false,
+        rawPoints: [],
+        relativePath: [],
+        coeffs: [],
+        coeffsByFreq: [],
+        tipTrail: [],
+        ghostPath: [],
+        centerX: 0,
+        centerY: 0,
+        sizeScale: 180,
+        fpsLagFrames: 0,
+        fpsRecoveryFrames: 0,
+        perfMode: false,
+        computeBusy: false,
+        pointerId: null,
+        pointerX: 0,
+        pointerY: 0,
+        lastFrameMs: performance.now(),
+        justWrapped: false
+      };
+
+      const presetNames = [
+        "Butterfly",
+        "Infinity",
+        "Heart",
+        "Trefoil",
+        "Lissajous",
+        "Star",
+        "Rose",
+        "Script G"
+      ];
+
+      const presetMap = new Map();
+      for (const name of presetNames) {
+        presetMap.set(name, { name, samples: [] });
+      }
+
+      function setStatus(text) {
+        statusLine.textContent = text;
+      }
+
+      let toastTimer = null;
+      function showToast(text, duration = 1800) {
+        toast.textContent = text;
+        toast.classList.add("show");
+        if (toastTimer) {
+          window.clearTimeout(toastTimer);
+        }
+        toastTimer = window.setTimeout(() => {
+          toast.classList.remove("show");
+        }, duration);
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function dist(a, b) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return Math.hypot(dx, dy);
+      }
+
+      function ensureCanvasSize() {
+        const ratio = Math.max(1, window.devicePixelRatio || 1);
+        const width = Math.floor(window.innerWidth * ratio);
+        const height = Math.floor(window.innerHeight * ratio);
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        canvas.style.width = `${window.innerWidth}px`;
+        canvas.style.height = `${window.innerHeight}px`;
+
+        const spectrumRect = document.getElementById("spectrumShell").getBoundingClientRect();
+        const sw = Math.max(200, Math.floor(spectrumRect.width * ratio));
+        const sh = Math.max(60, Math.floor(spectrumRect.height * ratio));
+        if (spectrumCanvas.width !== sw || spectrumCanvas.height !== sh) {
+          spectrumCanvas.width = sw;
+          spectrumCanvas.height = sh;
+        }
+
+        state.centerX = canvas.width * 0.5;
+        state.centerY = canvas.height * 0.48;
+        state.sizeScale = Math.min(canvas.width, canvas.height) * 0.19;
+      }
+
+      function makePresetButtons() {
+        for (const name of presetNames) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "preset";
+          btn.textContent = name;
+          btn.setAttribute("aria-label", `Load preset ${name}`);
+          btn.dataset.preset = name;
+          btn.addEventListener("click", () => {
+            loadPreset(name, true);
+          });
+          presetGrid.appendChild(btn);
+        }
+      }
+
+      function refreshPresetButtons() {
+        const children = presetGrid.children;
+        for (let i = 0; i < children.length; i += 1) {
+          const node = children[i];
+          if (!(node instanceof HTMLButtonElement)) {
+            continue;
+          }
+          const isActive = node.dataset.preset === state.activePreset;
+          node.classList.toggle("active", isActive);
+          node.setAttribute("aria-pressed", isActive ? "true" : "false");
+        }
+      }
+
+      function setComputeBusy(flag) {
+        state.computeBusy = flag;
+        if (flag) {
+          setStatus("Computing DFT...");
+        }
+      }
+
+      function normalizePoints(points, targetScale) {
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        for (const p of points) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+
+        const cx = (minX + maxX) * 0.5;
+        const cy = (minY + maxY) * 0.5;
+        const spanX = maxX - minX;
+        const spanY = maxY - minY;
+        const span = Math.max(1e-6, Math.max(spanX, spanY));
+        const scale = targetScale / span;
+
+        return points.map((p) => ({
+          x: (p.x - cx) * scale,
+          y: (p.y - cy) * scale
+        }));
+      }
+
+      function catmullRomClosed(points, subdivisions = 8) {
+        const out = [];
+        const n = points.length;
+        if (n < 3) {
+          return points.slice();
+        }
+
+        for (let i = 0; i < n; i += 1) {
+          const p0 = points[(i - 1 + n) % n];
+          const p1 = points[i % n];
+          const p2 = points[(i + 1) % n];
+          const p3 = points[(i + 2) % n];
+
+          for (let j = 0; j < subdivisions; j += 1) {
+            const t = j / subdivisions;
+            const t2 = t * t;
+            const t3 = t2 * t;
+            const x =
+              0.5 *
+              ((2 * p1.x) +
+                (-p0.x + p2.x) * t +
+                (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+                (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3);
+            const y =
+              0.5 *
+              ((2 * p1.y) +
+                (-p0.y + p2.y) * t +
+                (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+                (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3);
+            out.push({ x, y });
+          }
+        }
+
+        return out;
+      }
+
+      function resampleUniformClosed(points, sampleCount = SAMPLE_COUNT) {
+        if (points.length < 2) {
+          return points.slice();
+        }
+
+        const wrapped = points.slice();
+        wrapped.push(points[0]);
+
+        const cumulative = [0];
+        for (let i = 1; i < wrapped.length; i += 1) {
+          cumulative[i] = cumulative[i - 1] + dist(wrapped[i], wrapped[i - 1]);
+        }
+
+        const total = cumulative[cumulative.length - 1];
+        if (total <= 1e-6) {
+          return points.slice();
+        }
+
+        const result = [];
+        let seg = 1;
+
+        for (let i = 0; i < sampleCount; i += 1) {
+          const target = (i / sampleCount) * total;
+          while (seg < cumulative.length - 1 && cumulative[seg] < target) {
+            seg += 1;
+          }
+
+          const prevDist = cumulative[seg - 1];
+          const nextDist = cumulative[seg];
+          const span = Math.max(1e-8, nextDist - prevDist);
+          const t = (target - prevDist) / span;
+          const a = wrapped[seg - 1];
+          const b = wrapped[seg];
+          result.push({
+            x: lerp(a.x, b.x, t),
+            y: lerp(a.y, b.y, t)
+          });
+        }
+
+        return result;
+      }
+
+      function computeDFT(path) {
+        const n = path.length;
+        const coeffs = [];
+
+        for (let k = 0; k < n; k += 1) {
+          let re = 0;
+          let im = 0;
+
+          for (let i = 0; i < n; i += 1) {
+            const p = path[i];
+            const theta = TAU * k * i / n;
+            const c = Math.cos(theta);
+            const s = Math.sin(theta);
+            re += p.x * c + p.y * s;
+            im += p.y * c - p.x * s;
+          }
+
+          re /= n;
+          im /= n;
+          const freq = k <= n / 2 ? k : k - n;
+          const amp = Math.hypot(re, im);
+          const phase = Math.atan2(im, re);
+
+          coeffs.push({
+            id: k,
+            k,
+            freq,
+            re,
+            im,
+            amp,
+            phase
+          });
+        }
+
+        const coeffsByAmp = coeffs.slice().sort((a, b) => b.amp - a.amp);
+        const coeffsByFreq = coeffs.slice().sort((a, b) => Math.abs(a.freq) - Math.abs(b.freq));
+        return { coeffsByAmp, coeffsByFreq };
+      }
+
+      function colorForFreq(freq, maxFreqAbs) {
+        if (freq === 0) {
+          return "#ffffff";
+        }
+        const ratio = clamp(Math.abs(freq) / Math.max(1, maxFreqAbs), 0, 1);
+        const h = ratio * 280 + 180;
+        return `hsl(${h.toFixed(2)} 90% 65%)`;
+      }
+
+      function pushTrail(x, y) {
+        state.tipTrail.push({ x, y });
+        const maxLen = Math.floor(MAX_TRAIL * state.trailFraction);
+        while (state.tipTrail.length > maxLen) {
+          state.tipTrail.shift();
+        }
+      }
+
+      function clearTrail() {
+        state.tipTrail.length = 0;
+      }
+
+      function drawGhostPath() {
+        if (state.ghostPath.length < 2) {
+          return;
+        }
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.10)";
+        ctx.setLineDash([8, 8]);
+        ctx.lineWidth = Math.max(1, canvas.width * 0.0012);
+        ctx.beginPath();
+        const first = state.ghostPath[0];
+        ctx.moveTo(state.centerX + first.x, state.centerY + first.y);
+        for (let i = 1; i < state.ghostPath.length; i += 1) {
+          const p = state.ghostPath[i];
+          ctx.lineTo(state.centerX + p.x, state.centerY + p.y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawTrail() {
+        if (state.tipTrail.length < 2) {
+          return;
+        }
+
+        ctx.save();
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#00d4ff";
+
+        for (let i = 1; i < state.tipTrail.length; i += 1) {
+          const a = state.tipTrail[i - 1];
+          const b = state.tipTrail[i];
+          const alpha = i / state.tipTrail.length;
+          ctx.strokeStyle = `rgba(255,255,255,${(alpha * 0.95).toFixed(4)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+
+        const last = state.tipTrail[state.tipTrail.length - 1];
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(last.x, last.y, 2.6, 0, TAU);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function evaluateEpicycles(t) {
+        let x = state.centerX;
+        let y = state.centerY;
+        const maxFreqAbs = Math.max(1, Math.abs(state.coeffsByFreq[state.coeffsByFreq.length - 1]?.freq || 1));
+        const activeCount = Math.min(state.activeN, state.coeffs.length);
+
+        if (state.showCircles) {
+          ctx.save();
+          ctx.lineWidth = 1;
+          for (let i = 0; i < activeCount; i += 1) {
+            const c = state.coeffs[i];
+            const theta = TAU * c.freq * t + c.phase;
+            const nx = x + c.amp * Math.cos(theta);
+            const ny = y + c.amp * Math.sin(theta);
+            const color = colorForFreq(c.freq, maxFreqAbs);
+
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = 0.35;
+            ctx.beginPath();
+            ctx.arc(x, y, c.amp, 0, TAU);
+            ctx.stroke();
+
+            ctx.globalAlpha = 0.28;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(nx, ny);
+            ctx.stroke();
+
+            x = nx;
+            y = ny;
+          }
+          ctx.restore();
+        } else {
+          for (let i = 0; i < activeCount; i += 1) {
+            const c = state.coeffs[i];
+            const theta = TAU * c.freq * t + c.phase;
+            x += c.amp * Math.cos(theta);
+            y += c.amp * Math.sin(theta);
+          }
+        }
+
+        return { x, y };
+      }
+
+      function drawRawPathPreview() {
+        if (state.rawPoints.length < 2) {
+          return;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(0,212,255,0.85)";
+        ctx.shadowColor = "rgba(0,212,255,0.7)";
+        ctx.shadowBlur = 12;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const start = state.rawPoints[0];
+        ctx.moveTo(start.x, start.y);
+        for (let i = 1; i < state.rawPoints.length; i += 1) {
+          const p = state.rawPoints[i];
+          ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+
+        const first = state.rawPoints[0];
+        const last = state.rawPoints[state.rawPoints.length - 1];
+
+        ctx.shadowBlur = 0;
+        ctx.setLineDash([6, 8]);
+        ctx.strokeStyle = "rgba(255,255,255,0.25)";
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(first.x, first.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "rgba(255,255,255,0.92)";
+        ctx.beginPath();
+        ctx.arc(first.x, first.y, 4.5, 0, TAU);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawCursorGlow() {
+        if (!state.drawing) {
+          return;
+        }
+        ctx.save();
+        const g = ctx.createRadialGradient(state.pointerX, state.pointerY, 0, state.pointerX, state.pointerY, 42);
+        g.addColorStop(0, "rgba(0,212,255,0.35)");
+        g.addColorStop(1, "rgba(0,212,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(state.pointerX, state.pointerY, 42, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function updateSpectrum() {
+        const ratio = Math.max(1, window.devicePixelRatio || 1);
+        const w = spectrumCanvas.width;
+        const h = spectrumCanvas.height;
+
+        sctx.clearRect(0, 0, w, h);
+
+        if (!state.showSpectrum || state.coeffsByFreq.length === 0) {
+          return;
+        }
+
+        const maxAmp = Math.max(1e-6, ...state.coeffsByFreq.map((c) => c.amp));
+        const activeIds = new Set();
+        for (let i = 0; i < Math.min(state.activeN, state.coeffs.length); i += 1) {
+          activeIds.add(state.coeffs[i].id);
+        }
+
+        const barWidth = Math.max(4 * ratio, 3 * ratio);
+        const barGap = 1 * ratio;
+        const maxBars = Math.max(10, Math.floor((w - 24 * ratio) / (barWidth + barGap)));
+        const bars = state.coeffsByFreq.slice(0, maxBars);
+        const maxFreqAbs = Math.max(1, Math.abs(bars[bars.length - 1]?.freq || 1));
+
+        const baseY = h - 18 * ratio;
+        const maxBarHeight = Math.min(80 * ratio, h - 30 * ratio);
+
+        for (let i = 0; i < bars.length; i += 1) {
+          const c = bars[i];
+          const x = 12 * ratio + i * (barWidth + barGap);
+          const ampNorm = clamp(c.amp / maxAmp, 0, 1);
+          const bh = ampNorm * maxBarHeight;
+          const y = baseY - bh;
+          const color = colorForFreq(c.freq, maxFreqAbs);
+          sctx.fillStyle = color;
+          sctx.globalAlpha = activeIds.has(c.id) ? 0.95 : 0.27;
+          sctx.fillRect(x, y, barWidth, bh);
+        }
+
+        sctx.globalAlpha = 1;
+        sctx.strokeStyle = "rgba(255,255,255,0.2)";
+        sctx.lineWidth = ratio;
+        sctx.beginPath();
+        sctx.moveTo(10 * ratio, baseY + 0.5 * ratio);
+        sctx.lineTo(w - 10 * ratio, baseY + 0.5 * ratio);
+        sctx.stroke();
+
+        sctx.fillStyle = "rgba(228,228,237,0.75)";
+        sctx.font = `${11 * ratio}px JetBrains Mono, monospace`;
+        sctx.textAlign = "left";
+        sctx.fillText("0 Hz", 12 * ratio, h - 4 * ratio);
+
+        if (bars.length > 8) {
+          const marks = [Math.floor(bars.length * 0.25), Math.floor(bars.length * 0.5), Math.floor(bars.length * 0.75)];
+          for (const idx of marks) {
+            const c = bars[idx];
+            const x = 12 * ratio + idx * (barWidth + barGap);
+            sctx.fillText(`${Math.abs(c.freq)} Hz`, x, h - 4 * ratio);
+          }
+        }
+      }
+
+      function buildPresetLibrary() {
+        for (const name of presetNames) {
+          let points = [];
+
+          if (name === "Butterfly") {
+            const loops = SAMPLE_COUNT;
+            for (let i = 0; i < loops; i += 1) {
+              const t = (i / loops) * (24 * Math.PI);
+              const r = Math.exp(Math.sin(t)) - 2 * Math.cos(4 * t) + Math.pow(Math.sin((2 * t - Math.PI) / 24), 5);
+              points.push({
+                x: r * Math.cos(t),
+                y: r * Math.sin(t)
+              });
+            }
+          } else if (name === "Infinity") {
+            for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+              const t = (i / SAMPLE_COUNT) * TAU;
+              const den = 1 + Math.cos(t) * Math.cos(t);
+              points.push({
+                x: Math.sin(t) / den,
+                y: (Math.sin(t) * Math.cos(t)) / den
+              });
+            }
+          } else if (name === "Heart") {
+            for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+              const t = (i / SAMPLE_COUNT) * TAU;
+              points.push({
+                x: 16 * Math.pow(Math.sin(t), 3),
+                y: 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)
+              });
+            }
+          } else if (name === "Trefoil") {
+            for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+              const t = (i / SAMPLE_COUNT) * TAU;
+              points.push({
+                x: Math.cos(t) + 2 * Math.cos(2 * t),
+                y: Math.sin(t) - 2 * Math.sin(2 * t)
+              });
+            }
+          } else if (name === "Lissajous") {
+            for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+              const t = (i / SAMPLE_COUNT) * TAU;
+              points.push({
+                x: Math.sin(3 * t + Math.PI / 4),
+                y: Math.sin(2 * t)
+              });
+            }
+          } else if (name === "Star") {
+            const corners = [];
+            const outer = 1;
+            const inner = 0.4;
+            for (let i = 0; i < 10; i += 1) {
+              const ang = -Math.PI / 2 + i * (Math.PI / 5);
+              const r = i % 2 === 0 ? outer : inner;
+              corners.push({ x: Math.cos(ang) * r, y: Math.sin(ang) * r });
+            }
+            points = resampleUniformClosed(catmullRomClosed(corners, 16), SAMPLE_COUNT);
+          } else if (name === "Rose") {
+            for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+              const t = (i / SAMPLE_COUNT) * TAU;
+              const r = Math.cos(3 * t);
+              points.push({
+                x: r * Math.cos(t),
+                y: r * Math.sin(t)
+              });
+            }
+          } else if (name === "Script G") {
+            points = buildScriptG();
+          }
+
+          if (points.length !== SAMPLE_COUNT) {
+            points = resampleUniformClosed(points, SAMPLE_COUNT);
+          }
+
+          const normalized = normalizePoints(points, state.sizeScale);
+          presetMap.set(name, { name, samples: normalized });
+        }
+      }
+
+      function cubicBezierPoint(p0, p1, p2, p3, t) {
+        const mt = 1 - t;
+        const mt2 = mt * mt;
+        const t2 = t * t;
+        return {
+          x: mt2 * mt * p0.x + 3 * mt2 * t * p1.x + 3 * mt * t2 * p2.x + t2 * t * p3.x,
+          y: mt2 * mt * p0.y + 3 * mt2 * t * p1.y + 3 * mt * t2 * p2.y + t2 * t * p3.y
+        };
+      }
+
+      function sampleBezierSegment(segment, steps) {
+        const pts = [];
+        for (let i = 0; i < steps; i += 1) {
+          const t = i / steps;
+          pts.push(cubicBezierPoint(segment[0], segment[1], segment[2], segment[3], t));
+        }
+        return pts;
+      }
+
+      function buildScriptG() {
+        const segments = [];
+
+        segments.push([
+          { x: 0.42, y: -0.62 },
+          { x: 0.16, y: -0.78 },
+          { x: -0.48, y: -0.60 },
+          { x: -0.46, y: -0.12 }
+        ]);
+
+        segments.push([
+          { x: -0.46, y: -0.12 },
+          { x: -0.44, y: 0.31 },
+          { x: 0.05, y: 0.54 },
+          { x: 0.45, y: 0.34 }
+        ]);
+
+        segments.push([
+          { x: 0.45, y: 0.34 },
+          { x: 0.14, y: 0.58 },
+          { x: -0.30, y: 0.82 },
+          { x: -0.22, y: 1.17 }
+        ]);
+
+        segments.push([
+          { x: -0.22, y: 1.17 },
+          { x: -0.10, y: 1.58 },
+          { x: 0.60, y: 1.56 },
+          { x: 0.72, y: 1.14 }
+        ]);
+
+        segments.push([
+          { x: 0.72, y: 1.14 },
+          { x: 0.80, y: 0.86 },
+          { x: 0.58, y: 0.54 },
+          { x: 0.30, y: 0.54 }
+        ]);
+
+        segments.push([
+          { x: 0.30, y: 0.54 },
+          { x: 0.08, y: 0.55 },
+          { x: 0.04, y: 0.36 },
+          { x: 0.20, y: 0.28 }
+        ]);
+
+        const pts = [];
+        for (const seg of segments) {
+          const sampled = sampleBezierSegment(seg, 90);
+          for (const p of sampled) {
+            pts.push(p);
+          }
+        }
+
+        return resampleUniformClosed(pts, SAMPLE_COUNT);
+      }
+
+      function ingestRelativePath(points, sourceLabel) {
+        setComputeBusy(points.length > 256);
+
+        const { coeffsByAmp, coeffsByFreq } = computeDFT(points);
+
+        state.relativePath = points;
+        state.ghostPath = points.slice();
+        state.coeffs = coeffsByAmp;
+        state.coeffsByFreq = coeffsByFreq;
+
+        state.phase = 0;
+        clearTrail();
+        state.pendingClose = false;
+        closePathBtn.hidden = true;
+        setComputeBusy(false);
+
+        setStatus(`Loaded ${sourceLabel}: ${points.length} samples, ${state.coeffs.length} coefficients.`);
+      }
+
+      function loadPreset(name, announce = false) {
+        const preset = presetMap.get(name);
+        if (!preset || preset.samples.length === 0) {
+          return;
+        }
+
+        state.mode = "preset";
+        state.activePreset = name;
+        state.drawing = false;
+        state.pendingClose = false;
+        state.rawPoints.length = 0;
+        closePathBtn.hidden = true;
+        ingestRelativePath(preset.samples, `${name} preset`);
+        refreshPresetButtons();
+
+        if (announce) {
+          showToast(`${name} preset loaded`);
+        }
+      }
+
+      function toRelative(points) {
+        if (points.length === 0) {
+          return [];
+        }
+
+        let cx = 0;
+        let cy = 0;
+        for (const p of points) {
+          cx += p.x;
+          cy += p.y;
+        }
+        cx /= points.length;
+        cy /= points.length;
+
+        return points.map((p) => ({ x: p.x - cx, y: p.y - cy }));
+      }
+
+      function finalizeRawPath(forceClose = false) {
+        if (state.rawPoints.length < 10) {
+          setStatus("Draw a larger shape (at least 10 points).");
+          showToast("Draw a larger shape first", 1600);
+          state.pendingClose = false;
+          closePathBtn.hidden = true;
+          return;
+        }
+
+        const first = state.rawPoints[0];
+        const last = state.rawPoints[state.rawPoints.length - 1];
+        const d = dist(first, last);
+
+        if (!forceClose && d > AUTO_CLOSE_DIST) {
+          state.pendingClose = true;
+          closePathBtn.hidden = false;
+          setStatus("Path open — tap Close Path to snap and compute DFT.");
+          return;
+        }
+
+        closePathBtn.hidden = true;
+        state.pendingClose = false;
+
+        const smoothed = catmullRomClosed(state.rawPoints, 10);
+        const sampled = resampleUniformClosed(smoothed, SAMPLE_COUNT);
+        const rel = toRelative(sampled);
+
+        state.mode = "animating";
+        state.drawing = false;
+        ingestRelativePath(rel, "your drawing");
+        showToast("DFT solved — scrub N circles to watch convergence", 2200);
+      }
+
+      function enterDrawMode() {
+        state.mode = "drawing";
+        state.drawing = false;
+        state.pendingClose = false;
+        state.rawPoints.length = 0;
+        state.tipTrail.length = 0;
+        closePathBtn.hidden = true;
+        setStatus("Draw a closed shape. Release near start to auto-close.");
+      }
+
+      function updatePerformance(dtMs) {
+        if (dtMs > 50) {
+          state.fpsLagFrames += 1;
+          state.fpsRecoveryFrames = 0;
+        } else if (dtMs < 28) {
+          state.fpsRecoveryFrames += 1;
+          state.fpsLagFrames = Math.max(0, state.fpsLagFrames - 1);
+        } else {
+          state.fpsLagFrames = Math.max(0, state.fpsLagFrames - 1);
+          state.fpsRecoveryFrames = Math.max(0, state.fpsRecoveryFrames - 1);
+        }
+
+        if (state.fpsLagFrames > 6 && !state.perfMode) {
+          state.perfMode = true;
+          state.activeN = Math.max(10, state.activeN - 20);
+          perfBadge.style.display = "inline-flex";
+          showToast("Performance mode enabled", 1600);
+        }
+
+        if (state.perfMode && state.fpsRecoveryFrames > 100) {
+          state.activeN = Math.min(state.userN, state.activeN + 8);
+          if (state.activeN >= state.userN) {
+            state.perfMode = false;
+            perfBadge.style.display = "none";
+            showToast("Performance mode disabled", 1600);
+          }
+          state.fpsRecoveryFrames = 0;
+        }
+      }
+
+      function drawFrame(nowMs) {
+        const dtMs = Math.min(120, nowMs - state.lastFrameMs);
+        state.lastFrameMs = nowMs;
+        updatePerformance(dtMs);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawGhostPath();
+
+        if (state.mode === "drawing") {
+          drawRawPathPreview();
+          drawCursorGlow();
+        }
+
+        if (state.coeffs.length > 0 && state.mode !== "drawing") {
+          const dtSec = dtMs / 1000;
+          state.phase += dtSec * 0.18 * state.speed;
+
+          if (state.phase >= 1) {
+            state.phase -= 1;
+            clearTrail();
+            state.justWrapped = true;
+          } else {
+            state.justWrapped = false;
+          }
+
+          const tip = evaluateEpicycles(state.phase);
+          pushTrail(tip.x, tip.y);
+          drawTrail();
+        }
+
+        if (state.mode === "drawing" && state.pendingClose && state.rawPoints.length > 1) {
+          const first = state.rawPoints[0];
+          const last = state.rawPoints[state.rawPoints.length - 1];
+          ctx.save();
+          ctx.strokeStyle = "rgba(255,255,255,0.35)";
+          ctx.setLineDash([5, 8]);
+          ctx.beginPath();
+          ctx.moveTo(last.x, last.y);
+          ctx.lineTo(first.x, first.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        updateSpectrum();
+        requestAnimationFrame(drawFrame);
+      }
+
+      function handlePointerDown(ev) {
+        if (state.mode !== "drawing") {
+          return;
+        }
+
+        canvas.setPointerCapture(ev.pointerId);
+        state.pointerId = ev.pointerId;
+        state.drawing = true;
+        state.pendingClose = false;
+        closePathBtn.hidden = true;
+        state.rawPoints.length = 0;
+
+        const p = { x: ev.clientX * window.devicePixelRatio, y: ev.clientY * window.devicePixelRatio };
+        state.pointerX = p.x;
+        state.pointerY = p.y;
+        state.rawPoints.push(p);
+      }
+
+      function handlePointerMove(ev) {
+        const x = ev.clientX * window.devicePixelRatio;
+        const y = ev.clientY * window.devicePixelRatio;
+        state.pointerX = x;
+        state.pointerY = y;
+
+        if (!state.drawing || state.mode !== "drawing") {
+          return;
+        }
+
+        const p = { x, y };
+        const last = state.rawPoints[state.rawPoints.length - 1];
+        if (!last || dist(last, p) > 1.5) {
+          state.rawPoints.push(p);
+        }
+      }
+
+      function handlePointerUp(ev) {
+        if (state.mode !== "drawing" || !state.drawing) {
+          return;
+        }
+
+        state.drawing = false;
+        state.pointerId = null;
+        if (canvas.hasPointerCapture(ev.pointerId)) {
+          canvas.releasePointerCapture(ev.pointerId);
+        }
+
+        finalizeRawPath(false);
+      }
+
+      function exportCurrentPathSvg() {
+        if (state.relativePath.length < 2) {
+          showToast("Nothing to export yet");
+          return;
+        }
+
+        const margin = 24;
+        const points = state.relativePath;
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        for (const p of points) {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        }
+
+        const width = Math.max(64, Math.ceil(maxX - minX + margin * 2));
+        const height = Math.max(64, Math.ceil(maxY - minY + margin * 2));
+        const offsetX = -minX + margin;
+        const offsetY = -minY + margin;
+
+        let d = "";
+        for (let i = 0; i < points.length; i += 1) {
+          const p = points[i];
+          const x = (p.x + offsetX).toFixed(2);
+          const y = (p.y + offsetY).toFixed(2);
+          if (i === 0) {
+            d += `M ${x} ${y}`;
+          } else {
+            d += ` L ${x} ${y}`;
+          }
+        }
+        d += " Z";
+
+        const lines = [
+          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+          `<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ${width} ${height}\" width=\"${width}\" height=\"${height}\">`,
+          "<rect width=\"100%\" height=\"100%\" fill=\"#0a0a0f\"/>",
+          `<path d=\"${d}\" fill=\"none\" stroke=\"#ffffff\" stroke-width=\"2\"/>`,
+          "</svg>"
+        ];
+
+        const blob = new Blob([lines.join("\n")], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        const stamp = new Date().toISOString().slice(0, 10);
+        a.download = `fourier-path-${stamp}.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast("SVG exported");
+      }
+
+      function bindUi() {
+        drawBtn.addEventListener("click", () => {
+          enterDrawMode();
+          showToast("Draw a closed shape", 1400);
+        });
+
+        exportBtn.addEventListener("click", () => {
+          exportCurrentPathSvg();
+        });
+
+        closePathBtn.addEventListener("click", () => {
+          finalizeRawPath(true);
+        });
+
+        nSlider.addEventListener("input", () => {
+          state.userN = Number(nSlider.value);
+          state.activeN = Math.min(state.userN, state.coeffs.length || state.userN);
+          nValue.textContent = String(state.userN);
+        });
+
+        speedSlider.addEventListener("input", () => {
+          state.speed = Number(speedSlider.value);
+          speedValue.textContent = `${state.speed.toFixed(2)}×`;
+        });
+
+        trailSlider.addEventListener("input", () => {
+          state.trailFraction = Number(trailSlider.value);
+          trailValue.textContent = `${Math.round(state.trailFraction * 100)}%`;
+        });
+
+        circlesToggle.addEventListener("click", () => {
+          state.showCircles = !state.showCircles;
+          circlesToggle.classList.toggle("active", state.showCircles);
+          circlesToggle.setAttribute("aria-pressed", state.showCircles ? "true" : "false");
+          circlesToggle.textContent = state.showCircles ? "Circles On" : "Circles Off";
+        });
+
+        spectrumToggle.addEventListener("click", () => {
+          state.showSpectrum = !state.showSpectrum;
+          spectrumToggle.classList.toggle("active", state.showSpectrum);
+          spectrumToggle.setAttribute("aria-pressed", state.showSpectrum ? "true" : "false");
+          spectrumToggle.textContent = state.showSpectrum ? "Spectrum On" : "Spectrum Off";
+          spectrumPanel.classList.toggle("hidden", !state.showSpectrum);
+        });
+
+        canvas.addEventListener("pointerdown", handlePointerDown);
+        canvas.addEventListener("pointermove", handlePointerMove);
+        canvas.addEventListener("pointerup", handlePointerUp);
+        canvas.addEventListener("pointercancel", () => {
+          state.drawing = false;
+        });
+
+        window.addEventListener("resize", () => {
+          ensureCanvasSize();
+          buildPresetLibrary();
+          if (state.mode === "preset") {
+            loadPreset(state.activePreset, false);
+          }
+        });
+
+        window.addEventListener("keydown", (ev) => {
+          if (ev.key === "d" || ev.key === "D") {
+            enterDrawMode();
+            return;
+          }
+          if (ev.key === "c" || ev.key === "C") {
+            circlesToggle.click();
+            return;
+          }
+          if (ev.key === "s" || ev.key === "S") {
+            spectrumToggle.click();
+            return;
+          }
+          if (ev.key === "Escape") {
+            loadPreset("Butterfly", true);
+          }
+        });
+      }
+
+      function init() {
+        ensureCanvasSize();
+        makePresetButtons();
+        bindUi();
+        buildPresetLibrary();
+        loadPreset("Butterfly", false);
+        setStatus("Preset ready. Draw your own shape or explore the harmonics.");
+        requestAnimationFrame((ms) => {
+          state.lastFrameMs = ms;
+          requestAnimationFrame(drawFrame);
+        });
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
