@@ -96,6 +96,10 @@ function nextCharacterId(currentId: string): string {
   return ZOO_CHARACTERS[(index + 1) % ZOO_CHARACTERS.length].id;
 }
 
+function fillCharacterTagline(tagline: string, studentName: string): string {
+  return tagline.replaceAll('{student}', studentName);
+}
+
 export default function BehaviorBuddyPage() {
   const [students, setStudents] = useState<BuddyStudent[]>([]);
   const [draftNames, setDraftNames] = useState('');
@@ -207,6 +211,11 @@ export default function BehaviorBuddyPage() {
   }
 
   function clearBoard() {
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Clear the whole class board? This removes all student names and progress.');
+      if (!confirmed) return;
+    }
+
     setStudents([]);
     setDraftNames('');
     setErrorText('');
@@ -450,8 +459,8 @@ export default function BehaviorBuddyPage() {
                               className={`h-20 w-20 rounded-2xl border border-zinc-200/30 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight truncate">{student.name}</p>
-                              <p className="text-sm text-zinc-100/90 truncate">
+                              <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight break-words">{student.name}</p>
+                              <p className="text-sm text-zinc-50 leading-snug break-words">
                                 {character.emoji} {character.name}
                               </p>
                               <button
@@ -462,7 +471,7 @@ export default function BehaviorBuddyPage() {
                                     characterId: nextCharacterId(current.characterId),
                                   }))
                                 }
-                                className="mt-1.5 rounded-full border border-cyan-100/40 bg-cyan-500/25 px-2.5 py-1 text-xs text-cyan-50 hover:border-cyan-100"
+                                className="mt-2 rounded-xl border border-cyan-100/50 bg-cyan-500/30 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-100"
                               >
                                 Swap buddy
                               </button>
@@ -487,7 +496,7 @@ export default function BehaviorBuddyPage() {
                                     }
                                     updateStudent(student.id, current => ({ ...current, zone: targetZone }));
                                   }}
-                                  className={`rounded-xl border py-2 text-sm font-bold transition-colors ${
+                                  className={`rounded-xl border py-3 text-base font-black transition-colors min-h-[52px] ${
                                     isActive ? ZONE_META[targetZone].activeButton : ZONE_META[targetZone].button
                                   }`}
                                 >
@@ -506,7 +515,7 @@ export default function BehaviorBuddyPage() {
                                 triggerCelebration(`⭐ Star Day for ${student.name}!`);
                               }
                             }}
-                            className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold ${
+                            className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-base font-semibold min-h-[48px] ${
                               student.starDay
                                 ? 'border-fuchsia-200/75 bg-fuchsia-500/30 text-fuchsia-50'
                                 : 'border-zinc-200/35 bg-zinc-900/40 text-zinc-100 hover:border-zinc-100/50'
@@ -557,7 +566,7 @@ export default function BehaviorBuddyPage() {
                 <article key={`award-${student.id}`} className="star-award-card rounded-2xl border border-zinc-700 bg-white text-zinc-900 p-4">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Star Day Award</p>
                   <p className="zoo-fun-font text-2xl font-black mt-1">{character.emoji} {character.name}</p>
-                  <p className="text-sm text-zinc-600">{character.tagline}</p>
+                  <p className="text-sm text-zinc-600">{fillCharacterTagline(character.tagline, student.name)}</p>
 
                   <div className="mt-3 flex items-center gap-3">
                     <Image
