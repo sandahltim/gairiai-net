@@ -107,6 +107,7 @@ export default function BehaviorBuddyPage() {
   const [errorText, setErrorText] = useState('');
   const [showStarPrint, setShowStarPrint] = useState(false);
   const [celebrationText, setCelebrationText] = useState('');
+  const [burstActive, setBurstActive] = useState(false);
 
   const characterMap = useMemo(() => new Map(ZOO_CHARACTERS.map(character => [character.id, character])), []);
 
@@ -238,9 +239,13 @@ export default function BehaviorBuddyPage() {
 
   function triggerCelebration(message: string) {
     setCelebrationText(message);
+    setBurstActive(false);
+
     if (typeof window !== 'undefined') {
+      window.setTimeout(() => setBurstActive(true), 20);
       window.setTimeout(() => {
         setCelebrationText('');
+        setBurstActive(false);
       }, 1500);
     }
   }
@@ -266,9 +271,9 @@ export default function BehaviorBuddyPage() {
           take-home cards in one click.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-sm">
-          <span className="rounded-full border border-emerald-200/50 bg-emerald-400/20 px-3 py-1 text-emerald-50">🎉 Kid-friendly animations</span>
-          <span className="rounded-full border border-fuchsia-200/50 bg-fuchsia-400/20 px-3 py-1 text-fuchsia-50">⭐ Star Day rewards</span>
-          <span className="rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
+          <span className="wow-chip rounded-full border border-emerald-200/50 bg-emerald-400/20 px-3 py-1 text-emerald-50">🎉 Kid-friendly animations</span>
+          <span className="wow-chip rounded-full border border-fuchsia-200/50 bg-fuchsia-400/20 px-3 py-1 text-fuchsia-50">⭐ Star Day rewards</span>
+          <span className="wow-chip rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
         </div>
       </div>
 
@@ -362,7 +367,24 @@ export default function BehaviorBuddyPage() {
           </div>
         </section>
 
-        <section className="card-glow rounded-2xl p-4 sm:p-5">
+        <section className="card-glow rounded-2xl p-4 sm:p-5 relative overflow-hidden">
+          {burstActive && (
+            <div className="celebration-burst" aria-hidden>
+              {Array.from({ length: 20 }).map((_, index) => (
+                <span
+                  key={`burst-${index}`}
+                  className="burst-item"
+                  style={{
+                    left: `${4 + ((index * 11) % 92)}%`,
+                    animationDelay: `${(index % 6) * 0.06}s`,
+                  }}
+                >
+                  {index % 4 === 0 ? '✨' : index % 4 === 1 ? '🌟' : index % 4 === 2 ? '🎉' : '🫧'}
+                </span>
+              ))}
+            </div>
+          )}
+
           {celebrationText && (
             <div className="mb-3 rounded-2xl border border-fuchsia-200/50 bg-gradient-to-r from-fuchsia-400/30 via-cyan-400/25 to-amber-300/30 px-4 py-2.5 text-base sm:text-lg font-bold text-white celebration-pop">
               {celebrationText}
@@ -429,6 +451,81 @@ export default function BehaviorBuddyPage() {
               </div>
             )}
           </div>
+
+          {students.length > 0 && (
+            <div className="mb-4 rounded-2xl border border-emerald-200/50 bg-gradient-to-r from-emerald-400/18 via-cyan-400/12 to-emerald-400/18 px-3 py-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="zoo-fun-font text-lg sm:text-2xl font-black text-emerald-50">
+                  🌈 Green Zone lineup <span className="text-emerald-200">({zoneBuckets.green.length})</span>
+                </p>
+                <span className="rounded-full border border-emerald-200/50 bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-100">
+                  Horizontal quick view for whole class
+                </span>
+              </div>
+
+              {zoneBuckets.green.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-emerald-200/50 px-3 py-2 text-sm text-emerald-100/90">
+                  No students in Green Zone yet. Tap Green on any card below to refill the top lineup.
+                </p>
+              ) : (
+                <div className="green-lane-wrap">
+                  {zoneBuckets.green.map(student => {
+                    const character = characterMap.get(student.characterId) ?? ZOO_CHARACTERS[0];
+                    return (
+                      <article key={`green-lane-${student.id}`} className="green-lane-card rounded-xl border border-emerald-200/55 bg-emerald-500/22 px-2.5 py-2">
+                        <div className="flex items-center gap-2.5">
+                          <Image
+                            src={character.image}
+                            alt={`${character.name} avatar`}
+                            width={56}
+                            height={56}
+                            className="h-14 w-14 rounded-xl border border-emerald-100/50 bg-white/15 object-contain buddy-bounce"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="zoo-fun-font text-lg font-black text-emerald-50 leading-tight break-words">{student.name}</p>
+                            <p className="text-xs text-emerald-100/90 break-words">
+                              {character.emoji} {character.name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => updateStudent(student.id, current => ({ ...current, zone: 'yellow' }))}
+                            className="rounded-lg border border-amber-200/65 bg-amber-400/28 py-1 text-xs font-bold text-amber-50 hover:bg-amber-400/35"
+                          >
+                            🟡
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateStudent(student.id, current => ({ ...current, zone: 'red' }))}
+                            className="rounded-lg border border-rose-200/65 bg-rose-400/28 py-1 text-xs font-bold text-rose-50 hover:bg-rose-400/35"
+                          >
+                            🔴
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nextStar = !student.starDay;
+                              updateStudent(student.id, current => ({ ...current, starDay: nextStar }));
+                              if (nextStar) triggerCelebration(`⭐ Star Day for ${student.name}!`);
+                            }}
+                            className={`rounded-lg border py-1 text-xs font-bold ${
+                              student.starDay
+                                ? 'border-fuchsia-100/80 bg-fuchsia-400/45 text-fuchsia-50'
+                                : 'border-emerald-100/55 bg-emerald-300/25 text-emerald-50 hover:bg-emerald-300/33'
+                            }`}
+                          >
+                            ⭐
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
             {ZONE_ORDER.map(zone => (
@@ -616,6 +713,37 @@ export default function BehaviorBuddyPage() {
           animation: celebration-pop 0.35s ease-out;
         }
 
+        .wow-chip {
+          animation: wow-chip 2.2s ease-in-out infinite;
+        }
+
+        .green-lane-wrap {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.5rem;
+        }
+
+        .green-lane-card {
+          flex: 1 1 220px;
+          min-width: min(220px, 100%);
+        }
+
+        .celebration-burst {
+          pointer-events: none;
+          position: absolute;
+          inset: 0;
+          overflow: hidden;
+          z-index: 5;
+        }
+
+        .burst-item {
+          position: absolute;
+          top: -1.5rem;
+          font-size: 1.1rem;
+          animation: burst-fall 0.95s ease-out forwards;
+          opacity: 0;
+        }
+
         @keyframes buddy-bounce {
           0%,
           100% {
@@ -653,6 +781,30 @@ export default function BehaviorBuddyPage() {
           100% {
             opacity: 1;
             transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes wow-chip {
+          0%,
+          100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-2px);
+          }
+        }
+
+        @keyframes burst-fall {
+          0% {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.75) rotate(0deg);
+          }
+          15% {
+            opacity: 1;
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(220px) scale(1.1) rotate(18deg);
           }
         }
 
