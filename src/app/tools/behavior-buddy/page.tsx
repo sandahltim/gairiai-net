@@ -29,37 +29,45 @@ const ZONE_META: Record<
     subtitle: string;
     chip: string;
     shell: string;
+    studentShell: string;
     button: string;
     activeButton: string;
     short: string;
+    emoji: string;
   }
 > = {
   green: {
     label: 'Green Zone',
     subtitle: 'Ready to learn',
     chip: 'border-emerald-300/45 bg-emerald-500/20 text-emerald-100',
-    shell: 'border-emerald-300/35 bg-emerald-500/10',
-    button: 'border-emerald-300/35 text-emerald-100 hover:border-emerald-200 hover:bg-emerald-500/20',
-    activeButton: 'border-emerald-200 bg-emerald-500/30 text-emerald-50',
-    short: 'Green',
+    shell: 'border-emerald-300/35 bg-gradient-to-b from-emerald-400/18 via-emerald-500/10 to-emerald-900/25',
+    studentShell: 'border-emerald-200/45 bg-emerald-500/20',
+    button: 'border-emerald-300/45 text-emerald-50 hover:border-emerald-100 hover:bg-emerald-400/35',
+    activeButton: 'border-emerald-100 bg-emerald-300/55 text-emerald-950 shadow-[0_0_0_2px_rgba(16,185,129,0.35)]',
+    short: '🟢 Green',
+    emoji: '🌟',
   },
   yellow: {
     label: 'Yellow Zone',
     subtitle: 'Try again gently',
     chip: 'border-amber-300/45 bg-amber-500/20 text-amber-100',
-    shell: 'border-amber-300/35 bg-amber-500/10',
-    button: 'border-amber-300/35 text-amber-100 hover:border-amber-200 hover:bg-amber-500/20',
-    activeButton: 'border-amber-200 bg-amber-500/30 text-amber-50',
-    short: 'Yellow',
+    shell: 'border-amber-300/35 bg-gradient-to-b from-amber-300/18 via-amber-500/10 to-amber-900/25',
+    studentShell: 'border-amber-200/45 bg-amber-500/16',
+    button: 'border-amber-300/45 text-amber-50 hover:border-amber-100 hover:bg-amber-300/35',
+    activeButton: 'border-amber-100 bg-amber-300/55 text-amber-950 shadow-[0_0_0_2px_rgba(251,191,36,0.35)]',
+    short: '🟡 Yellow',
+    emoji: '☀️',
   },
   red: {
     label: 'Red Zone',
     subtitle: 'Needs teacher support',
     chip: 'border-rose-300/45 bg-rose-500/20 text-rose-100',
-    shell: 'border-rose-300/35 bg-rose-500/10',
-    button: 'border-rose-300/35 text-rose-100 hover:border-rose-200 hover:bg-rose-500/20',
-    activeButton: 'border-rose-200 bg-rose-500/30 text-rose-50',
-    short: 'Red',
+    shell: 'border-rose-300/35 bg-gradient-to-b from-rose-300/18 via-rose-500/10 to-rose-900/25',
+    studentShell: 'border-rose-200/45 bg-rose-500/16',
+    button: 'border-rose-300/45 text-rose-50 hover:border-rose-100 hover:bg-rose-300/35',
+    activeButton: 'border-rose-100 bg-rose-300/55 text-rose-950 shadow-[0_0_0_2px_rgba(244,63,94,0.35)]',
+    short: '🔴 Red',
+    emoji: '🛟',
   },
 };
 
@@ -94,6 +102,7 @@ export default function BehaviorBuddyPage() {
   const [editing, setEditing] = useState(true);
   const [errorText, setErrorText] = useState('');
   const [showStarPrint, setShowStarPrint] = useState(false);
+  const [celebrationText, setCelebrationText] = useState('');
 
   const characterMap = useMemo(() => new Map(ZOO_CHARACTERS.map(character => [character.id, character])), []);
 
@@ -218,28 +227,43 @@ export default function BehaviorBuddyPage() {
     }
   }
 
+  function triggerCelebration(message: string) {
+    setCelebrationText(message);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        setCelebrationText('');
+      }, 1500);
+    }
+  }
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 sm:py-10">
-      <div className="mb-6 sm:mb-8 no-print">
+    <div className="max-w-7xl mx-auto px-4 py-8 sm:py-10">
+      <div className="mb-6 sm:mb-8 no-print rounded-3xl border border-cyan-300/25 bg-gradient-to-br from-cyan-500/18 via-fuchsia-500/14 to-amber-500/14 p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2 text-sm mb-3">
-          <Link href="/little-learners" className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-amber-200 hover:bg-amber-400/15">
+          <Link href="/little-learners" className="rounded-full border border-amber-300/40 bg-amber-400/15 px-3 py-1 text-amber-100 hover:bg-amber-400/25">
             Little Learners
           </Link>
-          <Link href="/tools" className="rounded-full border border-pink-400/30 bg-pink-400/10 px-3 py-1 text-pink-200 hover:bg-pink-400/15">
+          <Link href="/tools" className="rounded-full border border-pink-300/40 bg-pink-400/15 px-3 py-1 text-pink-100 hover:bg-pink-400/25">
             All tools
           </Link>
+          <span className="rounded-full border border-cyan-300/40 bg-cyan-400/15 px-3 py-1 text-cyan-100">Smartboard Mode</span>
         </div>
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-300/80 font-semibold">Little Learners Tool</p>
-        <h1 className="zoo-fun-font text-3xl sm:text-5xl font-black leading-tight mt-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-cyan-100/90 font-semibold">Little Learners Tool</p>
+        <h1 className="zoo-fun-font text-4xl sm:text-6xl font-black leading-tight mt-2">
           Behavior Buddy <span className="gradient-text-warm">Board</span>
         </h1>
-        <p className="text-zinc-300 mt-3 max-w-3xl text-base sm:text-lg">
-          Smartboard-friendly behavior tracker for preschool classrooms. Tap clear zone buttons instead of arrows, celebrate green-zone wins,
-          and print Star Day award cards in one click.
+        <p className="text-zinc-100 mt-3 max-w-4xl text-lg sm:text-2xl leading-snug">
+          Big, playful classroom behavior board for ages 3-5. Tap giant color buttons, make Green Zone feel exciting, and print Star Day
+          take-home cards in one click.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-sm">
+          <span className="rounded-full border border-emerald-200/50 bg-emerald-400/20 px-3 py-1 text-emerald-50">🎉 Kid-friendly animations</span>
+          <span className="rounded-full border border-fuchsia-200/50 bg-fuchsia-400/20 px-3 py-1 text-fuchsia-50">⭐ Star Day rewards</span>
+          <span className="rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 sm:gap-5 no-print">
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-4 sm:gap-5 no-print">
         <section className="card-glow rounded-2xl p-4 sm:p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-lg text-zinc-100">Class Setup</h2>
@@ -330,13 +354,19 @@ export default function BehaviorBuddyPage() {
         </section>
 
         <section className="card-glow rounded-2xl p-4 sm:p-5">
-          <div className="mb-4 rounded-xl border border-zinc-700/70 bg-zinc-950/60 px-3 py-3 space-y-3">
+          {celebrationText && (
+            <div className="mb-3 rounded-2xl border border-fuchsia-200/50 bg-gradient-to-r from-fuchsia-400/30 via-cyan-400/25 to-amber-300/30 px-4 py-2.5 text-base sm:text-lg font-bold text-white celebration-pop">
+              {celebrationText}
+            </div>
+          )}
+
+          <div className="mb-4 rounded-2xl border border-zinc-700/70 bg-zinc-950/60 px-3 py-3 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="inline-flex items-center gap-2 text-zinc-200">
-                <Users size={16} />
-                <span className="text-sm sm:text-base font-semibold">Live classroom board</span>
+              <div className="inline-flex items-center gap-2 text-zinc-100">
+                <Users size={18} />
+                <span className="zoo-fun-font text-base sm:text-xl font-black">Live classroom board</span>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
                 {ZONE_ORDER.map(zone => (
                   <span key={zone} className={`rounded-full border px-2.5 py-1 ${ZONE_META[zone].chip}`}>
                     {ZONE_META[zone].label}: <strong>{zoneBuckets[zone].length}</strong>
@@ -348,25 +378,25 @@ export default function BehaviorBuddyPage() {
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between text-xs text-zinc-300 mb-1">
-                <span>Green Zone momentum</span>
-                <strong>{greenRatio}%</strong>
+            <div className="rounded-xl border border-emerald-300/35 bg-emerald-500/10 px-3 py-2.5">
+              <div className="flex items-center justify-between text-sm text-emerald-100 mb-1.5">
+                <span className="zoo-fun-font text-lg">Green Zone energy</span>
+                <strong className="text-xl">{greenRatio}%</strong>
               </div>
-              <div className="h-3 rounded-full bg-zinc-900 border border-zinc-700 overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-cyan-300 transition-all duration-500" style={{ width: `${greenRatio}%` }} />
+              <div className="h-4 rounded-full bg-zinc-900 border border-zinc-700 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-lime-200 to-cyan-200 transition-all duration-500" style={{ width: `${greenRatio}%` }} />
               </div>
             </div>
 
             {starCount > 0 && (
-              <div className="rounded-xl border border-fuchsia-300/35 bg-gradient-to-r from-fuchsia-500/15 via-cyan-500/10 to-amber-500/15 px-3 py-2 text-sm text-fuchsia-100">
-                <Sparkles size={14} className="inline mr-1 sparkle-spin" />
+              <div className="rounded-xl border border-fuchsia-300/35 bg-gradient-to-r from-fuchsia-500/25 via-cyan-500/20 to-amber-500/20 px-3 py-2.5 text-base text-fuchsia-50">
+                <Sparkles size={16} className="inline mr-1 sparkle-spin" />
                 Awesome! {starCount} student{starCount === 1 ? '' : 's'} earned Star Day. Print award cards for take-home celebration.
               </div>
             )}
 
             {students.length > 0 && greenRatio === 100 && (
-              <div className="rounded-xl border border-emerald-300/45 bg-emerald-500/20 px-3 py-2 text-sm text-emerald-100 pulse-glow">
+              <div className="rounded-xl border border-emerald-200/60 bg-emerald-400/25 px-3 py-2.5 text-base text-emerald-50 pulse-glow">
                 🌟 Green Zone Club unlocked! Everyone is ready to learn.
               </div>
             )}
@@ -376,9 +406,9 @@ export default function BehaviorBuddyPage() {
                 <button
                   type="button"
                   onClick={printStars}
-                  className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-300/55 bg-fuchsia-500/20 text-fuchsia-50 px-3 py-2 text-xs font-semibold hover:bg-fuchsia-500/30"
+                  className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-300/60 bg-fuchsia-500/30 text-fuchsia-50 px-3.5 py-2.5 text-sm font-semibold hover:bg-fuchsia-500/40"
                 >
-                  <Printer size={14} /> Print Star Day awards
+                  <Printer size={15} /> Print Star Day awards
                 </button>
                 <button
                   type="button"
@@ -393,32 +423,35 @@ export default function BehaviorBuddyPage() {
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
             {ZONE_ORDER.map(zone => (
-              <article key={zone} className={`rounded-2xl border p-3 ${ZONE_META[zone].shell} flex flex-col min-h-[320px] max-h-[66vh]`}>
+              <article key={zone} className={`rounded-2xl border p-3.5 ${ZONE_META[zone].shell} flex flex-col min-h-[420px] max-h-[72vh]`}>
                 <header className="mb-3">
-                  <p className="zoo-fun-font text-xl font-black text-zinc-100">{ZONE_META[zone].label}</p>
-                  <p className="text-xs text-zinc-300">{ZONE_META[zone].subtitle}</p>
+                  <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50">
+                    <span className="mr-1.5">{ZONE_META[zone].emoji}</span>
+                    {ZONE_META[zone].label}
+                  </p>
+                  <p className="text-sm text-zinc-200">{ZONE_META[zone].subtitle}</p>
                 </header>
 
-                <div className="space-y-2 pr-1 overflow-y-auto flex-1">
+                <div className="space-y-2.5 pr-1 overflow-y-auto flex-1">
                   {zoneBuckets[zone].length === 0 ? (
-                    <p className="text-xs text-zinc-400 border border-dashed border-zinc-700 rounded-xl px-2 py-3">No students in this zone.</p>
+                    <p className="text-sm text-zinc-200/80 border border-dashed border-zinc-500 rounded-xl px-2.5 py-3.5">No students in this zone yet.</p>
                   ) : (
                     zoneBuckets[zone].map(student => {
                       const character = characterMap.get(student.characterId) ?? ZOO_CHARACTERS[0];
 
                       return (
-                        <div key={student.id} className="rounded-xl border border-zinc-700/80 bg-zinc-950/75 p-2.5">
-                          <div className="flex items-center gap-2.5">
+                        <div key={student.id} className={`rounded-2xl border p-3 ${ZONE_META[student.zone].studentShell}`}>
+                          <div className="flex items-center gap-3">
                             <Image
                               src={character.image}
                               alt={`${character.name} avatar`}
-                              width={72}
-                              height={72}
-                              className={`h-14 w-14 rounded-xl border border-zinc-700 bg-zinc-900 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
+                              width={96}
+                              height={96}
+                              className={`h-20 w-20 rounded-2xl border border-zinc-200/30 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="zoo-fun-font text-xl font-black text-zinc-100 leading-tight truncate">{student.name}</p>
-                              <p className="text-[11px] text-zinc-400 truncate">
+                              <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight truncate">{student.name}</p>
+                              <p className="text-sm text-zinc-100/90 truncate">
                                 {character.emoji} {character.name}
                               </p>
                               <button
@@ -429,27 +462,32 @@ export default function BehaviorBuddyPage() {
                                     characterId: nextCharacterId(current.characterId),
                                   }))
                                 }
-                                className="mt-1 rounded-full border border-cyan-300/35 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-100 hover:border-cyan-200"
+                                className="mt-1.5 rounded-full border border-cyan-100/40 bg-cyan-500/25 px-2.5 py-1 text-xs text-cyan-50 hover:border-cyan-100"
                               >
                                 Swap buddy
                               </button>
                               {student.starDay && (
-                                <p className="mt-1 inline-flex items-center gap-1 rounded-full border border-fuchsia-300/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] text-fuchsia-100">
-                                  <Star size={11} /> Star Day
+                                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-fuchsia-200/70 bg-fuchsia-500/30 px-2.5 py-0.5 text-xs text-fuchsia-50">
+                                  <Star size={12} /> Star Day Hero
                                 </p>
                               )}
                             </div>
                           </div>
 
-                          <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                             {ZONE_ORDER.map(targetZone => {
                               const isActive = student.zone === targetZone;
                               return (
                                 <button
                                   key={`${student.id}-${targetZone}`}
                                   type="button"
-                                  onClick={() => updateStudent(student.id, current => ({ ...current, zone: targetZone }))}
-                                  className={`rounded-lg border py-1.5 text-[11px] font-semibold transition-colors ${
+                                  onClick={() => {
+                                    if (student.zone !== targetZone && targetZone === 'green') {
+                                      triggerCelebration(`🎉 ${student.name} made it to Green Zone!`);
+                                    }
+                                    updateStudent(student.id, current => ({ ...current, zone: targetZone }));
+                                  }}
+                                  className={`rounded-xl border py-2 text-sm font-bold transition-colors ${
                                     isActive ? ZONE_META[targetZone].activeButton : ZONE_META[targetZone].button
                                   }`}
                                 >
@@ -461,14 +499,20 @@ export default function BehaviorBuddyPage() {
 
                           <button
                             type="button"
-                            onClick={() => updateStudent(student.id, current => ({ ...current, starDay: !current.starDay }))}
-                            className={`mt-1.5 w-full inline-flex items-center justify-center gap-1 rounded-lg border py-1.5 text-xs ${
+                            onClick={() => {
+                              const nextStar = !student.starDay;
+                              updateStudent(student.id, current => ({ ...current, starDay: nextStar }));
+                              if (nextStar) {
+                                triggerCelebration(`⭐ Star Day for ${student.name}!`);
+                              }
+                            }}
+                            className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-xl border py-2 text-sm font-semibold ${
                               student.starDay
-                                ? 'border-fuchsia-300/60 bg-fuchsia-500/15 text-fuchsia-100'
-                                : 'border-zinc-700 text-zinc-300 hover:text-white hover:border-zinc-500'
+                                ? 'border-fuchsia-200/75 bg-fuchsia-500/30 text-fuchsia-50'
+                                : 'border-zinc-200/35 bg-zinc-900/40 text-zinc-100 hover:border-zinc-100/50'
                             }`}
                           >
-                            <Star size={14} /> {student.starDay ? 'Remove Star Day' : 'Give Star Day'}
+                            <Star size={15} /> {student.starDay ? 'Remove Star Day' : 'Give Star Day'}
                           </button>
                         </div>
                       );
@@ -559,6 +603,10 @@ export default function BehaviorBuddyPage() {
           animation: pulse-glow 1.8s ease-in-out infinite;
         }
 
+        .celebration-pop {
+          animation: celebration-pop 0.35s ease-out;
+        }
+
         @keyframes buddy-bounce {
           0%,
           100% {
@@ -585,6 +633,17 @@ export default function BehaviorBuddyPage() {
           }
           50% {
             box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+          }
+        }
+
+        @keyframes celebration-pop {
+          0% {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
           }
         }
 
