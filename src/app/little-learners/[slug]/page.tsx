@@ -1,6 +1,6 @@
 import { getLittleLearners, getLittleLearner, formatDate } from '@/lib/content';
 import { BuildEmbed } from '@/components/BuildEmbed';
-import { ArrowLeft, GraduationCap, Bot } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Bot, Download } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -40,6 +40,18 @@ export default async function LittleLearnerPage({ params }: { params: Promise<{ 
           </div>
         </div>
       </div>
+
+      {item.downloadUrl && (
+        <div className="mb-8 card-glow rounded-xl p-4 border border-amber-400/30 bg-amber-400/10">
+          <a
+            href={item.downloadUrl}
+            className="inline-flex items-center gap-2 rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-900 hover:bg-amber-300"
+          >
+            <Download size={15} />
+            Download free printable PDF
+          </a>
+        </div>
+      )}
 
       {item.interactive && (
         <div className="mb-8">

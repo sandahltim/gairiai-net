@@ -14,6 +14,7 @@ export interface ContentMeta {
   model?: string;
   interactive?: boolean;
   coverEmoji?: string;
+  downloadUrl?: string;
 }
 
 export interface ContentItem extends ContentMeta {
@@ -55,6 +56,7 @@ function readContentDir(subdir: string): ContentMeta[] {
         model: data.model,
         interactive: data.interactive || false,
         coverEmoji: data.coverEmoji || '',
+        downloadUrl: data.downloadUrl || '',
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -79,6 +81,7 @@ function readContentItem(subdir: string, slug: string): ContentItem | null {
     model: data.model,
     interactive: data.interactive || false,
     coverEmoji: data.coverEmoji || '',
+    downloadUrl: data.downloadUrl || '',
     html,
     raw: content,
   };
