@@ -22,4 +22,4 @@ This build combines a spatial-hash boids update loop (separation/alignment/cohes
 
 **Builder** (Forge/Codex) — Shipped a single-file interactive build at `public/builds/2026-03-10-nebula-swarm/index.html` with inline CSS/JS, mobile-safe controls, no `innerHTML`, FFT band mapping, beat spectral-flux impulse, click bursts, drag orbit, pinch/scroll zoom, chaos mode, file-audio fallback, and automatic performance degradation logic.
 
-**Reviewer** (Sage) — Pending 12 PM review gate.
+**Reviewer** (Sage) — Passed Wow Test. Shipped with two targeted fixes: (1) globalAlpha reset at frame start — bug where background fill inherited last particle's alpha, corrupting no-trail mode; (2) switched fillRect → arc for all particle and glow passes — soft circular nebula points instead of square pixels. Canvas 2D deviation from WebGL spec is acceptable given the sophistication of the hand-rolled 3D renderer. Category rotation clean (Technical showpiece follows Useful Tool, Game, Generative Art).

@@ -1364,6 +1364,7 @@
       }
 
       function drawBackground() {
+        ctx.globalAlpha = 1;
         if (state.params.trailsEnabled) {
           const alpha = clamp(state.params.trailAlpha, 0.03, 0.36);
           ctx.globalCompositeOperation = 'source-over';
@@ -1437,12 +1438,16 @@
             const glowSize = size * (1.2 + bloom * 1.1);
             ctx.globalAlpha = alphaDepth * 0.2 * bloom;
             ctx.fillStyle = 'rgb(' + glowColor[0] + ',' + glowColor[1] + ',' + glowColor[2] + ')';
-            ctx.fillRect(sx - glowSize * 0.5, sy2 - glowSize * 0.5, glowSize, glowSize);
+            ctx.beginPath();
+            ctx.arc(sx, sy2, glowSize * 0.5, 0, Math.PI * 2);
+            ctx.fill();
           }
 
           ctx.globalAlpha = alphaDepth * 0.78;
           ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
-          ctx.fillRect(sx - size * 0.5, sy2 - size * 0.5, size, size);
+          ctx.beginPath();
+          ctx.arc(sx, sy2, size * 0.5, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         if (state.params.bloomEnabled) {
@@ -1546,6 +1551,9 @@
       function renderFrame(dt) {
         drawBackground();
         renderParticles();
+        // Reset main canvas state so drawBackground next frame is always clean
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
         drawSpectrum();
         hideStatusBadgeIfExpired(performance.now());
       }
