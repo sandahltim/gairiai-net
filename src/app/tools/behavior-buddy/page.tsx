@@ -96,8 +96,8 @@ function nextCharacterId(currentId: string): string {
   return ZOO_CHARACTERS[(index + 1) % ZOO_CHARACTERS.length].id;
 }
 
-function fillCharacterTagline(tagline: string, studentName: string): string {
-  return tagline.replaceAll('{student}', studentName);
+function fillCharacterText(template: string, studentName: string): string {
+  return template.replaceAll('{student}', studentName);
 }
 
 export default function BehaviorBuddyPage() {
@@ -126,6 +126,8 @@ export default function BehaviorBuddyPage() {
   const starStudents = useMemo(() => students.filter(student => student.starDay), [students]);
   const starCount = starStudents.length;
   const greenRatio = students.length === 0 ? 0 : Math.round((zoneBuckets.green.length / students.length) * 100);
+  const needsSupportCount = zoneBuckets.yellow.length + zoneBuckets.red.length;
+  const supportStudents = [...zoneBuckets.red, ...zoneBuckets.yellow];
 
   useEffect(() => {
     let nextStudents: BuddyStudent[] = [];
@@ -419,6 +421,25 @@ export default function BehaviorBuddyPage() {
               </div>
             </div>
 
+            {students.length > 0 && (
+              <div
+                className={`rounded-xl border px-3 py-2.5 ${
+                  needsSupportCount > 0
+                    ? 'border-amber-200/55 bg-amber-400/20 text-amber-50'
+                    : 'border-emerald-200/55 bg-emerald-400/16 text-emerald-50'
+                }`}
+              >
+                <p className="zoo-fun-font text-lg font-black">{needsSupportCount > 0 ? 'Teacher glance: support radar' : 'Teacher glance: class is steady'}</p>
+                {needsSupportCount > 0 ? (
+                  <p className="mt-1 text-sm sm:text-base leading-snug">
+                    {needsSupportCount} student{needsSupportCount === 1 ? '' : 's'} need a quick check-in: {supportStudents.map(student => student.name).join(', ')}.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm sm:text-base leading-snug">Everyone is in Green Zone right now. Keep the momentum rolling.</p>
+                )}
+              </div>
+            )}
+
             {starCount > 0 && (
               <div className="rounded-xl border border-fuchsia-300/35 bg-gradient-to-r from-fuchsia-500/25 via-cyan-500/20 to-amber-500/20 px-3 py-2.5 text-base text-fuchsia-50">
                 <Sparkles size={16} className="inline mr-1 sparkle-spin" />
@@ -486,6 +507,7 @@ export default function BehaviorBuddyPage() {
                             <p className="text-xs text-emerald-100/90 break-words">
                               {character.emoji} {character.name}
                             </p>
+                            <p className="mt-0.5 text-[11px] leading-tight text-emerald-100/85 break-words">{character.personalityLine}</p>
                           </div>
                         </div>
                         <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -508,7 +530,9 @@ export default function BehaviorBuddyPage() {
                             onClick={() => {
                               const nextStar = !student.starDay;
                               updateStudent(student.id, current => ({ ...current, starDay: nextStar }));
-                              if (nextStar) triggerCelebration(`⭐ Star Day for ${student.name}!`);
+                              if (nextStar) {
+                                triggerCelebration(fillCharacterText(character.starCheer, student.name));
+                              }
                             }}
                             className={`rounded-lg border py-1 text-xs font-bold ${
                               student.starDay
@@ -560,14 +584,19 @@ export default function BehaviorBuddyPage() {
                               <p className="text-sm text-zinc-50 leading-snug break-words">
                                 {character.emoji} {character.name}
                               </p>
+                              <p className="mt-1 rounded-lg border border-white/25 bg-white/10 px-2 py-1 text-xs text-zinc-100 break-words">
+                                {character.personalityLine}
+                              </p>
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={() => {
+                                  const nextCharacter = characterMap.get(nextCharacterId(student.characterId)) ?? ZOO_CHARACTERS[0];
                                   updateStudent(student.id, current => ({
                                     ...current,
-                                    characterId: nextCharacterId(current.characterId),
-                                  }))
-                                }
+                                    characterId: nextCharacter.id,
+                                  }));
+                                  triggerCelebration(`🎭 ${nextCharacter.name} joined ${student.name}: ${nextCharacter.personalityLine}`);
+                                }}
                                 className="mt-2 rounded-xl border border-cyan-100/50 bg-cyan-500/30 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-100"
                               >
                                 Swap buddy
@@ -589,7 +618,7 @@ export default function BehaviorBuddyPage() {
                                   type="button"
                                   onClick={() => {
                                     if (student.zone !== targetZone && targetZone === 'green') {
-                                      triggerCelebration(`🎉 ${student.name} made it to Green Zone!`);
+                                      triggerCelebration(fillCharacterText(character.greenCheer, student.name));
                                     }
                                     updateStudent(student.id, current => ({ ...current, zone: targetZone }));
                                   }}
@@ -609,7 +638,7 @@ export default function BehaviorBuddyPage() {
                               const nextStar = !student.starDay;
                               updateStudent(student.id, current => ({ ...current, starDay: nextStar }));
                               if (nextStar) {
-                                triggerCelebration(`⭐ Star Day for ${student.name}!`);
+                                triggerCelebration(fillCharacterText(character.starCheer, student.name));
                               }
                             }}
                             className={`mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-xl border py-2.5 text-base font-semibold min-h-[48px] ${
@@ -663,7 +692,7 @@ export default function BehaviorBuddyPage() {
                 <article key={`award-${student.id}`} className="star-award-card rounded-2xl border border-zinc-700 bg-white text-zinc-900 p-4">
                   <p className="text-[11px] uppercase tracking-[0.16em] text-zinc-500">Star Day Award</p>
                   <p className="zoo-fun-font text-2xl font-black mt-1">{character.emoji} {character.name}</p>
-                  <p className="text-sm text-zinc-600">{fillCharacterTagline(character.tagline, student.name)}</p>
+                  <p className="text-sm text-zinc-600">{fillCharacterText(character.tagline, student.name)}</p>
 
                   <div className="mt-3 flex items-center gap-3">
                     <Image
