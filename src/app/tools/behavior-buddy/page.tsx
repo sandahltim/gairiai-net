@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Pencil, Printer, RotateCcw, Save, Sparkles, Star, Users } from 'lucide-react';
-import { ZOO_CHARACTERS } from '@/lib/zoo-characters';
+import { type OutfitMode, ZOO_CHARACTERS } from '@/lib/zoo-characters';
 
 type Zone = 'green' | 'yellow' | 'red';
 
@@ -71,6 +71,12 @@ const ZONE_META: Record<
   },
 };
 
+const OUTFIT_MODE_META: Record<OutfitMode, { label: string; chip: string }> = {
+  classic: { label: 'Classic look', chip: 'border-cyan-300/45 bg-cyan-500/20 text-cyan-100' },
+  special: { label: 'Special occasion', chip: 'border-fuchsia-300/45 bg-fuchsia-500/20 text-fuchsia-100' },
+  winter: { label: 'Winter mode', chip: 'border-indigo-300/45 bg-indigo-500/20 text-indigo-100' },
+};
+
 function parseNames(input: string): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -108,6 +114,8 @@ export default function BehaviorBuddyPage() {
   const [showStarPrint, setShowStarPrint] = useState(false);
   const [celebrationText, setCelebrationText] = useState('');
   const [burstActive, setBurstActive] = useState(false);
+  const [outfitMode, setOutfitMode] = useState<OutfitMode>('classic');
+  const [mottoOpenStudentId, setMottoOpenStudentId] = useState<string | null>(null);
 
   const characterMap = useMemo(() => new Map(ZOO_CHARACTERS.map(character => [character.id, character])), []);
 
@@ -197,6 +205,7 @@ export default function BehaviorBuddyPage() {
     setErrorText('');
     setEditing(false);
     setShowStarPrint(false);
+    setMottoOpenStudentId(null);
   }
 
   function useDemoClass() {
@@ -224,10 +233,15 @@ export default function BehaviorBuddyPage() {
     setErrorText('');
     setEditing(true);
     setShowStarPrint(false);
+    setMottoOpenStudentId(null);
   }
 
   function updateStudent(id: string, updater: (student: BuddyStudent) => BuddyStudent) {
     setStudents(prev => prev.map(student => (student.id === id ? updater(student) : student)));
+  }
+
+  function toggleMotto(studentId: string) {
+    setMottoOpenStudentId(prev => (prev === studentId ? null : studentId));
   }
 
   function printStars() {
@@ -276,6 +290,27 @@ export default function BehaviorBuddyPage() {
           <span className="wow-chip rounded-full border border-emerald-200/50 bg-emerald-400/20 px-3 py-1 text-emerald-50">🎉 Kid-friendly animations</span>
           <span className="wow-chip rounded-full border border-fuchsia-200/50 bg-fuchsia-400/20 px-3 py-1 text-fuchsia-50">⭐ Star Day rewards</span>
           <span className="wow-chip rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-zinc-200/85">Character outfit mode</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(Object.keys(OUTFIT_MODE_META) as OutfitMode[]).map(mode => {
+              const active = outfitMode === mode;
+              return (
+                <button
+                  key={`outfit-${mode}`}
+                  type="button"
+                  onClick={() => setOutfitMode(mode)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                    active ? OUTFIT_MODE_META[mode].chip : 'border-zinc-300/35 bg-zinc-900/45 text-zinc-100 hover:border-zinc-100/55'
+                  }`}
+                >
+                  {OUTFIT_MODE_META[mode].label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -504,10 +539,21 @@ export default function BehaviorBuddyPage() {
                           />
                           <div className="min-w-0 flex-1">
                             <p className="zoo-fun-font text-lg font-black text-emerald-50 leading-tight break-words">{student.name}</p>
-                            <p className="text-xs text-emerald-100/90 break-words">
+                            <p className="text-xs text-emerald-100/90 break-words" title={character.motto}>
                               {character.emoji} {character.name}
                             </p>
                             <p className="mt-0.5 text-[11px] leading-tight text-emerald-100/85 break-words">{character.personalityLine}</p>
+                            <p className="mt-0.5 text-[10px] text-emerald-100/85 break-words">👗 {character.outfits[outfitMode]}</p>
+                            <button
+                              type="button"
+                              onClick={() => toggleMotto(student.id)}
+                              className="mt-1 inline-flex rounded-full border border-emerald-100/45 bg-emerald-300/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-50 hover:border-emerald-100/75"
+                            >
+                              {mottoOpenStudentId === student.id ? 'Hide motto' : 'Tap motto'}
+                            </button>
+                            {mottoOpenStudentId === student.id && (
+                              <p className="mt-1 text-[11px] leading-tight text-emerald-50 break-words">“{character.motto}”</p>
+                            )}
                           </div>
                         </div>
                         <div className="mt-2 grid grid-cols-3 gap-1.5">
@@ -581,12 +627,27 @@ export default function BehaviorBuddyPage() {
                             />
                             <div className="min-w-0 flex-1">
                               <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight break-words">{student.name}</p>
-                              <p className="text-sm text-zinc-50 leading-snug break-words">
+                              <p className="text-sm text-zinc-50 leading-snug break-words" title={character.motto}>
                                 {character.emoji} {character.name}
                               </p>
                               <p className="mt-1 rounded-lg border border-white/25 bg-white/10 px-2 py-1 text-xs text-zinc-100 break-words">
                                 {character.personalityLine}
                               </p>
+                              <p className="mt-1 rounded-lg border border-white/20 bg-black/15 px-2 py-1 text-[11px] text-zinc-100 break-words">
+                                Outfit: {character.outfits[outfitMode]}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => toggleMotto(student.id)}
+                                className="mt-2 rounded-xl border border-fuchsia-100/40 bg-fuchsia-500/25 px-3 py-2 text-sm font-semibold text-fuchsia-50 hover:border-fuchsia-100/75"
+                              >
+                                {mottoOpenStudentId === student.id ? 'Hide motto' : 'Tap for motto'}
+                              </button>
+                              {mottoOpenStudentId === student.id && (
+                                <p className="mt-1 rounded-lg border border-fuchsia-200/45 bg-fuchsia-500/20 px-2 py-1 text-xs text-fuchsia-50 break-words">
+                                  “{character.motto}”
+                                </p>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -659,6 +720,74 @@ export default function BehaviorBuddyPage() {
           </div>
         </section>
       </div>
+
+      <section className="character-sheets-shell mt-5 card-glow rounded-2xl p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em] text-zinc-300">Meet the Zoo Crew</p>
+            <h2 className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-100">Character sheets (one per buddy)</h2>
+            <p className="text-sm text-zinc-300 mt-1">
+              Outfit mode: <span className={`rounded-full border px-2 py-0.5 ml-1 ${OUTFIT_MODE_META[outfitMode].chip}`}>{OUTFIT_MODE_META[outfitMode].label}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.print();
+              }
+            }}
+            className="no-print inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-3 py-2 text-xs text-zinc-100 hover:border-zinc-300"
+          >
+            <Printer size={14} /> Print character sheets
+          </button>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 character-sheets-grid">
+          {ZOO_CHARACTERS.map(character => (
+            <article key={`sheet-${character.id}`} className="character-sheet-card rounded-2xl border border-zinc-700 bg-zinc-950/60 p-4">
+              <div className="flex items-start gap-3">
+                <Image
+                  src={character.image}
+                  alt={`${character.name} character sheet art`}
+                  width={112}
+                  height={112}
+                  className="h-20 w-20 rounded-2xl border border-zinc-200/25 bg-white/10 object-contain"
+                />
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.15em] text-zinc-400">{character.emoji} {character.title}</p>
+                  <h3 className="zoo-fun-font text-2xl font-black leading-tight text-zinc-100">{character.name}</h3>
+                  <p className="mt-1 text-xs text-zinc-300">{character.backstory}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {character.traits.map(trait => (
+                  <span key={`${character.id}-${trait}`} className="rounded-full border border-cyan-300/45 bg-cyan-500/15 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
+                    {trait}
+                  </span>
+                ))}
+              </div>
+
+              <p className="mt-3 rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/15 px-2.5 py-2 text-sm text-fuchsia-100">
+                Classroom motto: “{character.motto}”
+              </p>
+
+              <div className="mt-3 rounded-xl border border-zinc-700/80 bg-black/20 px-2.5 py-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-300">Signature accessories</p>
+                <ul className="mt-1 text-xs text-zinc-200 list-disc pl-4 space-y-0.5">
+                  {character.accessories.map(accessory => (
+                    <li key={`${character.id}-${accessory}`}>{accessory}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="mt-3 text-xs text-zinc-200 rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">Storyline episode: {character.storyline}</p>
+              <p className="mt-2 text-xs text-zinc-300">Current outfit mode: {character.outfits[outfitMode]}</p>
+            </article>
+          ))}
+        </div>
+      </section>
 
       {starCount > 0 && showStarPrint && (
         <section className="star-awards-shell mt-5 card-glow rounded-2xl p-4 sm:p-5">
@@ -846,32 +975,46 @@ export default function BehaviorBuddyPage() {
             visibility: hidden;
           }
 
+          :global(.character-sheets-shell),
+          :global(.character-sheets-shell *),
           :global(.star-awards-shell),
           :global(.star-awards-shell *) {
             visibility: visible;
           }
 
+          :global(.character-sheets-shell),
           :global(.star-awards-shell) {
-            position: absolute;
-            inset: 0;
+            position: static;
             width: 100%;
             margin: 0;
             border: none;
             border-radius: 0;
             background: #ffffff !important;
-            padding: 0.4in;
+            padding: 0.25in;
             box-shadow: none;
           }
 
-          :global(.star-awards-grid) {
-            gap: 0.2in;
+          :global(.character-sheets-grid) {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.15in;
           }
 
+          :global(.character-sheet-card),
           :global(.star-award-card) {
             break-inside: avoid;
             page-break-inside: avoid;
             box-shadow: none;
             border: 2px solid #111827 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+          }
+
+          :global(.character-sheet-card *) {
+            color: #111827 !important;
+          }
+
+          :global(.star-awards-grid) {
+            gap: 0.2in;
           }
 
           :global(.no-print) {
