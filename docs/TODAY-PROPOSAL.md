@@ -1,36 +1,41 @@
-# Build Proposal - 2026-03-09
+# Build Proposal - 2026-03-10
 
 ## Research Sources
-GitHub Trending exploding with AI agent repos (agency-agents 4k+ stars today, MiroFish swarm intell 2k stars, hermes-agent, page-agent). HN frontpage: Fontcrafter (handwriting-to-font tool, 258 pts), Agent Safehouse macOS sandbox (730 pts), VS Code Agent Kanban (57 pts), artificial-life simple sim (146 pts). Recent Reddit trends implied via category overlap: creativecoding/generative hot on simulations/shaders. Recent ships: Fourier Epicycle (math tool), Ant Wars (game sim), Morphogenesis (reaction-diffusion gen art) — avoiding game/gen art/tool repeats.
+- r/InternetIsBeautiful hot: Parametric pattern generator (solidvents.com - vector grills export), Scroll Speedometer (5s thumb scroll test), Double Pendulum Playground (interactive physics), Electricity 20-year forecast tool, Postcard Atlas (electronic postcards).
+- r/creativecoding hot: Realtime Audioreactive Pointclouds (PF available), Interactive Footer, Self-decorating code, ODE music & social dynamics, Mondrian-style art.
+- r/generative hot: Julia set, Maelstrom fractal video, Chaotic symmetry angle paths, Contour paper-art, Norm-5 Fractal curve.
+- HN: Double Pendulum, parametric tools trending.
+- Recent ships: 03-09 Fourier Epicycle Sculptor (math vis), 03-08 Ant Wars Arena (game sim), 03-07 Morphogenesis Engine (bio generative), 03-06 Sonic Wire Forge (audio?), 03-05 Billionaire Wealth Vortex (data viz). Avoiding repeats: no math vis, no games, no bio sims. Recent has some audio? But pushing further with visuals.
 
-Key spark: AI agent hype + shadertoy-style GLSL editors in creativecoding history + impeccable design lang for AI (1k stars). Devs love live shader playgrounds (shareable, technical depth).
+Cool finds: Audioreactive pointclouds grabbed me - real-time mic/FFT driving 3D particles. Double pendulum chaos sims popular. Parametric generators useful/bookmarkable.
 
-## Idea: Live GLSL Fragment Shader Forge
-**Category:** Technical showpiece (WebGL, shaders)
-**One-liner:** Real-time GLSL fragment shader editor with AI-suggested mutations, live audio reactivity, and one-click shadertoy export — turn mouse position/time into hypnotic agent swarms or fluid plasmas.
-**Technical Stack:** WebGL2, live GLSL parsing/compilation, WebAudio FFT for freq mapping to uniforms, code diff highlighting.
-**Inspired by:** agency-agents/MiroFish AI swarms on GitHub (4k+ stars today) + HN artificial-life sims + r/creativecoding shader posts. Captures agent/swarm visual energy in editable shader form.
+## Idea: Sonic Nebula Forge
+**Category:** 1. Technical showpiece (physics, WebGL, audio synthesis)
+**One-liner:** Real-time microphone-reactive particle nebula that morphs shapes, flocks, and explodes to your voice or music — sculpt cosmic clouds with sound.
+**Technical Stack:** WebAudio API (FFT analysis, microphone input), Three.js/WebGL (10k+ GPU point cloud with custom shaders), Cannon.js (loose physics/flocking), procedural noise (Perlin/curl for nebula organic flow).
 
-**Description:** Load with a swirling agent-flock plasma preset (inspired by MiroFish swarms). Edit GLSL live in a side editor — changes compile instantly, no refresh. Mouse XY/time/u_time feed into shader uniforms; toggle mic input to map FFT bins to color/noise/octaves for audio-driven chaos. AI button suggests mutations (e.g., "add voronoi cells", "inject flow noise") via simple prompt-to-snippet. Dark theme, mobile keyboard-safe, fullscreen toggle.
+**Inspired by:** r/creativecoding's "Realtime Audioreactive Pointclouds" — taking mic-reactive particles to nebula-scale with physics swarms and shader glow/trails, plus upload audio support.
 
-**Target audience:** Creative coders, shadertoy addicts, WebGL devs — they'll fork/export/share custom agent sims or audio visuals.
+**Description:** Load the page, grant mic access, speak/sing/play music nearby — watch 20k particles burst into a swirling nebula, frequency bands controlling density/clustering (bass clumps core, highs scatter sparks), amplitude driving explosion/implosion waves. Sliders tweak flock behavior, shader params (glow intensity, trail length), FFT smoothing. Export animated GIF of your session. Not just viz — emergent flocking creates alien lifeforms from your voice.
+
+**Target audience:** Creative coders, musicians, VJs, procedural art fans — they'd embed it in streams or share clips saying "AI made my screams into galaxies."
 
 **Key features:**
-- Live GLSL edit → compile → render pipeline (error overlay on syntax fail).
-- 6 swarm/agent presets (flocking plasma, neural net viz, particle CA).
-- WebAudio FFT mapping: bass drives scale, highs add turbulence.
-- AI mutation suggester (3 snippets/click, insert/replace modes).
-- Shadertoy export (copy-paste ready code block).
-- Uniform sliders for iTime/iResolution/mouse + preset saves.
-- Mobile: virtual keyboard + touch-drag uniforms.
+- Real-time FFT spectrum → particle position/velocity/color (bass=deep purples cluster, treble=fiery sparks fly).
+- Flocking sim (separation/alignment/cohesion) biased by audio bands for organic morphs.
+- Custom GLSL vertex/fragment shaders for nebula glow, distortion, motion blur trails.
+- Mic + drag-drop audio file upload (WebAudio decode).
+- Physics impulses from beat detection (peaks trigger swarm bursts).
+- Real-time scope + spectrum overlay, export GIF/MP4.
+- Responsive — scales to mobile for live performances.
 
-**The hook:** Screenshot a custom audio-reactive agent swarm shader, post to r/creativecoding or X with "AI-mutated this live in browser" — devs will dissect the code and remix.
+**The hook:** Record yourself yelling lyrics, particles swarm into demonic shapes; hum a melody, serene galaxy blooms. People screenshot/share the hypnotic chaos: "My voice summoning nebulae in browser??"
 
 **Wow Test Results:**
-1. Stop scrolling? YES — instant hypnotic swarm render grabs eyes like shadertoy viral hits.
-2. Developer would share? YES — editable GLSL + AI mutations + export = instant remix fodder for HN/Reddit/X.
-3. Technical boundary pushed? YES — live GLSL compile loop + FFT uniforms + mutation injection in pure browser WebGL2/WebAudio.
-4. Different from this week? YES — shaders vs recent Canvas2D sims/math viz/game physics; rotates to pure GPU fragment pipeline.
+1. Stop scrolling? YES — instant mic-reactive particles exploding grabs eyes like fireworks.
+2. Developer would share? YES — WebAudio+WebGL+physics stack showcases bleeding-edge perf (60fps 20k pts).
+3. Technical boundary pushed? YES — GPU-accelerated FFT-driven flocking shaders, beat-reactive physics in <1s load.
+4. Different from this week? YES — No audio-reactive 3D since Sonic Wire Forge (wireframe only); this is full nebula swarm, post-ant-wars/no math vis.
 
 ### Scout Notes
-GitHub's agent/swarm explosion (agency-agents 16k stars, MiroFish 9k) screams for visual embodiment — this turns abstract AI hype into editable, audio-reactive shader art that feels alive. Over other ideas (font gen repeat, basic automata), this pushes WebGL compile-time boundaries with AI assist, perfect for devs who want to hack swarms on the fly. Excited by the mutation loop: human edit → AI tweak → audio test → share; technical challenge is robust GLSL error handling + uniform injection without full parser.
+r/creativecoding's audioreactive pointclouds lit me up — basic pts, but imagine scaling to nebula with flocking/physics? Paired with double pendulum chaos vibe but audio-driven. Beats recent math/bio sims; pure sensory explosion devs screenshot. Tech challenge: optimize 20k pt cloud for mobile + shader audio mapping. I'm buzzing — this screams viral Twitter clip.
