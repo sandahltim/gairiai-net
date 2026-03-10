@@ -1,0 +1,2015 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>Nebula Swarm</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --fg: #e4e4ed;
+      --muted: rgba(255, 255, 255, 0.55);
+      --panel: rgba(255, 255, 255, 0.06);
+      --panel-border: rgba(255, 255, 255, 0.1);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      touch-action: none;
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 35%, rgba(124, 58, 237, 0.11), rgba(10, 10, 15, 0.95) 48%, #0a0a0f 75%);
+      cursor: grab;
+    }
+
+    #stage:active {
+      cursor: grabbing;
+    }
+
+    #wordmark {
+      position: fixed;
+      top: calc(var(--safe-top) + 10px);
+      left: calc(var(--safe-left) + 12px);
+      z-index: 25;
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+      color: rgba(255, 255, 255, 0.3);
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .panel {
+      position: fixed;
+      top: calc(var(--safe-top) + 50px);
+      z-index: 30;
+      width: min(280px, calc(100vw - 34px));
+      max-height: calc(100vh - 160px - var(--safe-bottom));
+      overflow: auto;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border-radius: 12px;
+      box-shadow: 0 12px 42px rgba(0, 0, 0, 0.45);
+      transition: transform 260ms ease;
+    }
+
+    .panel.left {
+      left: calc(var(--safe-left) + 8px);
+      transform: translateX(calc(-100% + 28px));
+    }
+
+    .panel.right {
+      right: calc(var(--safe-right) + 8px);
+      transform: translateX(calc(100% - 28px));
+    }
+
+    .panel:hover,
+    .panel[data-open="1"] {
+      transform: translateX(0);
+    }
+
+    .strip {
+      position: sticky;
+      top: 0;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.7);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.28);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .panelBody {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .mini {
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.46);
+      letter-spacing: 0.04em;
+      text-transform: none;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: #c026d3;
+      min-height: 28px;
+    }
+
+    .btnGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .btn {
+      min-height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.04);
+      color: #f0f0f8;
+      font: inherit;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, transform 120ms ease;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid #fbbf24;
+      outline-offset: 2px;
+    }
+
+    .btn:hover {
+      border-color: rgba(255, 255, 255, 0.33);
+      transform: translateY(-1px);
+    }
+
+    .btn[data-active="1"] {
+      border-color: rgba(251, 191, 36, 0.58);
+      background: rgba(251, 191, 36, 0.16);
+      color: #fff7db;
+    }
+
+    #micPrompt {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--safe-bottom) + 74px);
+      transform: translateX(-50%);
+      z-index: 40;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.17);
+      background: rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(10px);
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      width: min(94vw, 470px);
+      justify-content: center;
+      align-items: center;
+      transition: opacity 240ms ease;
+    }
+
+    #micPrompt[data-hidden="1"] {
+      opacity: 0.12;
+    }
+
+    .pill {
+      min-height: 44px;
+      border: 1px solid rgba(192, 38, 211, 0.5);
+      background: rgba(192, 38, 211, 0.12);
+      color: #f8d8ff;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
+      padding: 10px 14px;
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease;
+    }
+
+    .pill.secondary {
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.06);
+      color: #efefff;
+    }
+
+    .pill:focus-visible {
+      outline: 2px solid #fbbf24;
+      outline-offset: 2px;
+    }
+
+    #statusBadge {
+      position: fixed;
+      right: calc(var(--safe-right) + 12px);
+      bottom: calc(var(--safe-bottom) + 18px);
+      z-index: 40;
+      font-size: 0.66rem;
+      color: #ffd8a5;
+      border: 1px solid rgba(251, 191, 36, 0.42);
+      border-radius: 999px;
+      background: rgba(50, 28, 6, 0.64);
+      padding: 6px 9px;
+      opacity: 0;
+      transition: opacity 200ms ease;
+      pointer-events: none;
+    }
+
+    #statusBadge[data-show="1"] {
+      opacity: 1;
+    }
+
+    #modeBadge {
+      position: fixed;
+      top: calc(var(--safe-top) + 12px);
+      right: calc(var(--safe-right) + 12px);
+      z-index: 42;
+      font-size: 0.66rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 5px 10px;
+      pointer-events: none;
+    }
+
+    #hint {
+      position: fixed;
+      left: 50%;
+      top: calc(var(--safe-top) + 42px);
+      transform: translateX(-50%);
+      z-index: 45;
+      min-width: 260px;
+      max-width: min(94vw, 520px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.44);
+      padding: 10px 12px;
+      color: #d5d5ec;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      line-height: 1.45;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      white-space: pre-line;
+    }
+
+    #hint[data-show="1"] {
+      opacity: 1;
+    }
+
+    #spectrumWrap {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--safe-bottom) + 16px);
+      transform: translateX(-50%);
+      width: min(300px, 78vw);
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      z-index: 35;
+    }
+
+    #spectrum {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(var(--safe-bottom) + 112px);
+      z-index: 50;
+      border: 1px solid rgba(255, 255, 255, 0.23);
+      border-radius: 9px;
+      background: rgba(5, 8, 16, 0.9);
+      color: #ececff;
+      padding: 8px 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.03em;
+      opacity: 0;
+      transition: opacity 180ms ease;
+      pointer-events: none;
+      max-width: min(92vw, 520px);
+      text-align: center;
+    }
+
+    #toast[data-show="1"] {
+      opacity: 1;
+    }
+
+    .flashRing {
+      position: fixed;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.74);
+      pointer-events: none;
+      z-index: 60;
+      animation: ringPulse 220ms ease-out forwards;
+    }
+
+    @keyframes ringPulse {
+      from {
+        opacity: 0.92;
+        transform: translate(-50%, -50%) scale(0.6);
+      }
+      to {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(3.4);
+      }
+    }
+
+    @media (max-width: 780px) {
+      .panel {
+        width: min(96vw, 520px);
+        left: 50% !important;
+        right: auto !important;
+        transform: translate(-50%, calc(100% + 18px));
+        top: auto;
+        bottom: calc(var(--safe-bottom) + 50px);
+        max-height: min(70vh, 460px);
+      }
+
+      .panel[data-open="1"] {
+        transform: translate(-50%, 0);
+      }
+
+      #micPrompt {
+        bottom: calc(var(--safe-bottom) + 102px);
+      }
+
+      #modeBadge {
+        top: calc(var(--safe-top) + 38px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage" aria-label="Nebula Swarm simulation canvas"></canvas>
+
+  <div id="wordmark">NEBULA SWARM</div>
+
+  <aside id="leftPanel" class="panel left" data-open="0" aria-label="Flock controls">
+    <div id="leftStrip" class="strip" role="button" tabindex="0" aria-label="Toggle flock panel">⚙ FLOCK</div>
+    <div class="panelBody">
+      <div class="row">
+        <div class="label"><span>Cohesion</span><span id="cohesionVal" class="mini">1.10</span></div>
+        <input id="cohesion" aria-label="Cohesion slider" type="range" min="0" max="2.4" step="0.01" value="1.1" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Separation</span><span id="separationVal" class="mini">1.05</span></div>
+        <input id="separation" aria-label="Separation slider" type="range" min="0" max="2.4" step="0.01" value="1.05" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Alignment</span><span id="alignmentVal" class="mini">0.86</span></div>
+        <input id="alignment" aria-label="Alignment slider" type="range" min="0" max="2.4" step="0.01" value="0.86" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Turbulence</span><span id="turbulenceVal" class="mini">1.00</span></div>
+        <input id="turbulence" aria-label="Turbulence slider" type="range" min="0" max="2.5" step="0.01" value="1" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Chaos Mode</span><span class="mini">C</span></div>
+        <button id="chaosBtn" class="btn" type="button" aria-label="Toggle chaos mode">Chaos Off</button>
+      </div>
+      <div class="row">
+        <div class="label"><span>Reset</span><span class="mini">R</span></div>
+        <button id="resetBtn" class="btn" type="button" aria-label="Reset particles">Sphere Reset</button>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="rightPanel" class="panel right" data-open="0" aria-label="Visual controls">
+    <div id="rightStrip" class="strip" role="button" tabindex="0" aria-label="Toggle visual panel">⚙ VISUAL</div>
+    <div class="panelBody">
+      <div class="row">
+        <div class="label"><span>Bloom</span><span id="bloomVal" class="mini">1.20</span></div>
+        <input id="bloom" aria-label="Bloom intensity slider" type="range" min="0" max="2.2" step="0.01" value="1.2" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Trail Length</span><span id="trailVal" class="mini">0.14</span></div>
+        <input id="trail" aria-label="Trail length slider" type="range" min="0.03" max="0.35" step="0.005" value="0.14" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Point Size</span><span id="sizeVal" class="mini">1.00</span></div>
+        <input id="pointSize" aria-label="Point size slider" type="range" min="0.4" max="2" step="0.01" value="1" />
+      </div>
+      <div class="row">
+        <div class="label"><span>Color Preset</span><span class="mini">1 / 2 / 3</span></div>
+        <div class="btnGrid">
+          <button id="presetCosmic" class="btn" data-active="1" type="button" aria-label="Cosmic color preset">Cosmic</button>
+          <button id="presetInferno" class="btn" data-active="0" type="button" aria-label="Inferno color preset">Inferno</button>
+          <button id="presetArctic" class="btn" data-active="0" type="button" aria-label="Arctic color preset">Arctic</button>
+        </div>
+      </div>
+      <div class="row">
+        <div class="label"><span>Toggles</span><span class="mini">T / B / M</span></div>
+        <div class="btnGrid">
+          <button id="trailToggle" class="btn" data-active="1" type="button" aria-label="Toggle trails">Trails</button>
+          <button id="bloomToggle" class="btn" data-active="1" type="button" aria-label="Toggle bloom">Bloom</button>
+          <button id="panelToggle" class="btn" data-active="1" type="button" aria-label="Toggle side panels">Panels</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="modeBadge" aria-live="polite">AMBIENT MODE</div>
+
+  <div id="micPrompt" data-hidden="0">
+    <button id="micBtn" class="pill" type="button" aria-label="Activate microphone">🎤 Click to activate microphone</button>
+    <button id="fileBtn" class="pill secondary" type="button" aria-label="Load audio file">Load audio file</button>
+    <input id="audioFile" type="file" accept="audio/*" hidden />
+  </div>
+
+  <div id="spectrumWrap" aria-hidden="true">
+    <canvas id="spectrum"></canvas>
+  </div>
+
+  <div id="hint" aria-live="polite"></div>
+  <div id="toast" aria-live="polite"></div>
+  <div id="statusBadge">⚡ reduced quality</div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const stage = document.getElementById('stage');
+      const ctx = stage.getContext('2d', { alpha: false, desynchronized: true });
+      const spectrumCanvas = document.getElementById('spectrum');
+      const spectrumCtx = spectrumCanvas.getContext('2d', { alpha: true });
+
+      const ui = {
+        leftPanel: document.getElementById('leftPanel'),
+        rightPanel: document.getElementById('rightPanel'),
+        leftStrip: document.getElementById('leftStrip'),
+        rightStrip: document.getElementById('rightStrip'),
+        cohesion: document.getElementById('cohesion'),
+        separation: document.getElementById('separation'),
+        alignment: document.getElementById('alignment'),
+        turbulence: document.getElementById('turbulence'),
+        cohesionVal: document.getElementById('cohesionVal'),
+        separationVal: document.getElementById('separationVal'),
+        alignmentVal: document.getElementById('alignmentVal'),
+        turbulenceVal: document.getElementById('turbulenceVal'),
+        bloom: document.getElementById('bloom'),
+        trail: document.getElementById('trail'),
+        pointSize: document.getElementById('pointSize'),
+        bloomVal: document.getElementById('bloomVal'),
+        trailVal: document.getElementById('trailVal'),
+        sizeVal: document.getElementById('sizeVal'),
+        presetCosmic: document.getElementById('presetCosmic'),
+        presetInferno: document.getElementById('presetInferno'),
+        presetArctic: document.getElementById('presetArctic'),
+        chaosBtn: document.getElementById('chaosBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+        trailToggle: document.getElementById('trailToggle'),
+        bloomToggle: document.getElementById('bloomToggle'),
+        panelToggle: document.getElementById('panelToggle'),
+        micBtn: document.getElementById('micBtn'),
+        fileBtn: document.getElementById('fileBtn'),
+        audioFile: document.getElementById('audioFile'),
+        micPrompt: document.getElementById('micPrompt'),
+        modeBadge: document.getElementById('modeBadge'),
+        toast: document.getElementById('toast'),
+        statusBadge: document.getElementById('statusBadge'),
+        hint: document.getElementById('hint')
+      };
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 780;
+      const DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+      const state = {
+        bg: [10, 10, 15],
+        activeCount: isMobile ? 8000 : 20000,
+        maxCount: isMobile ? 8000 : 20000,
+        worldRadius: isMobile ? 58 : 70,
+        params: {
+          cohesion: 1.1,
+          separation: 1.05,
+          alignment: 0.86,
+          turbulence: 1,
+          bloomStrength: isMobile ? 0.7 : 1.2,
+          trailAlpha: 0.14,
+          pointSizeScale: 1,
+          trailsEnabled: true,
+          bloomEnabled: !prefersReducedMotion && !isMobile,
+          panelsVisible: true,
+          chaos: false,
+          freezeAudio: false
+        },
+        camera: {
+          yaw: 0,
+          pitch: -0.16,
+          targetYaw: 0,
+          targetPitch: -0.16,
+          distance: isMobile ? 122 : 110,
+          fov: 56,
+          autoOrbit: 0,
+          userTouchAt: 0
+        },
+        audio: {
+          ctx: null,
+          analyser: null,
+          stream: null,
+          sourceNode: null,
+          fileNode: null,
+          fftData: new Uint8Array(1024),
+          bass: 0,
+          mid: 0,
+          treble: 0,
+          currentEnergy: 0,
+          beatHistory: new Float32Array(30),
+          beatPtr: 0,
+          beatCooldown: 0,
+          mode: 'ambient',
+          fileName: ''
+        },
+        pointer: {
+          x: 0,
+          y: 0,
+          down: false,
+          moved: false,
+          dragging: false,
+          id: -1,
+          lastX: 0,
+          lastY: 0,
+          worldX: 0,
+          worldY: 0,
+          worldZ: 0,
+          activeUntil: 0,
+          pinchDistance: 0
+        },
+        reset: {
+          active: false,
+          t: 0
+        },
+        chaos: {
+          nextAt: 0,
+          cohesionMul: 1,
+          separationMul: 1,
+          alignmentMul: 1
+        },
+        performance: {
+          fpsSamples: [],
+          lowFpsTimer: 0,
+          degraded1: false,
+          degraded2: false,
+          lastBadgeAt: 0
+        },
+        bursts: [],
+        colorPreset: 'cosmic',
+        timestamp: performance.now(),
+        elapsed: 0
+      };
+
+      const paletteSets = {
+        cosmic: {
+          bassA: [59, 7, 100],
+          bassB: [124, 58, 237],
+          midA: [15, 118, 110],
+          midB: [20, 184, 166],
+          treA: [234, 88, 12],
+          treB: [251, 191, 36],
+          glow: [192, 38, 211]
+        },
+        inferno: {
+          bassA: [69, 10, 10],
+          bassB: [220, 38, 38],
+          midA: [153, 27, 27],
+          midB: [234, 88, 12],
+          treA: [251, 146, 60],
+          treB: [255, 237, 74],
+          glow: [249, 115, 22]
+        },
+        arctic: {
+          bassA: [8, 47, 73],
+          bassB: [2, 132, 199],
+          midA: [15, 23, 42],
+          midB: [6, 182, 212],
+          treA: [125, 211, 252],
+          treB: [240, 249, 255],
+          glow: [59, 130, 246]
+        }
+      };
+
+      const NEIGHBOR_OFFSETS = [];
+      for (let ox = -1; ox <= 1; ox += 1) {
+        for (let oy = -1; oy <= 1; oy += 1) {
+          for (let oz = -1; oz <= 1; oz += 1) {
+            NEIGHBOR_OFFSETS.push([ox, oy, oz]);
+          }
+        }
+      }
+
+      const hashGrid = new Map();
+      const CELL_SIZE = 15;
+      const CELL_CAP = 46;
+      const MAX_NEIGHBOR_CHECKS = 72;
+      const neighborRadius = 12;
+      const separationRadius = 5.8;
+      const neighborRadiusSq = neighborRadius * neighborRadius;
+      const separationRadiusSq = separationRadius * separationRadius;
+
+      const arrays = {
+        positions: new Float32Array(state.maxCount * 3),
+        velocities: new Float32Array(state.maxCount * 3),
+        colors: new Float32Array(state.maxCount * 3),
+        sizes: new Float32Array(state.maxCount),
+        bands: new Uint8Array(state.maxCount),
+        colorMix: new Float32Array(state.maxCount),
+        resetTarget: new Float32Array(state.maxCount * 3),
+        screenX: new Float32Array(state.maxCount),
+        screenY: new Float32Array(state.maxCount),
+        screenDepth: new Float32Array(state.maxCount)
+      };
+
+      const bandIndices = [[], [], []];
+
+      function clamp(v, lo, hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function randRange(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function randomUnit() {
+        let x = randRange(-1, 1);
+        let y = randRange(-1, 1);
+        let z = randRange(-1, 1);
+        const inv = 1 / (Math.hypot(x, y, z) || 1);
+        x *= inv;
+        y *= inv;
+        z *= inv;
+        return [x, y, z];
+      }
+
+      function hashCoord(v) {
+        return Math.floor(v / CELL_SIZE);
+      }
+
+      function cellKey(x, y, z) {
+        return x + '|' + y + '|' + z;
+      }
+
+      function showToast(message, ttl = 2200) {
+        ui.toast.textContent = message;
+        ui.toast.dataset.show = '1';
+        const hideAt = performance.now() + ttl;
+        const tick = () => {
+          if (performance.now() >= hideAt) {
+            ui.toast.dataset.show = '0';
+          } else {
+            requestAnimationFrame(tick);
+          }
+        };
+        requestAnimationFrame(tick);
+      }
+
+      function showHint(text, ttl = 4000) {
+        ui.hint.textContent = text;
+        ui.hint.dataset.show = '1';
+        const hideAt = performance.now() + ttl;
+        const tick = () => {
+          if (performance.now() >= hideAt) {
+            ui.hint.dataset.show = '0';
+          } else {
+            requestAnimationFrame(tick);
+          }
+        };
+        requestAnimationFrame(tick);
+      }
+
+      function showStatusBadge(message) {
+        ui.statusBadge.textContent = message;
+        ui.statusBadge.dataset.show = '1';
+        state.performance.lastBadgeAt = performance.now();
+      }
+
+      function hideStatusBadgeIfExpired(now) {
+        if (ui.statusBadge.dataset.show === '1' && now - state.performance.lastBadgeAt > 3000) {
+          ui.statusBadge.dataset.show = '0';
+        }
+      }
+
+      function setModeBadge() {
+        if (state.audio.mode === 'mic') {
+          ui.modeBadge.textContent = state.params.freezeAudio ? 'MIC MODE · FROZEN' : 'MIC MODE';
+          return;
+        }
+        if (state.audio.mode === 'file') {
+          const label = state.audio.fileName ? state.audio.fileName.slice(0, 26) : 'FILE MODE';
+          ui.modeBadge.textContent = state.params.freezeAudio ? ('FILE · FROZEN · ' + label) : ('FILE MODE · ' + label);
+          return;
+        }
+        ui.modeBadge.textContent = state.params.freezeAudio ? 'AMBIENT · FROZEN' : 'AMBIENT MODE';
+      }
+
+      function updatePromptVisibility() {
+        const hidden = state.audio.mode !== 'ambient' ? '1' : '0';
+        ui.micPrompt.dataset.hidden = hidden;
+      }
+
+      function setPanelOpen(panel, open) {
+        panel.dataset.open = open ? '1' : '0';
+      }
+
+      function togglePanels(force) {
+        state.params.panelsVisible = typeof force === 'boolean' ? force : !state.params.panelsVisible;
+        const open = state.params.panelsVisible;
+        setPanelOpen(ui.leftPanel, open);
+        setPanelOpen(ui.rightPanel, open);
+        ui.panelToggle.dataset.active = open ? '1' : '0';
+      }
+
+      function flashClick(x, y) {
+        const ring = document.createElement('div');
+        ring.className = 'flashRing';
+        ring.style.left = x + 'px';
+        ring.style.top = y + 'px';
+        document.body.appendChild(ring);
+        ring.addEventListener('animationend', () => ring.remove(), { once: true });
+      }
+
+      function createSphereTargets() {
+        for (let i = 0; i < state.maxCount; i += 1) {
+          const r = state.worldRadius * (0.82 + Math.random() * 0.26);
+          const [ux, uy, uz] = randomUnit();
+          const j = i * 3;
+          arrays.resetTarget[j] = ux * r;
+          arrays.resetTarget[j + 1] = uy * r;
+          arrays.resetTarget[j + 2] = uz * r;
+        }
+      }
+
+      function initializeParticles() {
+        bandIndices[0].length = 0;
+        bandIndices[1].length = 0;
+        bandIndices[2].length = 0;
+        createSphereTargets();
+
+        for (let i = 0; i < state.maxCount; i += 1) {
+          const j = i * 3;
+          arrays.positions[j] = arrays.resetTarget[j];
+          arrays.positions[j + 1] = arrays.resetTarget[j + 1];
+          arrays.positions[j + 2] = arrays.resetTarget[j + 2];
+
+          arrays.velocities[j] = randRange(-0.08, 0.08);
+          arrays.velocities[j + 1] = randRange(-0.08, 0.08);
+          arrays.velocities[j + 2] = randRange(-0.08, 0.08);
+
+          const b = Math.random() < 0.34 ? 0 : (Math.random() < 0.54 ? 1 : 2);
+          arrays.bands[i] = b;
+          bandIndices[b].push(i);
+
+          arrays.colorMix[i] = Math.random();
+          arrays.sizes[i] = randRange(1.2, 3.1);
+        }
+      }
+
+      function hashRand(x, y) {
+        const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453123;
+        return n - Math.floor(n);
+      }
+
+      function smoothstep(t) {
+        return t * t * (3 - 2 * t);
+      }
+
+      function valueNoise2D(x, y) {
+        const x0 = Math.floor(x);
+        const y0 = Math.floor(y);
+        const x1 = x0 + 1;
+        const y1 = y0 + 1;
+        const sx = smoothstep(x - x0);
+        const sy = smoothstep(y - y0);
+
+        const n00 = hashRand(x0, y0);
+        const n10 = hashRand(x1, y0);
+        const n01 = hashRand(x0, y1);
+        const n11 = hashRand(x1, y1);
+
+        const ix0 = lerp(n00, n10, sx);
+        const ix1 = lerp(n01, n11, sx);
+        return lerp(ix0, ix1, sy);
+      }
+
+      const noiseTable = new Float32Array(256 * 256 * 2);
+      const noiseOffset = { x: 0, z: 0 };
+
+      function buildCurlNoiseTable() {
+        const eps = 0.018;
+        for (let z = 0; z < 256; z += 1) {
+          for (let x = 0; x < 256; x += 1) {
+            const u = x / 26;
+            const v = z / 26;
+
+            const n1 = valueNoise2D(u, v);
+            const n2 = valueNoise2D(u + eps, v);
+            const n3 = valueNoise2D(u, v + eps);
+
+            const dndx = (n2 - n1) / eps;
+            const dndz = (n3 - n1) / eps;
+
+            const curlX = dndz;
+            const curlZ = -dndx;
+
+            const idx = (z * 256 + x) * 2;
+            noiseTable[idx] = curlX;
+            noiseTable[idx + 1] = curlZ;
+          }
+        }
+      }
+
+      function sampleCurl(x, z) {
+        const fx = ((x * 0.82 + noiseOffset.x) % 256 + 256) % 256;
+        const fz = ((z * 0.82 + noiseOffset.z) % 256 + 256) % 256;
+        const ix = fx | 0;
+        const iz = fz | 0;
+        const idx = (iz * 256 + ix) * 2;
+        return [noiseTable[idx], noiseTable[idx + 1]];
+      }
+
+      function buildHashGrid() {
+        hashGrid.clear();
+        for (let i = 0; i < state.activeCount; i += 1) {
+          const j = i * 3;
+          const cx = hashCoord(arrays.positions[j]);
+          const cy = hashCoord(arrays.positions[j + 1]);
+          const cz = hashCoord(arrays.positions[j + 2]);
+          const key = cellKey(cx, cy, cz);
+          let bucket = hashGrid.get(key);
+          if (!bucket) {
+            bucket = [];
+            hashGrid.set(key, bucket);
+          }
+          if (bucket.length < CELL_CAP) {
+            bucket.push(i);
+          } else if (Math.random() < 0.08) {
+            bucket[(Math.random() * CELL_CAP) | 0] = i;
+          }
+        }
+      }
+
+      function updateAudioEnergy(dt) {
+        const a = state.audio;
+        let bass = 0;
+        let mid = 0;
+        let treble = 0;
+
+        if (!state.params.freezeAudio && a.analyser) {
+          a.analyser.getByteFrequencyData(a.fftData);
+          bass = averageBand(a.fftData, 0, 4);
+          mid = averageBand(a.fftData, 4, 20);
+          treble = averageBand(a.fftData, 21, 100);
+        } else if (a.mode === 'ambient' || state.params.freezeAudio) {
+          const t = state.elapsed;
+          bass = 0.18 + Math.sin(t * 0.6) * 0.08 + Math.sin(t * 1.77) * 0.04;
+          mid = 0.24 + Math.cos(t * 0.43) * 0.07 + Math.sin(t * 1.18) * 0.05;
+          treble = 0.2 + Math.sin(t * 0.92 + 2.4) * 0.06 + Math.cos(t * 1.93) * 0.03;
+          bass = clamp(bass, 0, 1);
+          mid = clamp(mid, 0, 1);
+          treble = clamp(treble, 0, 1);
+
+          if (a.mode === 'ambient' && !state.params.freezeAudio) {
+            synthesizeAmbientFFT(a.fftData, t, bass, mid, treble);
+          }
+        }
+
+        a.bass = lerp(a.bass, bass, clamp(dt * 8, 0, 1));
+        a.mid = lerp(a.mid, mid, clamp(dt * 8, 0, 1));
+        a.treble = lerp(a.treble, treble, clamp(dt * 8, 0, 1));
+
+        const currentEnergy = (a.bass * 0.65 + a.mid * 0.28 + a.treble * 0.18) ** 2;
+        a.currentEnergy = currentEnergy;
+      }
+
+      function synthesizeAmbientFFT(data, time, bass, mid, treble) {
+        const n = data.length;
+        for (let i = 0; i < n; i += 1) {
+          let amp = 0;
+          if (i < 5) {
+            amp = bass * 255 * (0.72 + Math.sin(time * 3 + i) * 0.2);
+          } else if (i < 48) {
+            amp = mid * 255 * (0.5 + Math.cos(time * 2.4 + i * 0.12) * 0.18);
+          } else {
+            amp = treble * 255 * (0.4 + Math.sin(time * 4.2 + i * 0.07) * 0.16);
+          }
+          data[i] = clamp(amp, 0, 255) | 0;
+        }
+      }
+
+      function averageBand(data, start, end) {
+        let sum = 0;
+        const cap = Math.min(data.length - 1, end);
+        for (let i = start; i <= cap; i += 1) {
+          sum += data[i];
+        }
+        const count = cap - start + 1;
+        return count > 0 ? (sum / count) / 255 : 0;
+      }
+
+      function detectBeat() {
+        const a = state.audio;
+        let rolling = 0;
+        for (let i = 0; i < a.beatHistory.length; i += 1) {
+          rolling += a.beatHistory[i];
+        }
+        rolling /= a.beatHistory.length;
+
+        a.beatHistory[a.beatPtr] = a.currentEnergy;
+        a.beatPtr = (a.beatPtr + 1) % a.beatHistory.length;
+
+        if (a.beatCooldown > 0) {
+          a.beatCooldown -= 1;
+          return false;
+        }
+
+        if (rolling > 0.00001 && a.currentEnergy > rolling * 1.5) {
+          a.beatCooldown = 12;
+          return true;
+        }
+        return false;
+      }
+
+      function applyBeatImpulse() {
+        let cx = 0;
+        let cy = 0;
+        let cz = 0;
+        const n = state.activeCount;
+        for (let i = 0; i < n; i += 1) {
+          const j = i * 3;
+          cx += arrays.positions[j];
+          cy += arrays.positions[j + 1];
+          cz += arrays.positions[j + 2];
+        }
+        const invN = 1 / n;
+        cx *= invN;
+        cy *= invN;
+        cz *= invN;
+
+        for (let i = 0; i < n; i += 1) {
+          const j = i * 3;
+          const dx = arrays.positions[j] - cx;
+          const dy = arrays.positions[j + 1] - cy;
+          const dz = arrays.positions[j + 2] - cz;
+          const dist = Math.hypot(dx, dy, dz) || 1;
+          if (dist < 30) {
+            const k = (30 - dist) / 30;
+            const s = 18 * k;
+            arrays.velocities[j] += (dx / dist) * s;
+            arrays.velocities[j + 1] += (dy / dist) * s;
+            arrays.velocities[j + 2] += (dz / dist) * s;
+          }
+        }
+      }
+
+      function queueBurst(x, y, z, power = 16, radius = 40) {
+        state.bursts.push({ x, y, z, power, radius, life: 0.34 });
+        if (state.bursts.length > 8) {
+          state.bursts.shift();
+        }
+      }
+
+      function updateBursts(dt) {
+        for (let i = state.bursts.length - 1; i >= 0; i -= 1) {
+          state.bursts[i].life -= dt;
+          if (state.bursts[i].life <= 0) {
+            state.bursts.splice(i, 1);
+          }
+        }
+      }
+
+      function updateBoids(dt) {
+        const p = state.params;
+        const n = state.activeCount;
+        const bass = state.audio.bass;
+        const mid = state.audio.mid;
+        const treble = state.audio.treble;
+
+        let centroidX = 0;
+        let centroidY = 0;
+        let centroidZ = 0;
+
+        for (let i = 0; i < n; i += 1) {
+          const j = i * 3;
+          centroidX += arrays.positions[j];
+          centroidY += arrays.positions[j + 1];
+          centroidZ += arrays.positions[j + 2];
+        }
+
+        const invN = 1 / n;
+        centroidX *= invN;
+        centroidY *= invN;
+        centroidZ *= invN;
+
+        const damping = clamp(0.92 + dt * 0.4, 0.88, 0.97);
+        const crossGroupStrength = 0.0022;
+
+        let cohMul = 1;
+        let sepMul = 1;
+        let aliMul = 1;
+
+        if (p.chaos) {
+          if (state.elapsed >= state.chaos.nextAt) {
+            state.chaos.nextAt = state.elapsed + 1.5;
+            state.chaos.cohesionMul = randRange(0.6, 1.4);
+            state.chaos.separationMul = randRange(0.6, 1.4);
+            state.chaos.alignmentMul = randRange(0.6, 1.4);
+          }
+          cohMul = state.chaos.cohesionMul;
+          sepMul = state.chaos.separationMul;
+          aliMul = state.chaos.alignmentMul;
+        }
+
+        noiseOffset.x += dt * 1.2;
+        noiseOffset.z += dt * 0.9;
+
+        const cursorActive = state.pointer.activeUntil > state.elapsed;
+
+        for (let i = 0; i < n; i += 1) {
+          const j = i * 3;
+
+          const x = arrays.positions[j];
+          const y = arrays.positions[j + 1];
+          const z = arrays.positions[j + 2];
+
+          let vx = arrays.velocities[j];
+          let vy = arrays.velocities[j + 1];
+          let vz = arrays.velocities[j + 2];
+
+          const band = arrays.bands[i];
+          const bandEnergy = band === 0 ? bass : (band === 1 ? mid : treble);
+
+          const cx = hashCoord(x);
+          const cy = hashCoord(y);
+          const cz = hashCoord(z);
+
+          let sepX = 0;
+          let sepY = 0;
+          let sepZ = 0;
+          let aliX = 0;
+          let aliY = 0;
+          let aliZ = 0;
+          let cohX = 0;
+          let cohY = 0;
+          let cohZ = 0;
+          let neighCount = 0;
+          let checks = 0;
+
+          for (let nOff = 0; nOff < NEIGHBOR_OFFSETS.length; nOff += 1) {
+            if (checks >= MAX_NEIGHBOR_CHECKS) {
+              break;
+            }
+            const off = NEIGHBOR_OFFSETS[nOff];
+            const key = cellKey(cx + off[0], cy + off[1], cz + off[2]);
+            const bucket = hashGrid.get(key);
+            if (!bucket) {
+              continue;
+            }
+
+            for (let bi = 0; bi < bucket.length; bi += 1) {
+              if (checks >= MAX_NEIGHBOR_CHECKS) {
+                break;
+              }
+              const ni = bucket[bi];
+              if (ni === i || arrays.bands[ni] !== band) {
+                continue;
+              }
+
+              checks += 1;
+
+              const nj = ni * 3;
+              const dx = arrays.positions[nj] - x;
+              const dy = arrays.positions[nj + 1] - y;
+              const dz = arrays.positions[nj + 2] - z;
+              const d2 = dx * dx + dy * dy + dz * dz;
+
+              if (d2 < separationRadiusSq && d2 > 0.0001) {
+                const invD = 1 / Math.sqrt(d2);
+                sepX -= dx * invD;
+                sepY -= dy * invD;
+                sepZ -= dz * invD;
+              }
+
+              if (d2 < neighborRadiusSq) {
+                aliX += arrays.velocities[nj];
+                aliY += arrays.velocities[nj + 1];
+                aliZ += arrays.velocities[nj + 2];
+                cohX += arrays.positions[nj];
+                cohY += arrays.positions[nj + 1];
+                cohZ += arrays.positions[nj + 2];
+                neighCount += 1;
+              }
+            }
+          }
+
+          let fx = 0;
+          let fy = 0;
+          let fz = 0;
+
+          const sepBoost = band === 2 && treble > 0.5 ? 2 : 1;
+          const cohBoost = band === 0 && bass > 0.6 ? 3 : 1;
+
+          if (neighCount > 0) {
+            const inv = 1 / neighCount;
+            aliX *= inv;
+            aliY *= inv;
+            aliZ *= inv;
+            cohX = (cohX * inv) - x;
+            cohY = (cohY * inv) - y;
+            cohZ = (cohZ * inv) - z;
+
+            fx += cohX * p.cohesion * cohMul * cohBoost * 0.015;
+            fy += cohY * p.cohesion * cohMul * cohBoost * 0.015;
+            fz += cohZ * p.cohesion * cohMul * cohBoost * 0.015;
+
+            fx += (aliX - vx) * p.alignment * aliMul * 0.018;
+            fy += (aliY - vy) * p.alignment * aliMul * 0.018;
+            fz += (aliZ - vz) * p.alignment * aliMul * 0.018;
+          }
+
+          fx += sepX * p.separation * sepMul * sepBoost * 0.024;
+          fy += sepY * p.separation * sepMul * sepBoost * 0.024;
+          fz += sepZ * p.separation * sepMul * sepBoost * 0.024;
+
+          fx += (centroidX - x) * crossGroupStrength;
+          fy += (centroidY - y) * crossGroupStrength;
+          fz += (centroidZ - z) * crossGroupStrength;
+
+          const curl = sampleCurl(x, z);
+          fx += curl[0] * p.turbulence * 0.056;
+          fz += curl[1] * p.turbulence * 0.056;
+          fy += Math.sin((x + state.elapsed * 8) * 0.04) * p.turbulence * 0.009;
+
+          if (band === 0) {
+            const pull = 0.009 + bass * 0.04;
+            fx += -x * pull;
+            fy += -y * pull * 0.84;
+            fz += -z * pull;
+          }
+
+          if (band === 2) {
+            const d = Math.hypot(x, y, z) || 1;
+            const scatter = treble * 0.042;
+            fx += (x / d) * scatter;
+            fy += (y / d) * scatter;
+            fz += (z / d) * scatter;
+          }
+
+          if (cursorActive) {
+            const dx = state.pointer.worldX - x;
+            const dy = state.pointer.worldY - y;
+            const dz = state.pointer.worldZ - z;
+            const d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < 900) {
+              const pull = 0.02 * (1 - d2 / 900);
+              fx += dx * pull;
+              fy += dy * pull;
+              fz += dz * pull;
+            }
+          }
+
+          for (let b = 0; b < state.bursts.length; b += 1) {
+            const burst = state.bursts[b];
+            const dx = x - burst.x;
+            const dy = y - burst.y;
+            const dz = z - burst.z;
+            const dist = Math.hypot(dx, dy, dz) || 1;
+            if (dist < burst.radius) {
+              const k = (1 - dist / burst.radius) * burst.life * 2.6;
+              const s = burst.power * k;
+              fx += (dx / dist) * s;
+              fy += (dy / dist) * s;
+              fz += (dz / dist) * s;
+            }
+          }
+
+          vx = (vx + fx * dt * 60) * damping;
+          vy = (vy + fy * dt * 60) * damping;
+          vz = (vz + fz * dt * 60) * damping;
+
+          const speed = Math.hypot(vx, vy, vz);
+          const maxSpeed = 2.6 + bandEnergy * 4.8;
+          if (speed > maxSpeed) {
+            const invSpeed = maxSpeed / speed;
+            vx *= invSpeed;
+            vy *= invSpeed;
+            vz *= invSpeed;
+          }
+
+          let nx = x + vx;
+          let ny = y + vy;
+          let nz = z + vz;
+
+          const distCenter = Math.hypot(nx, ny, nz);
+          if (distCenter > state.worldRadius * 1.8) {
+            const rebound = (distCenter - state.worldRadius * 1.8) * 0.02;
+            nx -= (nx / distCenter) * rebound;
+            ny -= (ny / distCenter) * rebound;
+            nz -= (nz / distCenter) * rebound;
+            vx *= 0.86;
+            vy *= 0.86;
+            vz *= 0.86;
+          }
+
+          if (state.reset.active) {
+            const rj = j;
+            const spring = clamp(state.reset.t * 1.8, 0.04, 0.3);
+            nx = lerp(nx, arrays.resetTarget[rj], spring);
+            ny = lerp(ny, arrays.resetTarget[rj + 1], spring);
+            nz = lerp(nz, arrays.resetTarget[rj + 2], spring);
+            vx *= 0.88;
+            vy *= 0.88;
+            vz *= 0.88;
+          }
+
+          arrays.positions[j] = nx;
+          arrays.positions[j + 1] = ny;
+          arrays.positions[j + 2] = nz;
+          arrays.velocities[j] = vx;
+          arrays.velocities[j + 1] = vy;
+          arrays.velocities[j + 2] = vz;
+
+          arrays.sizes[i] = clamp(1.5 + speed * 0.55 + bandEnergy * 1.4, 1.5, 5);
+        }
+      }
+
+      function updateReset(dt) {
+        if (!state.reset.active) {
+          return;
+        }
+        state.reset.t -= dt;
+        if (state.reset.t <= 0) {
+          state.reset.active = false;
+          state.reset.t = 0;
+        }
+      }
+
+      function triggerReset() {
+        createSphereTargets();
+        state.reset.active = true;
+        state.reset.t = 1.2;
+        showToast('Particles re-forming to shell');
+      }
+
+      function rgbFromPreset(band, mix, energy) {
+        const set = paletteSets[state.colorPreset];
+        let c0;
+        let c1;
+        if (band === 0) {
+          c0 = set.bassA;
+          c1 = set.bassB;
+        } else if (band === 1) {
+          c0 = set.midA;
+          c1 = set.midB;
+        } else {
+          c0 = set.treA;
+          c1 = set.treB;
+        }
+
+        const t = clamp(mix * 0.65 + energy * 0.35, 0, 1);
+        return [
+          lerp(c0[0], c1[0], t),
+          lerp(c0[1], c1[1], t),
+          lerp(c0[2], c1[2], t)
+        ];
+      }
+
+      function updateColors() {
+        const bass = state.audio.bass;
+        const mid = state.audio.mid;
+        const treble = state.audio.treble;
+        for (let i = 0; i < state.activeCount; i += 1) {
+          const band = arrays.bands[i];
+          const energy = band === 0 ? bass : (band === 1 ? mid : treble);
+          const mix = arrays.colorMix[i];
+          const rgb = rgbFromPreset(band, mix, energy);
+          const j = i * 3;
+          arrays.colors[j] = rgb[0];
+          arrays.colors[j + 1] = rgb[1];
+          arrays.colors[j + 2] = rgb[2];
+        }
+      }
+
+      function projectPointerToWorld(px, py) {
+        const width = stage.width / DPR;
+        const height = stage.height / DPR;
+        const nx = ((px / width) * 2) - 1;
+        const ny = ((py / height) * 2) - 1;
+
+        const spread = Math.tan((state.camera.fov * Math.PI / 180) * 0.5);
+        const worldX = nx * state.camera.distance * spread * (width / height);
+        const worldY = -ny * state.camera.distance * spread;
+
+        const yaw = state.camera.yaw;
+        const pitch = state.camera.pitch;
+
+        const cy = Math.cos(yaw);
+        const sy = Math.sin(yaw);
+        const cp = Math.cos(pitch);
+        const sp = Math.sin(pitch);
+
+        const x1 = worldX * cy - 0 * sy;
+        const z1 = worldX * sy + 0 * cy;
+
+        const y2 = worldY * cp - z1 * sp;
+        const z2 = worldY * sp + z1 * cp;
+
+        state.pointer.worldX = x1;
+        state.pointer.worldY = y2;
+        state.pointer.worldZ = z2;
+        state.pointer.activeUntil = state.elapsed + 0.25;
+      }
+
+      function drawBackground() {
+        if (state.params.trailsEnabled) {
+          const alpha = clamp(state.params.trailAlpha, 0.03, 0.36);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgba(' + state.bg[0] + ',' + state.bg[1] + ',' + state.bg[2] + ',' + alpha + ')';
+          ctx.fillRect(0, 0, stage.width, stage.height);
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = 'rgb(' + state.bg[0] + ',' + state.bg[1] + ',' + state.bg[2] + ')';
+          ctx.fillRect(0, 0, stage.width, stage.height);
+        }
+      }
+
+      function renderParticles() {
+        const width = stage.width;
+        const height = stage.height;
+        const centerX = width * 0.5;
+        const centerY = height * 0.5;
+
+        const yaw = state.camera.yaw;
+        const pitch = state.camera.pitch;
+        const cy = Math.cos(yaw);
+        const sy = Math.sin(yaw);
+        const cp = Math.cos(pitch);
+        const sp = Math.sin(pitch);
+
+        const fovFactor = (height * 0.5) / Math.tan((state.camera.fov * Math.PI / 180) * 0.5);
+        const cameraDist = state.camera.distance;
+
+        ctx.globalCompositeOperation = 'lighter';
+
+        const set = paletteSets[state.colorPreset];
+        const glowColor = set.glow;
+        const bloom = state.params.bloomEnabled ? state.params.bloomStrength : 0;
+
+        for (let i = 0; i < state.activeCount; i += 1) {
+          const j = i * 3;
+          const x = arrays.positions[j];
+          const y = arrays.positions[j + 1];
+          const z = arrays.positions[j + 2];
+
+          const xz = x * cy - z * sy;
+          const zz = x * sy + z * cy;
+
+          const yz = y * cp - zz * sp;
+          const zc = y * sp + zz * cp + cameraDist;
+
+          if (zc <= 1) {
+            arrays.screenDepth[i] = -1;
+            continue;
+          }
+
+          const scale = fovFactor / zc;
+          const sx = centerX + xz * scale;
+          const sy2 = centerY - yz * scale;
+
+          arrays.screenX[i] = sx;
+          arrays.screenY[i] = sy2;
+          arrays.screenDepth[i] = zc;
+
+          if (sx < -16 || sx > width + 16 || sy2 < -16 || sy2 > height + 16) {
+            continue;
+          }
+
+          const size = clamp(arrays.sizes[i] * scale * 52 * state.params.pointSizeScale, 1.5 * DPR, 6 * DPR);
+          const alphaDepth = clamp(1.15 - (zc / (cameraDist * 2.2)), 0.24, 0.96);
+          const r = arrays.colors[j] | 0;
+          const g = arrays.colors[j + 1] | 0;
+          const b = arrays.colors[j + 2] | 0;
+
+          if (bloom > 0.02) {
+            const glowSize = size * (1.2 + bloom * 1.1);
+            ctx.globalAlpha = alphaDepth * 0.2 * bloom;
+            ctx.fillStyle = 'rgb(' + glowColor[0] + ',' + glowColor[1] + ',' + glowColor[2] + ')';
+            ctx.fillRect(sx - glowSize * 0.5, sy2 - glowSize * 0.5, glowSize, glowSize);
+          }
+
+          ctx.globalAlpha = alphaDepth * 0.78;
+          ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+          ctx.fillRect(sx - size * 0.5, sy2 - size * 0.5, size, size);
+        }
+
+        if (state.params.bloomEnabled) {
+          drawChromaticAberration();
+        }
+      }
+
+      function drawChromaticAberration() {
+        const width = stage.width;
+        const height = stage.height;
+        const drift = 0.003;
+        const dx = width * drift;
+        const dy = height * drift;
+
+        ctx.globalCompositeOperation = 'screen';
+        ctx.globalAlpha = 0.06 * state.params.bloomStrength;
+        ctx.drawImage(stage, dx, 0, width - dx, height, 0, 0, width - dx, height);
+        ctx.globalAlpha = 0.04 * state.params.bloomStrength;
+        ctx.drawImage(stage, 0, dy, width, height - dy, 0, 0, width, height - dy);
+      }
+
+      function drawSpectrum() {
+        const data = state.audio.fftData;
+        const w = spectrumCanvas.width;
+        const h = spectrumCanvas.height;
+
+        spectrumCtx.clearRect(0, 0, w, h);
+        spectrumCtx.fillStyle = 'rgba(0,0,0,0.14)';
+        spectrumCtx.fillRect(0, 0, w, h);
+
+        const bars = 48;
+        const bw = w / bars;
+        for (let i = 0; i < bars; i += 1) {
+          const idx = (i / bars) * 120;
+          const amp = data[idx | 0] / 255;
+          const bh = clamp(amp * h, 1, h);
+
+          let color;
+          if (i < 10) {
+            color = 'rgb(124,58,237)';
+          } else if (i < 28) {
+            color = 'rgb(20,184,166)';
+          } else {
+            color = 'rgb(251,191,36)';
+          }
+          spectrumCtx.fillStyle = color;
+          spectrumCtx.fillRect(i * bw, h - bh, bw - 1, bh);
+        }
+      }
+
+      function updateCamera(dt) {
+        if (state.elapsed - state.camera.userTouchAt > 2.2) {
+          state.camera.autoOrbit += dt * 0.05;
+          state.camera.targetYaw += dt * 0.05;
+        }
+
+        state.camera.yaw = lerp(state.camera.yaw, state.camera.targetYaw, clamp(dt * 4.8, 0.01, 0.24));
+        state.camera.pitch = lerp(state.camera.pitch, state.camera.targetPitch, clamp(dt * 5.2, 0.01, 0.28));
+      }
+
+      function updatePerformance(dt) {
+        const fps = 1 / Math.max(dt, 0.0001);
+        state.performance.fpsSamples.push(fps);
+        if (state.performance.fpsSamples.length > 30) {
+          state.performance.fpsSamples.shift();
+        }
+
+        let avg = 0;
+        for (let i = 0; i < state.performance.fpsSamples.length; i += 1) {
+          avg += state.performance.fpsSamples[i];
+        }
+        avg /= state.performance.fpsSamples.length;
+
+        if (avg < 30) {
+          state.performance.lowFpsTimer += dt;
+        } else {
+          state.performance.lowFpsTimer = Math.max(0, state.performance.lowFpsTimer - dt * 0.5);
+        }
+
+        if (!state.performance.degraded1 && state.performance.lowFpsTimer > 5) {
+          state.performance.degraded1 = true;
+          state.activeCount = Math.max(4500, Math.floor(state.activeCount * 0.5));
+          state.params.bloomEnabled = false;
+          ui.bloomToggle.dataset.active = '0';
+          showStatusBadge('⚡ reduced quality: fewer particles + bloom off');
+          showToast('Performance guard activated: reduced to ' + state.activeCount + ' particles');
+          state.performance.lowFpsTimer = 0;
+        }
+
+        if (state.performance.degraded1 && !state.performance.degraded2 && avg < 20 && state.performance.lowFpsTimer > 3) {
+          state.performance.degraded2 = true;
+          state.params.trailsEnabled = false;
+          state.params.turbulence *= 0.78;
+          ui.trailToggle.dataset.active = '0';
+          showStatusBadge('⚡ reduced quality: trails off');
+          showToast('Second performance guard: trails disabled');
+          state.performance.lowFpsTimer = 0;
+        }
+      }
+
+      function renderFrame(dt) {
+        drawBackground();
+        renderParticles();
+        drawSpectrum();
+        hideStatusBadgeIfExpired(performance.now());
+      }
+
+      function animate(now) {
+        const dtRaw = (now - state.timestamp) / 1000;
+        const dt = clamp(dtRaw, 0.001, 0.04);
+        state.timestamp = now;
+        state.elapsed += dt;
+
+        updateCamera(dt);
+        updateAudioEnergy(dt);
+
+        const beat = detectBeat();
+        if (beat && !state.params.freezeAudio) {
+          applyBeatImpulse();
+        }
+
+        buildHashGrid();
+        updateBursts(dt);
+        updateBoids(dt);
+        updateReset(dt);
+        updateColors();
+        updatePerformance(dt);
+        renderFrame(dt);
+
+        requestAnimationFrame(animate);
+      }
+
+      function syncSliderLabel(slider, label, digits = 2) {
+        label.textContent = Number(slider.value).toFixed(digits);
+      }
+
+      function updatePresetButtons() {
+        ui.presetCosmic.dataset.active = state.colorPreset === 'cosmic' ? '1' : '0';
+        ui.presetInferno.dataset.active = state.colorPreset === 'inferno' ? '1' : '0';
+        ui.presetArctic.dataset.active = state.colorPreset === 'arctic' ? '1' : '0';
+      }
+
+      function setPreset(name) {
+        state.colorPreset = name;
+        updatePresetButtons();
+        showToast('Preset: ' + name.charAt(0).toUpperCase() + name.slice(1));
+      }
+
+      function toggleChaos(force) {
+        state.params.chaos = typeof force === 'boolean' ? force : !state.params.chaos;
+        ui.chaosBtn.dataset.active = state.params.chaos ? '1' : '0';
+        ui.chaosBtn.textContent = state.params.chaos ? 'Chaos On' : 'Chaos Off';
+        if (state.params.chaos) {
+          state.chaos.nextAt = 0;
+          showStatusBadge('🟠 chaos mode');
+        }
+      }
+
+      function toggleTrails(force) {
+        state.params.trailsEnabled = typeof force === 'boolean' ? force : !state.params.trailsEnabled;
+        ui.trailToggle.dataset.active = state.params.trailsEnabled ? '1' : '0';
+      }
+
+      function toggleBloom(force) {
+        state.params.bloomEnabled = typeof force === 'boolean' ? force : !state.params.bloomEnabled;
+        ui.bloomToggle.dataset.active = state.params.bloomEnabled ? '1' : '0';
+      }
+
+      function toggleFreezeAudio() {
+        state.params.freezeAudio = !state.params.freezeAudio;
+        setModeBadge();
+        if (state.params.freezeAudio) {
+          showToast('Audio frozen ❄️');
+        } else {
+          showToast('Audio resumed');
+        }
+      }
+
+      function handleKeydown(event) {
+        if (event.repeat) {
+          return;
+        }
+
+        const key = event.key.toLowerCase();
+        if (key === ' ') {
+          event.preventDefault();
+          toggleFreezeAudio();
+          return;
+        }
+
+        if (key === 'r') {
+          triggerReset();
+          return;
+        }
+
+        if (key === 't') {
+          toggleTrails();
+          return;
+        }
+
+        if (key === 'b') {
+          toggleBloom();
+          return;
+        }
+
+        if (key === 'c') {
+          toggleChaos();
+          return;
+        }
+
+        if (key === 'm') {
+          togglePanels();
+          return;
+        }
+
+        if (key === '1') {
+          setPreset('cosmic');
+          return;
+        }
+
+        if (key === '2') {
+          setPreset('inferno');
+          return;
+        }
+
+        if (key === '3') {
+          setPreset('arctic');
+          return;
+        }
+
+        if (event.key === '?') {
+          showHint(
+            'Shortcuts\n' +
+            'Space → freeze audio\n' +
+            'R → reset shell\n' +
+            'T/B → trails / bloom\n' +
+            'C → chaos mode\n' +
+            'M → panels\n' +
+            '1/2/3 → color preset\n' +
+            'Click canvas → burst impulse\n' +
+            'Drop MP3/WAV → file mode',
+            4000
+          );
+        }
+      }
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+        stage.width = width;
+        stage.height = height;
+        stage.style.width = window.innerWidth + 'px';
+        stage.style.height = window.innerHeight + 'px';
+
+        const sw = spectrumCanvas.clientWidth || 300;
+        const sh = spectrumCanvas.clientHeight || 16;
+        spectrumCanvas.width = Math.floor(sw * dpr);
+        spectrumCanvas.height = Math.floor(sh * dpr);
+      }
+
+      function pointerDown(event) {
+        const rect = stage.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+
+        state.pointer.down = true;
+        state.pointer.dragging = false;
+        state.pointer.moved = false;
+        state.pointer.id = event.pointerId;
+        state.pointer.lastX = px;
+        state.pointer.lastY = py;
+        state.camera.userTouchAt = state.elapsed;
+
+        stage.setPointerCapture(event.pointerId);
+        projectPointerToWorld(px * DPR, py * DPR);
+      }
+
+      function pointerMove(event) {
+        if (state.pointer.id !== event.pointerId && state.pointer.id !== -1) {
+          return;
+        }
+
+        const rect = stage.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+
+        projectPointerToWorld(px * DPR, py * DPR);
+
+        if (!state.pointer.down) {
+          return;
+        }
+
+        const dx = px - state.pointer.lastX;
+        const dy = py - state.pointer.lastY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 1.2) {
+          state.pointer.moved = true;
+          state.pointer.dragging = true;
+          state.camera.targetYaw += dx * 0.004;
+          state.camera.targetPitch += dy * 0.0036;
+          state.camera.targetPitch = clamp(state.camera.targetPitch, -1.2, 1.2);
+          state.camera.userTouchAt = state.elapsed;
+        }
+
+        state.pointer.lastX = px;
+        state.pointer.lastY = py;
+      }
+
+      function pointerUp(event) {
+        if (state.pointer.id !== event.pointerId) {
+          return;
+        }
+
+        const rect = stage.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+
+        if (!state.pointer.dragging) {
+          projectPointerToWorld(px * DPR, py * DPR);
+          queueBurst(state.pointer.worldX, state.pointer.worldY, state.pointer.worldZ, 22, 40);
+          flashClick(event.clientX, event.clientY);
+        }
+
+        state.pointer.down = false;
+        state.pointer.dragging = false;
+        state.pointer.moved = false;
+        state.pointer.id = -1;
+      }
+
+      function handleWheel(event) {
+        event.preventDefault();
+        const delta = clamp(event.deltaY, -60, 60);
+        state.camera.fov = clamp(state.camera.fov + delta * 0.05, 20, 90);
+      }
+
+      function togglePanelFromStrip(panel) {
+        const open = panel.dataset.open === '1';
+        setPanelOpen(panel, !open);
+      }
+
+      function attachUI() {
+        const sliderPairs = [
+          [ui.cohesion, ui.cohesionVal, 'cohesion'],
+          [ui.separation, ui.separationVal, 'separation'],
+          [ui.alignment, ui.alignmentVal, 'alignment'],
+          [ui.turbulence, ui.turbulenceVal, 'turbulence'],
+          [ui.bloom, ui.bloomVal, 'bloomStrength'],
+          [ui.trail, ui.trailVal, 'trailAlpha'],
+          [ui.pointSize, ui.sizeVal, 'pointSizeScale']
+        ];
+
+        sliderPairs.forEach(([slider, label, key]) => {
+          syncSliderLabel(slider, label);
+          slider.addEventListener('input', () => {
+            const v = Number(slider.value);
+            state.params[key] = v;
+            syncSliderLabel(slider, label);
+          });
+        });
+
+        ui.presetCosmic.addEventListener('click', () => setPreset('cosmic'));
+        ui.presetInferno.addEventListener('click', () => setPreset('inferno'));
+        ui.presetArctic.addEventListener('click', () => setPreset('arctic'));
+
+        ui.chaosBtn.addEventListener('click', () => toggleChaos());
+        ui.resetBtn.addEventListener('click', triggerReset);
+
+        ui.trailToggle.addEventListener('click', () => toggleTrails());
+        ui.bloomToggle.addEventListener('click', () => toggleBloom());
+        ui.panelToggle.addEventListener('click', () => togglePanels());
+
+        ui.leftStrip.addEventListener('click', () => togglePanelFromStrip(ui.leftPanel));
+        ui.rightStrip.addEventListener('click', () => togglePanelFromStrip(ui.rightPanel));
+
+        ui.leftStrip.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            togglePanelFromStrip(ui.leftPanel);
+          }
+        });
+
+        ui.rightStrip.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            togglePanelFromStrip(ui.rightPanel);
+          }
+        });
+
+        ui.micBtn.addEventListener('click', startMic);
+        ui.fileBtn.addEventListener('click', () => ui.audioFile.click());
+        ui.audioFile.addEventListener('change', (event) => {
+          const file = event.target.files && event.target.files[0];
+          if (file) {
+            loadAudioFile(file);
+          }
+        });
+
+        stage.addEventListener('pointerdown', pointerDown);
+        stage.addEventListener('pointermove', pointerMove);
+        stage.addEventListener('pointerup', pointerUp);
+        stage.addEventListener('pointercancel', pointerUp);
+        stage.addEventListener('wheel', handleWheel, { passive: false });
+
+        window.addEventListener('keydown', handleKeydown);
+        window.addEventListener('resize', resize);
+
+        stage.addEventListener('dragover', (event) => {
+          event.preventDefault();
+        });
+
+        stage.addEventListener('drop', (event) => {
+          event.preventDefault();
+          const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+          if (file) {
+            loadAudioFile(file);
+          }
+        });
+      }
+
+      async function ensureAudioContext() {
+        if (!state.audio.ctx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) {
+            showToast('WebAudio not supported in this browser.');
+            return false;
+          }
+          state.audio.ctx = new Ctx();
+          state.audio.analyser = state.audio.ctx.createAnalyser();
+          state.audio.analyser.fftSize = 2048;
+          state.audio.analyser.smoothingTimeConstant = 0.8;
+        }
+
+        if (state.audio.ctx.state === 'suspended') {
+          await state.audio.ctx.resume();
+        }
+
+        return true;
+      }
+
+      async function startMic() {
+        try {
+          const ok = await ensureAudioContext();
+          if (!ok) {
+            return;
+          }
+
+          if (state.audio.fileNode) {
+            state.audio.fileNode.stop();
+            state.audio.fileNode.disconnect();
+            state.audio.fileNode = null;
+          }
+
+          if (state.audio.stream) {
+            state.audio.stream.getTracks().forEach((track) => track.stop());
+          }
+
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          state.audio.stream = stream;
+
+          if (state.audio.sourceNode) {
+            state.audio.sourceNode.disconnect();
+          }
+
+          const source = state.audio.ctx.createMediaStreamSource(stream);
+          source.connect(state.audio.analyser);
+          state.audio.sourceNode = source;
+
+          state.audio.mode = 'mic';
+          state.audio.fileName = '';
+          setModeBadge();
+          updatePromptVisibility();
+          showToast('Microphone active. Speak or play music nearby.');
+        } catch (err) {
+          console.error(err);
+          state.audio.mode = 'ambient';
+          setModeBadge();
+          showToast('Mic blocked — ambient mode continues. Use file upload.');
+        }
+      }
+
+      async function loadAudioFile(file) {
+        if (!file) {
+          return;
+        }
+
+        try {
+          const ok = await ensureAudioContext();
+          if (!ok) {
+            return;
+          }
+
+          if (state.audio.stream) {
+            state.audio.stream.getTracks().forEach((track) => track.stop());
+            state.audio.stream = null;
+          }
+
+          if (state.audio.sourceNode) {
+            state.audio.sourceNode.disconnect();
+            state.audio.sourceNode = null;
+          }
+
+          if (state.audio.fileNode) {
+            try {
+              state.audio.fileNode.stop();
+            } catch (_ignore) {
+            }
+            state.audio.fileNode.disconnect();
+            state.audio.fileNode = null;
+          }
+
+          const buf = await file.arrayBuffer();
+          const audioBuffer = await state.audio.ctx.decodeAudioData(buf.slice(0));
+
+          const source = state.audio.ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.loop = true;
+          source.connect(state.audio.analyser);
+          source.start(0);
+          state.audio.fileNode = source;
+          state.audio.mode = 'file';
+          state.audio.fileName = file.name || 'audio';
+
+          setModeBadge();
+          updatePromptVisibility();
+          showToast('File mode active: ' + state.audio.fileName);
+        } catch (err) {
+          console.error(err);
+          showToast('Unsupported format — try MP3 or WAV');
+        }
+      }
+
+      function bootstrap() {
+        resize();
+        initializeParticles();
+        buildCurlNoiseTable();
+        attachUI();
+        updatePresetButtons();
+        setModeBadge();
+        updatePromptVisibility();
+
+        if (isMobile) {
+          setPanelOpen(ui.leftPanel, false);
+          setPanelOpen(ui.rightPanel, false);
+          state.params.bloomEnabled = false;
+          ui.bloomToggle.dataset.active = '0';
+        } else {
+          setPanelOpen(ui.leftPanel, true);
+          setPanelOpen(ui.rightPanel, true);
+        }
+
+        showHint('Press ? for shortcuts. Ambient mode is live before mic permissions.', 3500);
+
+        if (!window.WebGLRenderingContext) {
+          showToast('WebGL unavailable: running Canvas fallback renderer.');
+        }
+
+        requestAnimationFrame((t) => {
+          state.timestamp = t;
+          requestAnimationFrame(animate);
+        });
+      }
+
+      bootstrap();
+    })();
+  </script>
+</body>
+</html>
