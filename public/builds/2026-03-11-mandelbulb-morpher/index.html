@@ -1,0 +1,2167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Mandelbulb Morpher</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --text: #e4e4ed;
+      --muted: #9ea0bf;
+      --panel: rgba(8, 8, 18, 0.88);
+      --panel-border: rgba(99, 102, 241, 0.25);
+      --indigo: #6366f1;
+      --cyan: #06b6d4;
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, sans-serif;
+    }
+
+    #app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 50%, #1a0a2e 0%, #0a0a0f 65%);
+      overflow: hidden;
+    }
+
+    #glCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: grab;
+      z-index: 2;
+    }
+
+    #glCanvas:active {
+      cursor: grabbing;
+    }
+
+    #bootGradient {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 30% 30%, rgba(99, 102, 241, 0.24), transparent 55%),
+        radial-gradient(circle at 70% 65%, rgba(6, 182, 212, 0.2), transparent 62%),
+        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.13), transparent 68%),
+        #0a0a0f;
+      z-index: 1;
+      opacity: 1;
+      transition: opacity 220ms ease;
+      pointer-events: none;
+    }
+
+    #bootGradient.hidden {
+      opacity: 0;
+    }
+
+    #ring {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      border: 1px solid rgba(99, 102, 241, 0.16);
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    #ring::before {
+      content: "";
+      position: absolute;
+      inset: -20%;
+      background: conic-gradient(from 0deg, #6366f1, #06b6d4, #f43f5e, #6366f1);
+      opacity: 0.15;
+      animation: ringSpin 8s linear infinite;
+    }
+
+    #ring::after {
+      content: "";
+      position: absolute;
+      inset: 2px;
+      background: transparent;
+      border: 1px solid rgba(12, 12, 22, 0.9);
+    }
+
+    @keyframes ringSpin {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    #uiPanel {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      width: 260px;
+      max-height: calc(100vh - 92px);
+      overflow: auto;
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 14px;
+      padding: 12px 12px 14px;
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      transform: translateX(0);
+      transition: transform 220ms ease;
+      box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4);
+    }
+
+    #uiPanel.collapsed {
+      transform: translateX(286px);
+    }
+
+    #panelHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    #panelTitle {
+      font-size: 0.88rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #d7d8ff;
+      margin: 0;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-weight: 700;
+    }
+
+    #panelToggle {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(99, 102, 241, 0.38);
+      background: rgba(18, 19, 36, 0.96);
+      color: #dbe6ff;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    #panelToggle.pulse {
+      animation: togglePulse 1s ease;
+    }
+
+    @keyframes togglePulse {
+      0% {
+        box-shadow: 0 0 0 rgba(99, 102, 241, 0.6);
+        transform: scale(1);
+      }
+      45% {
+        box-shadow: 0 0 22px rgba(99, 102, 241, 0.72);
+        transform: scale(1.06);
+      }
+      100% {
+        box-shadow: 0 0 0 rgba(99, 102, 241, 0);
+        transform: scale(1);
+      }
+    }
+
+    .control {
+      margin-top: 8px;
+      margin-bottom: 11px;
+    }
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .control-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #aeb3db;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+    }
+
+    .control-value {
+      font-size: 0.85rem;
+      color: #f5f6ff;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      min-width: 54px;
+      text-align: right;
+    }
+
+    .range-input,
+    .select-input {
+      width: 100%;
+    }
+
+    input[type="range"] {
+      appearance: none;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(99, 102, 241, 0.7), rgba(6, 182, 212, 0.5));
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.65);
+      background: #d9e2ff;
+      cursor: pointer;
+    }
+
+    .select-input {
+      background: rgba(15, 16, 33, 0.9);
+      color: #eef0ff;
+      border: 1px solid rgba(99, 102, 241, 0.38);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 44px;
+      font-size: 0.9rem;
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    button.action {
+      min-height: 44px;
+      border: 1px solid rgba(99, 102, 241, 0.42);
+      border-radius: 12px;
+      background: #101128;
+      color: #e9ebff;
+      font-size: 0.84rem;
+      cursor: pointer;
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      position: relative;
+    }
+
+    button.action:hover,
+    button.action:focus-visible {
+      box-shadow: 0 0 14px rgba(99, 102, 241, 0.5);
+      transform: translateY(-1px);
+    }
+
+    button.action.live {
+      border-color: rgba(244, 63, 94, 0.8);
+      background: rgba(53, 7, 18, 0.95);
+      color: #ffd9e1;
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.52);
+    }
+
+    #presetBar {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(99, 102, 241, 0.24);
+      background: rgba(12, 12, 30, 0.9);
+      backdrop-filter: blur(12px);
+      z-index: 9;
+      scrollbar-width: thin;
+    }
+
+    .preset-pill {
+      min-height: 44px;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 999px;
+      background: #0f0f1e;
+      color: #eff0ff;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      padding: 0 14px;
+      cursor: pointer;
+      transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+    }
+
+    .preset-pill:hover,
+    .preset-pill:focus-visible,
+    .preset-pill.active {
+      border-color: rgba(99, 102, 241, 0.92);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+      transform: translateY(-1px);
+    }
+
+    #morphProgressWrap {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 76px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(26, 29, 53, 0.8);
+      border: 1px solid rgba(99, 102, 241, 0.26);
+      z-index: 9;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    #morphProgress {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #06b6d4, #f43f5e);
+      transition: width 90ms linear;
+    }
+
+    #qualityBadge {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      z-index: 11;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #f4f5ff;
+      background: rgba(13, 14, 28, 0.88);
+      border: 1px solid rgba(99, 102, 241, 0.34);
+      border-radius: 999px;
+      padding: 7px 12px;
+    }
+
+    #clipHandle {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 132px;
+      height: 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(6, 182, 212, 0.7);
+      background: rgba(6, 182, 212, 0.18);
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.3);
+      z-index: 12;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: #baf5ff;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      touch-action: none;
+      cursor: ns-resize;
+      user-select: none;
+    }
+
+    #toast {
+      position: absolute;
+      top: 66px;
+      right: 14px;
+      z-index: 13;
+      background: rgba(15, 16, 36, 0.94);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 12px;
+      color: #f1f3ff;
+      padding: 10px 12px;
+      min-width: 180px;
+      max-width: 320px;
+      font-size: 0.82rem;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+    }
+
+    #toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #shortcutTooltip {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 14;
+      background: rgba(13, 16, 31, 0.95);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      border-radius: 10px;
+      color: #dbe2ff;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      padding: 8px 10px;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+      white-space: pre-line;
+    }
+
+    #shortcutTooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #fallback {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      z-index: 20;
+      background:
+        radial-gradient(circle at 20% 25%, rgba(99, 102, 241, 0.22), transparent 45%),
+        radial-gradient(circle at 82% 70%, rgba(6, 182, 212, 0.16), transparent 55%),
+        #0a0a0f;
+      padding: 20px;
+    }
+
+    #fallbackCard {
+      max-width: 460px;
+      border: 1px solid rgba(99, 102, 241, 0.32);
+      border-radius: 16px;
+      background: rgba(8, 8, 18, 0.9);
+      padding: 18px;
+    }
+
+    #fallback h2 {
+      margin: 0 0 8px;
+      font-size: 1.1rem;
+    }
+
+    #fallback p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    @media (max-width: 768px) {
+      #uiPanel {
+        left: 8px;
+        right: 8px;
+        width: auto;
+        top: auto;
+        bottom: 92px;
+        max-height: 45vh;
+        border-radius: 14px;
+      }
+
+      #uiPanel.collapsed {
+        transform: translateY(calc(100% + 12px));
+      }
+
+      #panelToggle {
+        position: fixed;
+        right: 12px;
+        bottom: 146px;
+        z-index: 12;
+      }
+
+      #presetBar {
+        bottom: 10px;
+        padding: 8px;
+      }
+
+      #morphProgressWrap {
+        bottom: 72px;
+      }
+
+      #toast {
+        left: 10px;
+        right: 10px;
+        top: 60px;
+        max-width: none;
+      }
+
+      #shortcutTooltip {
+        left: 10px;
+        right: 10px;
+        top: auto;
+        bottom: 162px;
+      }
+
+      .preset-pill {
+        font-size: 0.86rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="bootGradient" aria-hidden="true"></div>
+    <canvas id="glCanvas" aria-label="Interactive 3D Mandelbulb fractal renderer"></canvas>
+    <div id="ring" aria-hidden="true"></div>
+
+    <div id="qualityBadge" role="status" aria-live="polite">🟢 FULL</div>
+
+    <button id="panelToggle" aria-label="Toggle control panel" title="Toggle panel">⟩</button>
+
+    <aside id="uiPanel" aria-label="Fractal controls">
+      <div id="panelHeader">
+        <h1 id="panelTitle">Mandelbulb Morpher</h1>
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="primitiveSelect">Primitive</label>
+          <span class="control-value" id="primitiveValue">Bulb</span>
+        </div>
+        <select id="primitiveSelect" class="select-input" aria-label="Fractal primitive">
+          <option value="0">Standard Mandelbulb</option>
+          <option value="1">Mandelbox</option>
+          <option value="2">Quaternion Julia</option>
+          <option value="3">Burning Ship 3D</option>
+          <option value="4">Menger-Box Hybrid</option>
+          <option value="5">Bulb-Julia Blend</option>
+        </select>
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="powerSlider">Power</label>
+          <span class="control-value" id="powerValue">8.00</span>
+        </div>
+        <input id="powerSlider" class="range-input" type="range" min="2" max="8" step="0.01" value="8" aria-label="Mandelbulb power" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="iterationSlider">Iterations</label>
+          <span class="control-value" id="iterationValue">10</span>
+        </div>
+        <input id="iterationSlider" class="range-input" type="range" min="4" max="18" step="1" value="10" aria-label="Fractal iterations" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="foldSlider">Fold Scale</label>
+          <span class="control-value" id="foldValue">2.00</span>
+        </div>
+        <input id="foldSlider" class="range-input" type="range" min="1.5" max="3.0" step="0.01" value="2.0" aria-label="Fold scale" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="bailoutSlider">Bailout</label>
+          <span class="control-value" id="bailoutValue">2.00</span>
+        </div>
+        <input id="bailoutSlider" class="range-input" type="range" min="1.5" max="4.0" step="0.01" value="2.0" aria-label="Bailout radius" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="juliaBlendSlider">Julia Blend</label>
+          <span class="control-value" id="juliaBlendValue">0.00</span>
+        </div>
+        <input id="juliaBlendSlider" class="range-input" type="range" min="0" max="1" step="0.01" value="0" aria-label="Julia blend" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="colorShiftSlider">Color Shift</label>
+          <span class="control-value" id="colorShiftValue">0.12</span>
+        </div>
+        <input id="colorShiftSlider" class="range-input" type="range" min="0" max="1" step="0.01" value="0.12" aria-label="Color shift" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="bloomSlider">Bloom</label>
+          <span class="control-value" id="bloomValue">0.42</span>
+        </div>
+        <input id="bloomSlider" class="range-input" type="range" min="0" max="1" step="0.01" value="0.42" aria-label="Bloom strength" />
+      </div>
+
+      <div class="control">
+        <div class="control-row">
+          <label class="control-label" for="qualitySlider">Quality</label>
+          <span class="control-value" id="qualityValue">1.00</span>
+        </div>
+        <input id="qualitySlider" class="range-input" type="range" min="0.4" max="1" step="0.05" value="1" aria-label="Render quality" />
+      </div>
+
+      <div class="btn-row">
+        <button id="randomMorphBtn" class="action" aria-label="Start random morph">Random Morph</button>
+        <button id="autoMorphBtn" class="action" aria-label="Toggle auto morph">Auto-Morph</button>
+        <button id="screenshotBtn" class="action" aria-label="Save snapshot">Snapshot</button>
+        <button id="crossSectionBtn" class="action" aria-label="Toggle cross section">Cross-Section</button>
+      </div>
+    </aside>
+
+    <div id="morphProgressWrap" aria-hidden="true">
+      <div id="morphProgress"></div>
+    </div>
+
+    <div id="presetBar" aria-label="Fractal presets" role="toolbar"></div>
+
+    <div id="clipHandle" role="slider" aria-label="Cross-section plane offset" aria-valuemin="-2" aria-valuemax="2" aria-valuenow="0">SLICE</div>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <div id="shortcutTooltip" role="note" aria-hidden="true">[ / ]: presets
+Space: random morph
+S: snapshot
+C: cross-section
+Q: quality</div>
+
+    <div id="fallback" aria-live="polite">
+      <div id="fallbackCard">
+        <h2>WebGL2 Required</h2>
+        <p>Your browser does not support WebGL2. Try Chrome, Edge, or Firefox on a device with GPU acceleration enabled.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const PRIMITIVE_NAMES = [
+        "Bulb",
+        "Mandelbox",
+        "Quaternion",
+        "Burning Ship",
+        "Menger Hybrid",
+        "Blend"
+      ];
+
+      const PRESETS = [
+        {
+          name: "Power 8 Singularity",
+          u_primitive: 0,
+          u_power: 8.0,
+          u_iterations: 10,
+          u_foldScale: 2.0,
+          u_bailout: 2.0,
+          u_juliaBlend: 0.0,
+          u_juliaSeed: [0.21, -0.08, 0.14, 0.0],
+          u_colorA: [0.15, 0.05, 0.6],
+          u_colorB: [0.05, 0.7, 0.9],
+          u_colorC: [0.9, 0.1, 0.5],
+          u_colorShift: 0.12,
+          u_bloomStrength: 0.42,
+          camera: { distance: 2.5, azimuth: 0.4, elevation: 0.6 }
+        },
+        {
+          name: "Alien Coral",
+          u_primitive: 1,
+          u_power: 2.0,
+          u_iterations: 14,
+          u_foldScale: 2.0,
+          u_bailout: 2.5,
+          u_juliaBlend: 0.0,
+          u_juliaSeed: [0.04, 0.19, -0.11, 0.0],
+          u_colorA: [0.02, 0.5, 0.4],
+          u_colorB: [0.0, 0.9, 0.6],
+          u_colorC: [0.8, 0.3, 0.05],
+          u_colorShift: 0.21,
+          u_bloomStrength: 0.35,
+          camera: { distance: 3.2, azimuth: 1.2, elevation: 0.3 }
+        },
+        {
+          name: "Crystal Cave",
+          u_primitive: 2,
+          u_power: 2.0,
+          u_iterations: 12,
+          u_foldScale: 2.0,
+          u_bailout: 4.0,
+          u_juliaBlend: 0.5,
+          u_juliaSeed: [-0.15, 0.24, 0.12, 0.18],
+          u_colorA: [0.4, 0.1, 0.7],
+          u_colorB: [0.9, 0.8, 0.1],
+          u_colorC: [0.05, 0.2, 0.95],
+          u_colorShift: 0.08,
+          u_bloomStrength: 0.5,
+          camera: { distance: 2.8, azimuth: -0.8, elevation: 0.7 }
+        },
+        {
+          name: "Burning Ship",
+          u_primitive: 3,
+          u_power: 2.0,
+          u_iterations: 8,
+          u_foldScale: 2.0,
+          u_bailout: 2.0,
+          u_juliaBlend: 0.0,
+          u_juliaSeed: [0.12, -0.04, 0.07, 0.0],
+          u_colorA: [0.9, 0.2, 0.0],
+          u_colorB: [0.95, 0.6, 0.0],
+          u_colorC: [0.3, 0.0, 0.0],
+          u_colorShift: 0.0,
+          u_bloomStrength: 0.32,
+          camera: { distance: 3.0, azimuth: 0.0, elevation: 0.4 }
+        },
+        {
+          name: "Sponge World",
+          u_primitive: 4,
+          u_power: 2.0,
+          u_iterations: 10,
+          u_foldScale: 2.7,
+          u_bailout: 2.0,
+          u_juliaBlend: 0.0,
+          u_juliaSeed: [-0.02, 0.09, -0.19, 0.0],
+          u_colorA: [0.8, 0.8, 0.95],
+          u_colorB: [0.3, 0.5, 0.9],
+          u_colorC: [0.05, 0.05, 0.15],
+          u_colorShift: 0.14,
+          u_bloomStrength: 0.44,
+          camera: { distance: 4.0, azimuth: 0.6, elevation: 0.5 }
+        },
+        {
+          name: "Twisted Julia",
+          u_primitive: 5,
+          u_power: 5.0,
+          u_iterations: 12,
+          u_foldScale: 2.0,
+          u_bailout: 2.0,
+          u_juliaBlend: 0.7,
+          u_juliaSeed: [0.27, -0.13, 0.06, 0.11],
+          u_colorA: [0.05, 0.85, 0.95],
+          u_colorB: [0.9, 0.1, 0.7],
+          u_colorC: [0.5, 0.0, 0.9],
+          u_colorShift: 0.18,
+          u_bloomStrength: 0.58,
+          camera: { distance: 2.2, azimuth: -0.3, elevation: 0.8 }
+        }
+      ];
+
+      const app = document.getElementById("app");
+      const canvas = document.getElementById("glCanvas");
+      const uiPanel = document.getElementById("uiPanel");
+      const panelToggle = document.getElementById("panelToggle");
+      const presetBar = document.getElementById("presetBar");
+      const morphProgress = document.getElementById("morphProgress");
+      const qualityBadge = document.getElementById("qualityBadge");
+      const clipHandle = document.getElementById("clipHandle");
+      const toast = document.getElementById("toast");
+      const fallback = document.getElementById("fallback");
+      const bootGradient = document.getElementById("bootGradient");
+      const shortcutTooltip = document.getElementById("shortcutTooltip");
+
+      const primitiveSelect = document.getElementById("primitiveSelect");
+      const primitiveValue = document.getElementById("primitiveValue");
+      const powerSlider = document.getElementById("powerSlider");
+      const powerValue = document.getElementById("powerValue");
+      const iterationSlider = document.getElementById("iterationSlider");
+      const iterationValue = document.getElementById("iterationValue");
+      const foldSlider = document.getElementById("foldSlider");
+      const foldValue = document.getElementById("foldValue");
+      const bailoutSlider = document.getElementById("bailoutSlider");
+      const bailoutValue = document.getElementById("bailoutValue");
+      const juliaBlendSlider = document.getElementById("juliaBlendSlider");
+      const juliaBlendValue = document.getElementById("juliaBlendValue");
+      const colorShiftSlider = document.getElementById("colorShiftSlider");
+      const colorShiftValue = document.getElementById("colorShiftValue");
+      const bloomSlider = document.getElementById("bloomSlider");
+      const bloomValue = document.getElementById("bloomValue");
+      const qualitySlider = document.getElementById("qualitySlider");
+      const qualityValue = document.getElementById("qualityValue");
+
+      const randomMorphBtn = document.getElementById("randomMorphBtn");
+      const autoMorphBtn = document.getElementById("autoMorphBtn");
+      const screenshotBtn = document.getElementById("screenshotBtn");
+      const crossSectionBtn = document.getElementById("crossSectionBtn");
+
+      const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+      const gl = canvas.getContext("webgl2", {
+        antialias: false,
+        alpha: false,
+        preserveDrawingBuffer: true,
+        depth: false,
+        stencil: false,
+        premultipliedAlpha: false
+      });
+
+      if (!gl) {
+        fallback.style.display = "flex";
+        uiPanel.style.display = "none";
+        panelToggle.style.display = "none";
+        presetBar.style.display = "none";
+        document.getElementById("morphProgressWrap").style.display = "none";
+        clipHandle.style.display = "none";
+        qualityBadge.textContent = "⚫ NO WEBGL2";
+        return;
+      }
+
+      const state = {
+        currentPresetIndex: 0,
+        autoMorph: false,
+        quality: isMobile ? 0.55 : 1,
+        renderScaleMobileFactor: 1,
+        frameDropCounter: 0,
+        perfModeUntilMs: 0,
+        firstFrameDone: false,
+        clipPlane: {
+          active: false,
+          offset: 0
+        },
+        camera: {
+          azimuth: PRESETS[0].camera.azimuth,
+          elevation: PRESETS[0].camera.elevation,
+          distance: PRESETS[0].camera.distance
+        },
+        currentParams: {
+          u_primitive: PRESETS[0].u_primitive,
+          u_power: PRESETS[0].u_power,
+          u_iterations: PRESETS[0].u_iterations,
+          u_foldScale: PRESETS[0].u_foldScale,
+          u_bailout: PRESETS[0].u_bailout,
+          u_juliaBlend: PRESETS[0].u_juliaBlend,
+          u_juliaSeed: PRESETS[0].u_juliaSeed.slice(),
+          u_colorA: PRESETS[0].u_colorA.slice(),
+          u_colorB: PRESETS[0].u_colorB.slice(),
+          u_colorC: PRESETS[0].u_colorC.slice(),
+          u_colorShift: PRESETS[0].u_colorShift,
+          u_bloomStrength: PRESETS[0].u_bloomStrength
+        },
+        morphState: {
+          active: false,
+          startMs: 0,
+          durationMs: 3000,
+          startParams: null,
+          endParams: null,
+          startCamera: null,
+          endCamera: null,
+          progress: 0
+        },
+        lastAutoMorphMs: 0,
+        hoverTooltipShown: false,
+        toastTimer: 0,
+        panelPulseTimer: 0
+      };
+
+      const pointerState = {
+        pointers: new Map(),
+        cameraDragging: false,
+        clipDragging: false,
+        lastX: 0,
+        lastY: 0,
+        pinchStartDist: 0,
+        pinchStartDistance: 0,
+        clipHandlePointerId: -1
+      };
+
+      const gpu = {
+        programs: {},
+        quadVAO: null,
+        scene: { fbo: null, tex: null, width: 0, height: 0 },
+        bloomA: { fbo: null, tex: null, width: 0, height: 0 },
+        bloomB: { fbo: null, tex: null, width: 0, height: 0 }
+      };
+
+      const vertexShaderSource = `#version 300 es
+      precision highp float;
+      layout(location = 0) in vec2 a_position;
+      out vec2 v_uv;
+      void main() {
+        v_uv = a_position * 0.5 + 0.5;
+        gl_Position = vec4(a_position, 0.0, 1.0);
+      }`;
+
+      const fractalFragmentSource = `#version 300 es
+      precision highp float;
+      out vec4 fragColor;
+      in vec2 v_uv;
+
+      uniform vec2 u_resolution;
+      uniform float u_time;
+      uniform float u_power;
+      uniform int u_iterations;
+      uniform float u_foldScale;
+      uniform float u_bailout;
+      uniform vec4 u_juliaSeed;
+      uniform float u_juliaBlend;
+      uniform int u_primitive;
+      uniform vec3 u_colorA;
+      uniform vec3 u_colorB;
+      uniform vec3 u_colorC;
+      uniform float u_colorShift;
+      uniform vec3 u_camPos;
+      uniform mat3 u_camMat;
+      uniform float u_clipPlane;
+      uniform int u_clipActive;
+
+      const float FAR = 30.0;
+      const int MAX_MARCH = 128;
+      const int MAX_ITER = 20;
+
+      vec3 rotateHue(vec3 color, float angle) {
+        const mat3 toYIQ = mat3(
+          0.299, 0.587, 0.114,
+          0.596, -0.274, -0.322,
+          0.211, -0.523, 0.312
+        );
+        const mat3 toRGB = mat3(
+          1.0, 0.956, 0.621,
+          1.0, -0.272, -0.647,
+          1.0, -1.106, 1.703
+        );
+        vec3 yiq = toYIQ * color;
+        float hue = atan(yiq.z, yiq.y) + angle;
+        float chroma = sqrt(yiq.y * yiq.y + yiq.z * yiq.z);
+        vec3 outYIQ = vec3(yiq.x, chroma * cos(hue), chroma * sin(hue));
+        return clamp(toRGB * outYIQ, 0.0, 2.0);
+      }
+
+      vec2 deMandelbulb(vec3 pos, float power, int maxIter) {
+        vec3 z = pos;
+        float dr = 1.0;
+        float r = 0.0;
+        float trap = 1e9;
+        for (int i = 0; i < MAX_ITER; i++) {
+          if (i >= maxIter) break;
+          r = length(z);
+          trap = min(trap, r);
+          if (r > u_bailout) break;
+          float safeR = max(r, 0.0001);
+          float theta = acos(clamp(z.z / safeR, -1.0, 1.0)) * power;
+          float phi = atan(z.y, z.x) * power;
+          float zr = pow(safeR, power);
+          dr = pow(safeR, power - 1.0) * power * dr + 1.0;
+          z = zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)) + pos;
+        }
+        float rr = max(r, 0.0001);
+        float dist = 0.5 * log(rr) * rr / max(dr, 0.0001);
+        return vec2(dist, trap);
+      }
+
+      vec2 deMandelbox(vec3 pos, float scale, int maxIter) {
+        vec3 z = pos;
+        float dr = 1.0;
+        float trap = 1e9;
+        for (int i = 0; i < MAX_ITER; i++) {
+          if (i >= maxIter) break;
+          z = clamp(z, -1.0, 1.0) * 2.0 - z;
+          float r2 = dot(z, z);
+          trap = min(trap, sqrt(max(r2, 1e-6)));
+          if (r2 < 0.25) {
+            z *= 4.0;
+            dr *= 4.0;
+          } else if (r2 < 1.0) {
+            float k = 1.0 / r2;
+            z *= k;
+            dr *= k;
+          }
+          z = scale * z + pos;
+          dr = dr * abs(scale) + 1.0;
+          if (length(z) > 100.0) break;
+        }
+        float dist = length(z) / max(abs(dr), 0.0001);
+        return vec2(dist, trap);
+      }
+
+      vec2 deQuaternionJulia(vec3 pos, vec4 c, int maxIter) {
+        vec4 q = vec4(pos, 0.0);
+        float dr = 1.0;
+        float trap = 1e9;
+        for (int i = 0; i < MAX_ITER; i++) {
+          if (i >= maxIter) break;
+          vec4 q2 = vec4(
+            q.x * q.x - q.y * q.y - q.z * q.z - q.w * q.w,
+            2.0 * q.x * q.y,
+            2.0 * q.x * q.z,
+            2.0 * q.x * q.w
+          ) + c;
+          trap = min(trap, length(q.xyz));
+          dr = 2.0 * length(q) * dr + 1.0;
+          q = q2;
+          if (dot(q, q) > 16.0) break;
+        }
+        float r = max(length(q), 0.0001);
+        float dist = 0.5 * log(r) * r / max(dr, 0.0001);
+        return vec2(dist, trap);
+      }
+
+      vec2 deBurningShip(vec3 pos, float power, int maxIter) {
+        vec3 z = pos;
+        float dr = 1.0;
+        float r = 0.0;
+        float trap = 1e9;
+        for (int i = 0; i < MAX_ITER; i++) {
+          if (i >= maxIter) break;
+          r = length(z);
+          trap = min(trap, r);
+          if (r > u_bailout) break;
+          z = abs(z);
+          float safeR = max(r, 0.0001);
+          float theta = acos(clamp(z.z / safeR, -1.0, 1.0)) * power;
+          float phi = atan(z.y, z.x) * power;
+          float zr = pow(safeR, power);
+          dr = pow(safeR, power - 1.0) * power * dr + 1.0;
+          z = zr * vec3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)) + pos;
+        }
+        float rr = max(r, 0.0001);
+        float dist = 0.5 * log(rr) * rr / max(dr, 0.0001);
+        return vec2(dist, trap);
+      }
+
+      vec2 deMengerBox(vec3 pos, float scale, int maxIter) {
+        vec3 z = pos;
+        float dr = 1.0;
+        float trap = 1e9;
+        for (int i = 0; i < MAX_ITER; i++) {
+          if (i >= maxIter) break;
+          z = abs(z);
+          if (z.x < z.y) z.xy = z.yx;
+          if (z.x < z.z) z.xz = z.zx;
+          if (z.y < z.z) z.yz = z.zy;
+          z.x = scale * z.x - (scale - 1.0);
+          z.y = scale * z.y - (scale - 1.0) * 0.5;
+          z.z = (z.z > 0.5 * (scale - 1.0)) ? scale * z.z - (scale - 1.0) : z.z;
+          dr *= abs(scale);
+          trap = min(trap, length(z));
+          if (dot(z, z) > 100.0) break;
+        }
+        float dist = length(z) / max(dr, 0.0001);
+        return vec2(dist, trap);
+      }
+
+      vec2 mapFractal(vec3 p) {
+        vec2 bulb = deMandelbulb(p, u_power, u_iterations);
+        if (u_primitive == 0) return bulb;
+        if (u_primitive == 1) return deMandelbox(p, u_foldScale, u_iterations);
+        if (u_primitive == 2) return deQuaternionJulia(p, u_juliaSeed, u_iterations);
+        if (u_primitive == 3) return deBurningShip(p, u_power, u_iterations);
+        if (u_primitive == 4) return deMengerBox(p, u_foldScale, u_iterations);
+
+        vec2 j = deQuaternionJulia(p, u_juliaSeed, u_iterations);
+        float d = mix(bulb.x, j.x, u_juliaBlend);
+        float trap = mix(bulb.y, j.y, u_juliaBlend);
+        return vec2(d, trap);
+      }
+
+      vec2 sceneSDF(vec3 p) {
+        vec2 df = mapFractal(p);
+        if (u_clipActive == 1) {
+          float clipHalfspace = p.z - u_clipPlane;
+          df.x = max(df.x, clipHalfspace);
+        }
+        return df;
+      }
+
+      vec3 calcNormal(vec3 p) {
+        float e = 0.001;
+        vec2 ex = vec2(e, 0.0);
+        float dx = sceneSDF(p + vec3(ex.x, ex.y, ex.y)).x - sceneSDF(p - vec3(ex.x, ex.y, ex.y)).x;
+        float dy = sceneSDF(p + vec3(ex.y, ex.x, ex.y)).x - sceneSDF(p - vec3(ex.y, ex.x, ex.y)).x;
+        float dz = sceneSDF(p + vec3(ex.y, ex.y, ex.x)).x - sceneSDF(p - vec3(ex.y, ex.y, ex.x)).x;
+        return normalize(vec3(dx, dy, dz));
+      }
+
+      float calcAO(vec3 p, vec3 n) {
+        float ao = 0.0;
+        float amp = 0.5;
+        float delta = 0.08;
+        for (int i = 1; i <= 5; i++) {
+          float t = float(i) * delta;
+          float sampleDist = sceneSDF(p + n * t).x;
+          ao += amp * (t - sampleDist);
+          amp *= 0.5;
+        }
+        return clamp(1.0 - ao, 0.0, 1.0);
+      }
+
+      vec4 march(vec3 ro, vec3 rd) {
+        float t = 0.0;
+        float trap = 1e9;
+        float steps = 0.0;
+        for (int i = 0; i < MAX_MARCH; i++) {
+          vec3 p = ro + rd * t;
+          vec2 df = sceneSDF(p);
+          trap = min(trap, df.y);
+          float eps = max(0.0002, 0.0008 * t);
+          if (df.x < eps) {
+            return vec4(t, trap, steps, 1.0);
+          }
+          t += df.x * 0.9;
+          steps += 1.0;
+          if (t > FAR) break;
+        }
+        return vec4(t, trap, steps, 0.0);
+      }
+
+      vec3 orbitPalette(float trap, float stepFactor) {
+        float trapNorm = clamp(exp(-trap * 2.8), 0.0, 1.0);
+        float strata = clamp(stepFactor, 0.0, 1.0);
+        vec3 base = mix(u_colorA, u_colorB, smoothstep(0.0, 1.0, trapNorm));
+        base = mix(base, u_colorC, smoothstep(0.2, 1.0, strata));
+        float pulse = 0.08 * sin(u_time * 0.55 + trapNorm * 5.0);
+        return rotateHue(base + pulse, u_colorShift * 6.28318);
+      }
+
+      void main() {
+        vec2 uv = (gl_FragCoord.xy * 2.0 - u_resolution) / min(u_resolution.x, u_resolution.y);
+        vec3 ro = u_camPos;
+        vec3 rd = normalize(u_camMat * normalize(vec3(uv, 1.6)));
+
+        vec4 hit = march(ro, rd);
+
+        if (hit.w < 0.5) {
+          float v = 0.25 + 0.75 * pow(max(0.0, 1.0 - abs(uv.y) * 0.8), 2.0);
+          vec3 bg = mix(vec3(0.03, 0.03, 0.07), vec3(0.06, 0.04, 0.11), v);
+          bg += 0.03 * vec3(sin(u_time * 0.1 + uv.x * 5.0), cos(u_time * 0.12 + uv.y * 6.0), sin(u_time * 0.08));
+          fragColor = vec4(max(bg, 0.0), 1.0);
+          return;
+        }
+
+        vec3 p = ro + rd * hit.x;
+        vec3 n = calcNormal(p);
+
+        vec3 lightDirA = normalize(vec3(0.6, 0.8, 0.35));
+        vec3 lightDirB = normalize(vec3(-0.4, 0.5, -0.9));
+
+        float diffA = max(dot(n, lightDirA), 0.0);
+        float diffB = max(dot(n, lightDirB), 0.0) * 0.35;
+
+        vec3 viewDir = normalize(ro - p);
+        vec3 halfVec = normalize(lightDirA + viewDir);
+        float spec = pow(max(dot(n, halfVec), 0.0), 44.0);
+
+        float ao = calcAO(p, n);
+        float fresnel = pow(1.0 - max(dot(viewDir, n), 0.0), 3.0);
+
+        float stepFactor = hit.z / float(MAX_MARCH);
+        vec3 albedo = orbitPalette(hit.y, stepFactor);
+
+        if (u_clipActive == 1) {
+          float interiorMask = exp(-abs(p.z - u_clipPlane) * 28.0);
+          vec3 warm = vec3(0.97, 0.57, 0.15);
+          vec3 rose = vec3(0.95, 0.28, 0.42);
+          albedo = mix(albedo, mix(warm, rose, 0.5 + 0.5 * sin(u_time * 0.8)), interiorMask);
+        }
+
+        vec3 color = albedo * (0.1 + diffA + diffB) * ao;
+        color += spec * vec3(0.9, 0.95, 1.0);
+        color += fresnel * 0.35 * mix(u_colorB, u_colorC, 0.5);
+
+        float fog = exp(-0.038 * hit.x * hit.x);
+        vec3 fogColor = vec3(0.03, 0.03, 0.06);
+        color = mix(fogColor, color, fog);
+
+        color = max(color, 0.0);
+        fragColor = vec4(color, 1.0);
+      }`;
+
+      const extractFragmentSource = `#version 300 es
+      precision highp float;
+      in vec2 v_uv;
+      out vec4 fragColor;
+      uniform sampler2D u_scene;
+      void main() {
+        vec3 c = texture(u_scene, v_uv).rgb;
+        float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        float mask = smoothstep(0.7, 1.4, luma);
+        vec3 bright = max(c - vec3(0.7), 0.0) * 3.0 * mask;
+        fragColor = vec4(bright, 1.0);
+      }`;
+
+      const blurFragmentSource = `#version 300 es
+      precision highp float;
+      in vec2 v_uv;
+      out vec4 fragColor;
+      uniform sampler2D u_tex;
+      uniform vec2 u_direction;
+      void main() {
+        float k0 = 1.0 / 38.0;
+        float k1 = 2.0 / 38.0;
+        float k2 = 4.0 / 38.0;
+        float k3 = 7.0 / 38.0;
+        float k4 = 10.0 / 38.0;
+
+        vec3 sum = vec3(0.0);
+        sum += texture(u_tex, v_uv - 4.0 * u_direction).rgb * k0;
+        sum += texture(u_tex, v_uv - 3.0 * u_direction).rgb * k1;
+        sum += texture(u_tex, v_uv - 2.0 * u_direction).rgb * k2;
+        sum += texture(u_tex, v_uv - 1.0 * u_direction).rgb * k3;
+        sum += texture(u_tex, v_uv).rgb * k4;
+        sum += texture(u_tex, v_uv + 1.0 * u_direction).rgb * k3;
+        sum += texture(u_tex, v_uv + 2.0 * u_direction).rgb * k2;
+        sum += texture(u_tex, v_uv + 3.0 * u_direction).rgb * k1;
+        sum += texture(u_tex, v_uv + 4.0 * u_direction).rgb * k0;
+
+        fragColor = vec4(sum, 1.0);
+      }`;
+
+      const compositeFragmentSource = `#version 300 es
+      precision highp float;
+      in vec2 v_uv;
+      out vec4 fragColor;
+      uniform sampler2D u_scene;
+      uniform sampler2D u_bloom;
+      uniform float u_strength;
+      void main() {
+        vec3 base = texture(u_scene, v_uv).rgb;
+        vec3 bloom = texture(u_bloom, v_uv).rgb;
+        vec3 color = base + bloom * u_strength;
+        color = color / (color + vec3(1.0));
+        color = pow(color, vec3(1.0 / 2.2));
+        fragColor = vec4(color, 1.0);
+      }`;
+
+      function clamp(v, min, max) {
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function smoothstep01(t) {
+        const x = clamp(t, 0, 1);
+        return x * x * (3 - 2 * x);
+      }
+
+      function showToast(message, duration = 1500) {
+        toast.textContent = message;
+        toast.classList.add("visible");
+        if (state.toastTimer) {
+          window.clearTimeout(state.toastTimer);
+        }
+        state.toastTimer = window.setTimeout(() => {
+          toast.classList.remove("visible");
+        }, duration);
+      }
+
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const message = gl.getShaderInfoLog(shader) || "Unknown shader compile error";
+          gl.deleteShader(shader);
+          throw new Error(message);
+        }
+        return shader;
+      }
+
+      function createProgram(name, vsSource, fsSource) {
+        const vs = compileShader(gl.VERTEX_SHADER, vsSource);
+        const fs = compileShader(gl.FRAGMENT_SHADER, fsSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const message = gl.getProgramInfoLog(program) || "Unknown program link error";
+          gl.deleteProgram(program);
+          throw new Error(name + ": " + message);
+        }
+        return program;
+      }
+
+      function createTexture(width, height) {
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, width, height, 0, gl.RGBA, gl.HALF_FLOAT, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return tex;
+      }
+
+      function attachTextureToFBO(fbo, tex) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+        const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        if (!ok) {
+          throw new Error("Framebuffer incomplete");
+        }
+      }
+
+      function setupQuad() {
+        const vao = gl.createVertexArray();
+        const vbo = gl.createBuffer();
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array([
+            -1, -1,
+            1, -1,
+            -1, 1,
+            -1, 1,
+            1, -1,
+            1, 1
+          ]),
+          gl.STATIC_DRAW
+        );
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gpu.quadVAO = vao;
+      }
+
+      function cleanupRenderTargets() {
+        const targets = [gpu.scene, gpu.bloomA, gpu.bloomB];
+        for (const t of targets) {
+          if (t.tex) gl.deleteTexture(t.tex);
+          if (t.fbo) gl.deleteFramebuffer(t.fbo);
+          t.tex = null;
+          t.fbo = null;
+          t.width = 0;
+          t.height = 0;
+        }
+      }
+
+      function resizeTargets() {
+        const dpr = window.devicePixelRatio || 1;
+        const mobileHalf = dpr > 1.5 && window.innerWidth < 768;
+        state.renderScaleMobileFactor = mobileHalf ? 0.5 : 1.0;
+
+        const width = Math.max(300, Math.floor(window.innerWidth * dpr * state.quality * state.renderScaleMobileFactor));
+        const height = Math.max(220, Math.floor(window.innerHeight * dpr * state.quality * state.renderScaleMobileFactor));
+
+        if (gpu.scene.width === width && gpu.scene.height === height) {
+          return;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        cleanupRenderTargets();
+
+        gpu.scene.width = width;
+        gpu.scene.height = height;
+        gpu.scene.tex = createTexture(width, height);
+        gpu.scene.fbo = gl.createFramebuffer();
+        attachTextureToFBO(gpu.scene.fbo, gpu.scene.tex);
+
+        const bloomW = Math.max(1, Math.floor(width / 4));
+        const bloomH = Math.max(1, Math.floor(height / 4));
+
+        gpu.bloomA.width = bloomW;
+        gpu.bloomA.height = bloomH;
+        gpu.bloomA.tex = createTexture(bloomW, bloomH);
+        gpu.bloomA.fbo = gl.createFramebuffer();
+        attachTextureToFBO(gpu.bloomA.fbo, gpu.bloomA.tex);
+
+        gpu.bloomB.width = bloomW;
+        gpu.bloomB.height = bloomH;
+        gpu.bloomB.tex = createTexture(bloomW, bloomH);
+        gpu.bloomB.fbo = gl.createFramebuffer();
+        attachTextureToFBO(gpu.bloomB.fbo, gpu.bloomB.tex);
+
+        qualityValue.textContent = state.quality.toFixed(2);
+      }
+
+      function setQualityBadge() {
+        const fast = state.quality < 0.9;
+        qualityBadge.textContent = fast ? "🔴 FAST" : "🟢 FULL";
+      }
+
+      function updateControlReadouts() {
+        primitiveSelect.value = String(state.currentParams.u_primitive);
+        primitiveValue.textContent = PRIMITIVE_NAMES[state.currentParams.u_primitive] || "Custom";
+
+        powerSlider.value = String(state.currentParams.u_power);
+        powerValue.textContent = state.currentParams.u_power.toFixed(2);
+
+        iterationSlider.value = String(state.currentParams.u_iterations);
+        iterationValue.textContent = String(state.currentParams.u_iterations);
+
+        foldSlider.value = String(state.currentParams.u_foldScale);
+        foldValue.textContent = state.currentParams.u_foldScale.toFixed(2);
+
+        bailoutSlider.value = String(state.currentParams.u_bailout);
+        bailoutValue.textContent = state.currentParams.u_bailout.toFixed(2);
+
+        juliaBlendSlider.value = String(state.currentParams.u_juliaBlend);
+        juliaBlendValue.textContent = state.currentParams.u_juliaBlend.toFixed(2);
+
+        colorShiftSlider.value = String(state.currentParams.u_colorShift);
+        colorShiftValue.textContent = state.currentParams.u_colorShift.toFixed(2);
+
+        bloomSlider.value = String(state.currentParams.u_bloomStrength);
+        bloomValue.textContent = state.currentParams.u_bloomStrength.toFixed(2);
+
+        qualitySlider.value = String(state.quality);
+        qualityValue.textContent = state.quality.toFixed(2);
+
+        crossSectionBtn.classList.toggle("live", state.clipPlane.active);
+        autoMorphBtn.classList.toggle("live", state.autoMorph);
+        autoMorphBtn.textContent = state.autoMorph ? "LIVE Morph" : "Auto-Morph";
+      }
+
+      function cloneParamSet(source) {
+        return {
+          u_primitive: source.u_primitive,
+          u_power: source.u_power,
+          u_iterations: source.u_iterations,
+          u_foldScale: source.u_foldScale,
+          u_bailout: source.u_bailout,
+          u_juliaBlend: source.u_juliaBlend,
+          u_juliaSeed: source.u_juliaSeed.slice(),
+          u_colorA: source.u_colorA.slice(),
+          u_colorB: source.u_colorB.slice(),
+          u_colorC: source.u_colorC.slice(),
+          u_colorShift: source.u_colorShift,
+          u_bloomStrength: source.u_bloomStrength
+        };
+      }
+
+      function syncPresetButtons() {
+        const buttons = presetBar.querySelectorAll("button.preset-pill");
+        buttons.forEach((btn, idx) => {
+          btn.classList.toggle("active", idx === state.currentPresetIndex);
+        });
+      }
+
+      function applyPresetInstant(index) {
+        const preset = PRESETS[index];
+        state.currentPresetIndex = index;
+        const target = cloneParamSet(preset);
+        state.currentParams = target;
+        state.camera.azimuth = preset.camera.azimuth;
+        state.camera.elevation = preset.camera.elevation;
+        state.camera.distance = preset.camera.distance;
+        syncPresetButtons();
+        updateControlReadouts();
+      }
+
+      function beginMorph(targetParams, targetCamera, durationMs = 3000) {
+        state.morphState.active = true;
+        state.morphState.startMs = performance.now();
+        state.morphState.durationMs = durationMs;
+        state.morphState.startParams = cloneParamSet(state.currentParams);
+        state.morphState.endParams = cloneParamSet(targetParams);
+        state.morphState.startCamera = {
+          azimuth: state.camera.azimuth,
+          elevation: state.camera.elevation,
+          distance: state.camera.distance
+        };
+        state.morphState.endCamera = {
+          azimuth: targetCamera.azimuth,
+          elevation: targetCamera.elevation,
+          distance: targetCamera.distance
+        };
+      }
+
+      function randomPalette() {
+        const palettes = [
+          [[0.08, 0.06, 0.45], [0.0, 0.75, 0.88], [0.92, 0.14, 0.66]],
+          [[0.02, 0.45, 0.4], [0.0, 0.88, 0.6], [0.85, 0.46, 0.08]],
+          [[0.48, 0.08, 0.8], [0.95, 0.84, 0.1], [0.08, 0.24, 0.95]],
+          [[0.88, 0.22, 0.02], [0.94, 0.56, 0.0], [0.28, 0.05, 0.05]],
+          [[0.92, 0.9, 0.98], [0.34, 0.62, 0.95], [0.06, 0.07, 0.2]]
+        ];
+        return palettes[(Math.random() * palettes.length) | 0];
+      }
+
+      function randomTargetParams() {
+        const primitive = (Math.random() * 6) | 0;
+        const palette = randomPalette();
+
+        return {
+          u_primitive: primitive,
+          u_power: lerp(2, 8, Math.random()),
+          u_iterations: ((lerp(4, 18, Math.random()) | 0)),
+          u_foldScale: lerp(1.5, 3.0, Math.random()),
+          u_bailout: lerp(1.5, 4.0, Math.random()),
+          u_juliaBlend: primitive === 5 ? lerp(0.15, 0.95, Math.random()) : lerp(0, 0.6, Math.random()),
+          u_juliaSeed: [
+            lerp(-0.5, 0.5, Math.random()),
+            lerp(-0.5, 0.5, Math.random()),
+            lerp(-0.5, 0.5, Math.random()),
+            lerp(-0.5, 0.5, Math.random())
+          ],
+          u_colorA: palette[0].slice(),
+          u_colorB: palette[1].slice(),
+          u_colorC: palette[2].slice(),
+          u_colorShift: Math.random(),
+          u_bloomStrength: lerp(0.2, 0.75, Math.random())
+        };
+      }
+
+      function randomTargetCamera() {
+        return {
+          azimuth: lerp(-Math.PI, Math.PI, Math.random()),
+          elevation: lerp(-1.2, 1.2, Math.random()),
+          distance: lerp(1.8, 4.5, Math.random())
+        };
+      }
+
+      function updateMorph(nowMs) {
+        if (!state.morphState.active) {
+          state.morphState.progress = 0;
+          morphProgress.style.width = "0%";
+          return;
+        }
+
+        const elapsed = nowMs - state.morphState.startMs;
+        const t = clamp(elapsed / state.morphState.durationMs, 0, 1);
+        const s = smoothstep01(t);
+
+        const from = state.morphState.startParams;
+        const to = state.morphState.endParams;
+        const out = state.currentParams;
+
+        out.u_primitive = to.u_primitive;
+        out.u_power = lerp(from.u_power, to.u_power, s);
+        out.u_iterations = Math.round(lerp(from.u_iterations, to.u_iterations, s));
+        out.u_foldScale = lerp(from.u_foldScale, to.u_foldScale, s);
+        out.u_bailout = lerp(from.u_bailout, to.u_bailout, s);
+        out.u_juliaBlend = lerp(from.u_juliaBlend, to.u_juliaBlend, s);
+
+        for (let i = 0; i < 4; i++) {
+          out.u_juliaSeed[i] = lerp(from.u_juliaSeed[i], to.u_juliaSeed[i], s);
+        }
+
+        for (let i = 0; i < 3; i++) {
+          out.u_colorA[i] = lerp(from.u_colorA[i], to.u_colorA[i], s);
+          out.u_colorB[i] = lerp(from.u_colorB[i], to.u_colorB[i], s);
+          out.u_colorC[i] = lerp(from.u_colorC[i], to.u_colorC[i], s);
+        }
+
+        out.u_colorShift = lerp(from.u_colorShift, to.u_colorShift, s);
+        out.u_bloomStrength = lerp(from.u_bloomStrength, to.u_bloomStrength, s);
+
+        state.camera.azimuth = lerp(state.morphState.startCamera.azimuth, state.morphState.endCamera.azimuth, s);
+        state.camera.elevation = lerp(state.morphState.startCamera.elevation, state.morphState.endCamera.elevation, s);
+        state.camera.distance = lerp(state.morphState.startCamera.distance, state.morphState.endCamera.distance, s);
+
+        state.morphState.progress = t;
+        morphProgress.style.width = (t * 100).toFixed(2) + "%";
+
+        if (t >= 1) {
+          state.morphState.active = false;
+          state.lastAutoMorphMs = nowMs;
+          updateControlReadouts();
+        }
+      }
+
+      function updateClipHandlePosition() {
+        if (!state.clipPlane.active) {
+          clipHandle.style.display = "none";
+          return;
+        }
+        clipHandle.style.display = "flex";
+        const pct = 50 - (state.clipPlane.offset / 2) * 34;
+        clipHandle.style.top = clamp(pct, 15, 85).toFixed(2) + "%";
+        clipHandle.setAttribute("aria-valuenow", state.clipPlane.offset.toFixed(2));
+      }
+
+      function toggleClipMode(force) {
+        if (typeof force === "boolean") {
+          state.clipPlane.active = force;
+        } else {
+          state.clipPlane.active = !state.clipPlane.active;
+        }
+        updateClipHandlePosition();
+        updateControlReadouts();
+        showToast(state.clipPlane.active ? "Cross-section enabled" : "Cross-section disabled", 1200);
+      }
+
+      function createPresetButtons() {
+        PRESETS.forEach((preset, idx) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "preset-pill";
+          button.textContent = preset.name;
+          button.setAttribute("aria-label", "Load preset " + preset.name);
+          button.addEventListener("click", () => {
+            state.currentPresetIndex = idx;
+            beginMorph(cloneParamSet(preset), { ...preset.camera }, 3000);
+            syncPresetButtons();
+          });
+          presetBar.appendChild(button);
+        });
+        syncPresetButtons();
+      }
+
+      function safeUseProgram(program) {
+        gl.useProgram(program);
+        gl.bindVertexArray(gpu.quadVAO);
+      }
+
+      function calcCameraBasis() {
+        const c = state.camera;
+        const cosE = Math.cos(c.elevation);
+        const pos = [
+          c.distance * cosE * Math.cos(c.azimuth),
+          c.distance * Math.sin(c.elevation),
+          c.distance * cosE * Math.sin(c.azimuth)
+        ];
+
+        const forward = normalize3(scale3(pos, -1));
+        let right = normalize3(cross3([0, 1, 0], forward));
+        if (length3(right) < 0.0001) {
+          right = [1, 0, 0];
+        }
+        const up = normalize3(cross3(forward, right));
+
+        const mat = new Float32Array([
+          right[0], right[1], right[2],
+          up[0], up[1], up[2],
+          forward[0], forward[1], forward[2]
+        ]);
+
+        return { pos, mat };
+      }
+
+      function length3(v) {
+        return Math.hypot(v[0], v[1], v[2]);
+      }
+
+      function normalize3(v) {
+        const len = Math.hypot(v[0], v[1], v[2]) || 1;
+        return [v[0] / len, v[1] / len, v[2] / len];
+      }
+
+      function scale3(v, s) {
+        return [v[0] * s, v[1] * s, v[2] * s];
+      }
+
+      function cross3(a, b) {
+        return [
+          a[1] * b[2] - a[2] * b[1],
+          a[2] * b[0] - a[0] * b[2],
+          a[0] * b[1] - a[1] * b[0]
+        ];
+      }
+
+      function initPrograms() {
+        gpu.programs.fractal = {
+          prog: createProgram("fractal", vertexShaderSource, fractalFragmentSource),
+          loc: {}
+        };
+        gpu.programs.extract = {
+          prog: createProgram("extract", vertexShaderSource, extractFragmentSource),
+          loc: {}
+        };
+        gpu.programs.blur = {
+          prog: createProgram("blur", vertexShaderSource, blurFragmentSource),
+          loc: {}
+        };
+        gpu.programs.composite = {
+          prog: createProgram("composite", vertexShaderSource, compositeFragmentSource),
+          loc: {}
+        };
+
+        const fp = gpu.programs.fractal;
+        fp.loc.u_resolution = gl.getUniformLocation(fp.prog, "u_resolution");
+        fp.loc.u_time = gl.getUniformLocation(fp.prog, "u_time");
+        fp.loc.u_power = gl.getUniformLocation(fp.prog, "u_power");
+        fp.loc.u_iterations = gl.getUniformLocation(fp.prog, "u_iterations");
+        fp.loc.u_foldScale = gl.getUniformLocation(fp.prog, "u_foldScale");
+        fp.loc.u_bailout = gl.getUniformLocation(fp.prog, "u_bailout");
+        fp.loc.u_juliaSeed = gl.getUniformLocation(fp.prog, "u_juliaSeed");
+        fp.loc.u_juliaBlend = gl.getUniformLocation(fp.prog, "u_juliaBlend");
+        fp.loc.u_primitive = gl.getUniformLocation(fp.prog, "u_primitive");
+        fp.loc.u_colorA = gl.getUniformLocation(fp.prog, "u_colorA");
+        fp.loc.u_colorB = gl.getUniformLocation(fp.prog, "u_colorB");
+        fp.loc.u_colorC = gl.getUniformLocation(fp.prog, "u_colorC");
+        fp.loc.u_colorShift = gl.getUniformLocation(fp.prog, "u_colorShift");
+        fp.loc.u_camPos = gl.getUniformLocation(fp.prog, "u_camPos");
+        fp.loc.u_camMat = gl.getUniformLocation(fp.prog, "u_camMat");
+        fp.loc.u_clipPlane = gl.getUniformLocation(fp.prog, "u_clipPlane");
+        fp.loc.u_clipActive = gl.getUniformLocation(fp.prog, "u_clipActive");
+
+        const ep = gpu.programs.extract;
+        ep.loc.u_scene = gl.getUniformLocation(ep.prog, "u_scene");
+
+        const bp = gpu.programs.blur;
+        bp.loc.u_tex = gl.getUniformLocation(bp.prog, "u_tex");
+        bp.loc.u_direction = gl.getUniformLocation(bp.prog, "u_direction");
+
+        const cp = gpu.programs.composite;
+        cp.loc.u_scene = gl.getUniformLocation(cp.prog, "u_scene");
+        cp.loc.u_bloom = gl.getUniformLocation(cp.prog, "u_bloom");
+        cp.loc.u_strength = gl.getUniformLocation(cp.prog, "u_strength");
+      }
+
+      function drawFullscreen() {
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+      }
+
+      function renderFractalPass(timeSeconds) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, gpu.scene.fbo);
+        gl.viewport(0, 0, gpu.scene.width, gpu.scene.height);
+
+        safeUseProgram(gpu.programs.fractal.prog);
+        const fp = gpu.programs.fractal.loc;
+
+        const camera = calcCameraBasis();
+        const p = state.currentParams;
+
+        gl.uniform2f(fp.u_resolution, gpu.scene.width, gpu.scene.height);
+        gl.uniform1f(fp.u_time, timeSeconds);
+        gl.uniform1f(fp.u_power, p.u_power);
+        gl.uniform1i(fp.u_iterations, p.u_iterations);
+        gl.uniform1f(fp.u_foldScale, p.u_foldScale);
+        gl.uniform1f(fp.u_bailout, p.u_bailout);
+        gl.uniform4f(fp.u_juliaSeed, p.u_juliaSeed[0], p.u_juliaSeed[1], p.u_juliaSeed[2], p.u_juliaSeed[3]);
+        gl.uniform1f(fp.u_juliaBlend, p.u_juliaBlend);
+        gl.uniform1i(fp.u_primitive, p.u_primitive);
+        gl.uniform3f(fp.u_colorA, p.u_colorA[0], p.u_colorA[1], p.u_colorA[2]);
+        gl.uniform3f(fp.u_colorB, p.u_colorB[0], p.u_colorB[1], p.u_colorB[2]);
+        gl.uniform3f(fp.u_colorC, p.u_colorC[0], p.u_colorC[1], p.u_colorC[2]);
+        gl.uniform1f(fp.u_colorShift, p.u_colorShift);
+        gl.uniform3f(fp.u_camPos, camera.pos[0], camera.pos[1], camera.pos[2]);
+        gl.uniformMatrix3fv(fp.u_camMat, false, camera.mat);
+        gl.uniform1f(fp.u_clipPlane, state.clipPlane.offset);
+        gl.uniform1i(fp.u_clipActive, state.clipPlane.active ? 1 : 0);
+
+        drawFullscreen();
+      }
+
+      function renderExtractPass() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, gpu.bloomA.fbo);
+        gl.viewport(0, 0, gpu.bloomA.width, gpu.bloomA.height);
+
+        safeUseProgram(gpu.programs.extract.prog);
+        const ep = gpu.programs.extract.loc;
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, gpu.scene.tex);
+        gl.uniform1i(ep.u_scene, 0);
+
+        drawFullscreen();
+      }
+
+      function renderBlurPass() {
+        const bp = gpu.programs.blur.loc;
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, gpu.bloomB.fbo);
+        gl.viewport(0, 0, gpu.bloomB.width, gpu.bloomB.height);
+
+        safeUseProgram(gpu.programs.blur.prog);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, gpu.bloomA.tex);
+        gl.uniform1i(bp.u_tex, 0);
+        gl.uniform2f(bp.u_direction, 1 / gpu.bloomA.width, 0);
+        drawFullscreen();
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, gpu.bloomA.fbo);
+        gl.viewport(0, 0, gpu.bloomA.width, gpu.bloomA.height);
+
+        safeUseProgram(gpu.programs.blur.prog);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, gpu.bloomB.tex);
+        gl.uniform1i(bp.u_tex, 0);
+        gl.uniform2f(bp.u_direction, 0, 1 / gpu.bloomA.height);
+        drawFullscreen();
+      }
+
+      function renderCompositePass() {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+
+        safeUseProgram(gpu.programs.composite.prog);
+        const cp = gpu.programs.composite.loc;
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, gpu.scene.tex);
+        gl.uniform1i(cp.u_scene, 0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, gpu.bloomA.tex);
+        gl.uniform1i(cp.u_bloom, 1);
+
+        gl.uniform1f(cp.u_strength, state.currentParams.u_bloomStrength);
+
+        drawFullscreen();
+      }
+
+      function renderFrame(nowMs) {
+        if (!renderFrame.lastMs) {
+          renderFrame.lastMs = nowMs;
+        }
+        const delta = nowMs - renderFrame.lastMs;
+        renderFrame.lastMs = nowMs;
+
+        if (delta > 50) {
+          state.frameDropCounter += 1;
+        } else {
+          state.frameDropCounter = Math.max(0, state.frameDropCounter - 1);
+        }
+
+        if (state.frameDropCounter >= 3 && state.quality > 0.5) {
+          state.quality = 0.5;
+          state.perfModeUntilMs = nowMs + 10000;
+          state.frameDropCounter = 0;
+          setQualityBadge();
+          updateControlReadouts();
+          resizeTargets();
+          showToast("⚡ Performance mode", 1800);
+        }
+
+        if (state.perfModeUntilMs > 0 && nowMs > state.perfModeUntilMs && state.quality < 0.9) {
+          state.quality = isMobile ? 0.55 : 1;
+          state.perfModeUntilMs = 0;
+          setQualityBadge();
+          updateControlReadouts();
+          resizeTargets();
+          showToast("Restored full quality", 1300);
+        }
+
+        if (state.autoMorph && !state.morphState.active && nowMs - state.lastAutoMorphMs >= 8000) {
+          const target = randomTargetParams();
+          const cam = randomTargetCamera();
+          beginMorph(target, cam, 3000);
+          state.lastAutoMorphMs = nowMs;
+        }
+
+        updateMorph(nowMs);
+
+        const timeSeconds = nowMs * 0.001;
+
+        renderFractalPass(timeSeconds);
+        renderExtractPass();
+        renderBlurPass();
+        renderCompositePass();
+
+        if (!state.firstFrameDone) {
+          state.firstFrameDone = true;
+          bootGradient.classList.add("hidden");
+        }
+
+        requestAnimationFrame(renderFrame);
+      }
+      renderFrame.lastMs = 0;
+
+      function setPanelCollapsed(collapsed) {
+        uiPanel.classList.toggle("collapsed", collapsed);
+        panelToggle.textContent = collapsed ? "⟨" : "⟩";
+      }
+
+      function nextPreset(step) {
+        const count = PRESETS.length;
+        const idx = (state.currentPresetIndex + step + count) % count;
+        state.currentPresetIndex = idx;
+        const p = PRESETS[idx];
+        beginMorph(cloneParamSet(p), { ...p.camera }, 3000);
+        syncPresetButtons();
+      }
+
+      function saveSnapshot() {
+        const dataUrl = canvas.toDataURL("image/png");
+        const a = document.createElement("a");
+        const stamp = new Date().toISOString().replace(/[.:]/g, "-");
+        a.href = dataUrl;
+        a.download = "mandelbulb-morpher-" + stamp + ".png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast("Snapshot saved ✓", 1500);
+      }
+
+      function registerUIEvents() {
+        panelToggle.addEventListener("click", () => {
+          const willCollapse = !uiPanel.classList.contains("collapsed");
+          setPanelCollapsed(willCollapse);
+        });
+
+        window.setTimeout(() => {
+          panelToggle.classList.add("pulse");
+          state.panelPulseTimer = window.setTimeout(() => {
+            panelToggle.classList.remove("pulse");
+          }, 1200);
+        }, 2000);
+
+        primitiveSelect.addEventListener("change", () => {
+          state.currentParams.u_primitive = Number(primitiveSelect.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        powerSlider.addEventListener("input", () => {
+          state.currentParams.u_power = Number(powerSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        iterationSlider.addEventListener("input", () => {
+          state.currentParams.u_iterations = Number(iterationSlider.value) | 0;
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        foldSlider.addEventListener("input", () => {
+          state.currentParams.u_foldScale = Number(foldSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        bailoutSlider.addEventListener("input", () => {
+          state.currentParams.u_bailout = Number(bailoutSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        juliaBlendSlider.addEventListener("input", () => {
+          state.currentParams.u_juliaBlend = Number(juliaBlendSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        colorShiftSlider.addEventListener("input", () => {
+          state.currentParams.u_colorShift = Number(colorShiftSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        bloomSlider.addEventListener("input", () => {
+          state.currentParams.u_bloomStrength = Number(bloomSlider.value);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          updateControlReadouts();
+        });
+
+        qualitySlider.addEventListener("input", () => {
+          state.quality = Number(qualitySlider.value);
+          state.perfModeUntilMs = 0;
+          setQualityBadge();
+          updateControlReadouts();
+          resizeTargets();
+        });
+
+        randomMorphBtn.addEventListener("click", () => {
+          beginMorph(randomTargetParams(), randomTargetCamera(), 3000);
+          state.currentPresetIndex = -1;
+          syncPresetButtons();
+          showToast("Random morph engaged", 1000);
+        });
+
+        autoMorphBtn.addEventListener("click", () => {
+          state.autoMorph = !state.autoMorph;
+          if (state.autoMorph) {
+            state.lastAutoMorphMs = performance.now();
+            beginMorph(randomTargetParams(), randomTargetCamera(), 3000);
+            showToast("Auto-Morph LIVE", 1200);
+          } else {
+            showToast("Auto-Morph paused", 1200);
+          }
+          updateControlReadouts();
+        });
+
+        screenshotBtn.addEventListener("click", saveSnapshot);
+
+        screenshotBtn.addEventListener("mouseenter", () => {
+          if (state.hoverTooltipShown) return;
+          state.hoverTooltipShown = true;
+          shortcutTooltip.classList.add("visible");
+          shortcutTooltip.setAttribute("aria-hidden", "false");
+          window.setTimeout(() => {
+            shortcutTooltip.classList.remove("visible");
+            shortcutTooltip.setAttribute("aria-hidden", "true");
+          }, 3600);
+        });
+
+        crossSectionBtn.addEventListener("click", () => {
+          toggleClipMode();
+        });
+
+        window.addEventListener("keydown", (event) => {
+          const tag = document.activeElement ? document.activeElement.tagName : "";
+          if (tag === "INPUT" || tag === "SELECT") {
+            return;
+          }
+
+          if (event.key === "[") {
+            event.preventDefault();
+            nextPreset(-1);
+          } else if (event.key === "]") {
+            event.preventDefault();
+            nextPreset(1);
+          } else if (event.key === " " || event.code === "Space") {
+            event.preventDefault();
+            beginMorph(randomTargetParams(), randomTargetCamera(), 3000);
+            state.currentPresetIndex = -1;
+            syncPresetButtons();
+          } else if (event.key === "s" || event.key === "S") {
+            event.preventDefault();
+            saveSnapshot();
+          } else if (event.key === "c" || event.key === "C") {
+            event.preventDefault();
+            toggleClipMode();
+          } else if (event.key === "q" || event.key === "Q") {
+            event.preventDefault();
+            state.quality = state.quality < 0.9 ? 1 : 0.5;
+            state.perfModeUntilMs = 0;
+            setQualityBadge();
+            updateControlReadouts();
+            resizeTargets();
+            showToast(state.quality < 0.9 ? "FAST quality" : "FULL quality", 1100);
+          }
+        });
+
+        clipHandle.addEventListener("pointerdown", (event) => {
+          pointerState.clipDragging = true;
+          pointerState.clipHandlePointerId = event.pointerId;
+          pointerState.lastY = event.clientY;
+          clipHandle.setPointerCapture(event.pointerId);
+        });
+
+        clipHandle.addEventListener("pointermove", (event) => {
+          if (!pointerState.clipDragging || event.pointerId !== pointerState.clipHandlePointerId) return;
+          const dy = event.clientY - pointerState.lastY;
+          pointerState.lastY = event.clientY;
+          state.clipPlane.offset = clamp(state.clipPlane.offset - (dy / window.innerHeight) * 4.0, -2, 2);
+          updateClipHandlePosition();
+        });
+
+        const stopClipDrag = (event) => {
+          if (event.pointerId === pointerState.clipHandlePointerId) {
+            pointerState.clipDragging = false;
+            pointerState.clipHandlePointerId = -1;
+          }
+        };
+
+        clipHandle.addEventListener("pointerup", stopClipDrag);
+        clipHandle.addEventListener("pointercancel", stopClipDrag);
+
+        canvas.addEventListener("dblclick", () => {
+          toggleClipMode();
+        });
+
+        canvas.addEventListener(
+          "wheel",
+          (event) => {
+            event.preventDefault();
+            const factor = Math.exp(event.deltaY * 0.001);
+            state.camera.distance = clamp(state.camera.distance * factor, 1.2, 8.5);
+          },
+          { passive: false }
+        );
+
+        canvas.addEventListener("pointerdown", (event) => {
+          canvas.setPointerCapture(event.pointerId);
+          pointerState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+          if (pointerState.pointers.size === 1) {
+            pointerState.cameraDragging = true;
+            pointerState.lastX = event.clientX;
+            pointerState.lastY = event.clientY;
+          } else if (pointerState.pointers.size === 2) {
+            const pts = Array.from(pointerState.pointers.values());
+            const dx = pts[0].x - pts[1].x;
+            const dy = pts[0].y - pts[1].y;
+            pointerState.pinchStartDist = Math.hypot(dx, dy);
+            pointerState.pinchStartDistance = state.camera.distance;
+          }
+        });
+
+        canvas.addEventListener("pointermove", (event) => {
+          if (pointerState.pointers.has(event.pointerId)) {
+            pointerState.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+          }
+
+          if (pointerState.clipDragging) {
+            return;
+          }
+
+          if (pointerState.pointers.size === 1 && pointerState.cameraDragging) {
+            const dx = event.clientX - pointerState.lastX;
+            const dy = event.clientY - pointerState.lastY;
+            pointerState.lastX = event.clientX;
+            pointerState.lastY = event.clientY;
+
+            if (state.clipPlane.active && event.shiftKey) {
+              state.clipPlane.offset = clamp(state.clipPlane.offset - dy * 0.01, -2, 2);
+              updateClipHandlePosition();
+            } else {
+              state.camera.azimuth += dx * 0.005;
+              state.camera.elevation = clamp(state.camera.elevation + dy * -0.005, -1.396, 1.396);
+            }
+          } else if (pointerState.pointers.size === 2) {
+            const pts = Array.from(pointerState.pointers.values());
+            const dx = pts[0].x - pts[1].x;
+            const dy = pts[0].y - pts[1].y;
+            const dist = Math.hypot(dx, dy);
+            if (pointerState.pinchStartDist > 0.1) {
+              const ratio = pointerState.pinchStartDist / dist;
+              state.camera.distance = clamp(pointerState.pinchStartDistance * ratio, 1.2, 8.5);
+            }
+          }
+        });
+
+        const releasePointer = (event) => {
+          pointerState.pointers.delete(event.pointerId);
+          if (pointerState.pointers.size === 0) {
+            pointerState.cameraDragging = false;
+          }
+          if (pointerState.pointers.size < 2) {
+            pointerState.pinchStartDist = 0;
+          }
+        };
+
+        canvas.addEventListener("pointerup", releasePointer);
+        canvas.addEventListener("pointercancel", releasePointer);
+      }
+
+      function initialize() {
+        try {
+          gl.getExtension("EXT_color_buffer_float");
+          gl.disable(gl.DEPTH_TEST);
+          gl.disable(gl.BLEND);
+
+          setupQuad();
+          initPrograms();
+          createPresetButtons();
+          applyPresetInstant(0);
+
+          state.quality = isMobile ? 0.55 : 1;
+          setQualityBadge();
+          resizeTargets();
+          updateControlReadouts();
+          updateClipHandlePosition();
+          registerUIEvents();
+
+          window.addEventListener("resize", () => {
+            resizeTargets();
+          });
+
+          requestAnimationFrame(renderFrame);
+        } catch (error) {
+          fallback.style.display = "flex";
+          uiPanel.style.display = "none";
+          panelToggle.style.display = "none";
+          presetBar.style.display = "none";
+          document.getElementById("morphProgressWrap").style.display = "none";
+          clipHandle.style.display = "none";
+          qualityBadge.textContent = "⚫ INIT FAIL";
+          const card = document.getElementById("fallbackCard");
+          const paragraph = card.querySelector("p");
+          paragraph.textContent = "Renderer failed to initialize: " + error.message;
+        }
+      }
+
+      initialize();
+    })();
+  </script>
+</body>
+</html>
