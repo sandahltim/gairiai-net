@@ -16,25 +16,25 @@ downloadUrl: "/packs/sensory-play-recipe-cards-pack-1.pdf"
 
 ## What's inside
 
-- 10 print-friendly sensory facilitation cards (light backgrounds for lower ink use)
+- 10 print-friendly sensory facilitation cards (light backgrounds + aligned left text for clean printing)
 - Bigger typography and classroom-distance readability
 - Skill focus on each card (fine-motor, self-regulation, language, inquiry)
-- 3-step setup, teacher language prompt, and level-up extension per activity
+- 3-step build sequence, teacher language prompt, and challenge level-up extension per activity
 - Half-sheet format (two cards per page)
 - Footer branding on every card: Little Learners Studio · gairiai.net
 
 ## Card set (Pack #1)
 
-1. Playdough Resistance Lab
-2. Cloud Dough Build Site
-3. Oat Dough Emotion Studio
-4. Rainbow Rice Sound Map
+1. Playdough Resistance Mission
+2. Citrus Cloud Bakery Lab
+3. Lavender Oat Calm Studio
+4. Rainbow Rice Rhythm Atlas
 5. Foam Raceway Pipette Lab
 6. Ice Melt Engineering Tray
 7. Gel Treasure Letter Paths
-8. Mud Kitchen Recipe Math
-9. Pom Pattern Transfer Track
-10. Nature Potion Cause Lab
+8. Herbal Mud Kitchen Math
+9. Chia Pearl Transfer Trek
+10. Forest Potion Protocol Lab
 
 ## Classroom use ideas
 

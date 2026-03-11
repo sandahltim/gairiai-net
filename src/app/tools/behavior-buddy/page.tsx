@@ -14,6 +14,7 @@ type BuddyStudent = {
   characterId: string;
   zone: Zone;
   starDay: boolean;
+  outfitMode: OutfitMode;
 };
 
 const STORAGE_STUDENTS = 'behavior-buddy:students';
@@ -71,11 +72,23 @@ const ZONE_META: Record<
   },
 };
 
-const OUTFIT_MODE_META: Record<OutfitMode, { label: string; chip: string }> = {
-  classic: { label: 'Classic look', chip: 'border-cyan-300/45 bg-cyan-500/20 text-cyan-100' },
-  special: { label: 'Special occasion', chip: 'border-fuchsia-300/45 bg-fuchsia-500/20 text-fuchsia-100' },
-  winter: { label: 'Winter mode', chip: 'border-indigo-300/45 bg-indigo-500/20 text-indigo-100' },
+const OUTFIT_MODE_META: Record<OutfitMode, { label: string; chip: string; emoji: string }> = {
+  classic: { label: 'Classic look', chip: 'border-cyan-300/45 bg-cyan-500/20 text-cyan-100', emoji: '🎒' },
+  special: { label: 'Special occasion', chip: 'border-fuchsia-300/45 bg-fuchsia-500/20 text-fuchsia-100', emoji: '🎉' },
+  winter: { label: 'Winter mode', chip: 'border-indigo-300/45 bg-indigo-500/20 text-indigo-100', emoji: '🧣' },
 };
+
+const OUTFIT_ITEM_ICON_LOOKUP: Array<{ match: RegExp; icon: string }> = [
+  { match: /(backpack|satchel|pouch)/i, icon: '🎒' },
+  { match: /(scarf|sash)/i, icon: '🧣' },
+  { match: /(hat|beanie|crown|cap|bow)/i, icon: '🎩' },
+  { match: /(boots|sneakers|slippers|skates)/i, icon: '👟' },
+  { match: /(glasses|goggles|earmuffs|headphones)/i, icon: '🕶️' },
+  { match: /(badge|medal|sticker|wristband)/i, icon: '🏅' },
+  { match: /(cape|vest|jacket)/i, icon: '🦸' },
+  { match: /(book|notebook|phrasebook|map)/i, icon: '📘' },
+  { match: /(wand|timer|pencil|bracelet|lanyard)/i, icon: '✨' },
+];
 
 function parseNames(input: string): string[] {
   const seen = new Set<string>();
@@ -106,6 +119,18 @@ function fillCharacterText(template: string, studentName: string): string {
   return template.replaceAll('{student}', studentName);
 }
 
+function splitOutfitItems(outfitText: string): string[] {
+  return outfitText
+    .split('+')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function outfitIconForItem(item: string): string {
+  const hit = OUTFIT_ITEM_ICON_LOOKUP.find(entry => entry.match.test(item));
+  return hit?.icon ?? '🧩';
+}
+
 export default function BehaviorBuddyPage() {
   const [students, setStudents] = useState<BuddyStudent[]>([]);
   const [draftNames, setDraftNames] = useState('');
@@ -114,8 +139,8 @@ export default function BehaviorBuddyPage() {
   const [showStarPrint, setShowStarPrint] = useState(false);
   const [celebrationText, setCelebrationText] = useState('');
   const [burstActive, setBurstActive] = useState(false);
-  const [outfitMode, setOutfitMode] = useState<OutfitMode>('classic');
-  const [mottoOpenStudentId, setMottoOpenStudentId] = useState<string | null>(null);
+  const [showCharacterSheets, setShowCharacterSheets] = useState(false);
+  const [sheetOutfitMode, setSheetOutfitMode] = useState<OutfitMode>('classic');
 
   const characterMap = useMemo(() => new Map(ZOO_CHARACTERS.map(character => [character.id, character])), []);
 
@@ -147,11 +172,22 @@ export default function BehaviorBuddyPage() {
       const savedDraft = localStorage.getItem(STORAGE_DRAFT);
 
       if (savedStudents) {
-        const parsed = JSON.parse(savedStudents) as BuddyStudent[];
+        const parsed = JSON.parse(savedStudents) as Array<Partial<BuddyStudent>>;
         if (Array.isArray(parsed) && parsed.length > 0) {
-          nextStudents = parsed;
-          nextDraft = parsed.map(student => student.name).join('\n');
-          nextEditing = false;
+          nextStudents = parsed
+            .filter(student => typeof student?.name === 'string' && student.name.trim().length > 0)
+            .map((student, index) => ({
+              id: student.id ?? `${Date.now()}-saved-${index}`,
+              name: (student.name ?? '').trim(),
+              characterId: ZOO_CHARACTERS.some(character => character.id === student.characterId)
+                ? (student.characterId as string)
+                : ZOO_CHARACTERS[index % ZOO_CHARACTERS.length].id,
+              zone: student.zone === 'yellow' || student.zone === 'red' ? student.zone : 'green',
+              starDay: Boolean(student.starDay),
+              outfitMode: student.outfitMode === 'special' || student.outfitMode === 'winter' ? student.outfitMode : 'classic',
+            }));
+          nextDraft = nextStudents.map(student => student.name).join('\n');
+          nextEditing = nextStudents.length === 0;
         }
       }
 
@@ -167,6 +203,8 @@ export default function BehaviorBuddyPage() {
       setDraftNames(nextDraft);
       setEditing(nextEditing);
       setShowStarPrint(false);
+      setShowCharacterSheets(false);
+      setSheetOutfitMode('classic');
     });
   }, []);
 
@@ -199,13 +237,13 @@ export default function BehaviorBuddyPage() {
       characterId: ZOO_CHARACTERS[index % ZOO_CHARACTERS.length].id,
       zone: 'green',
       starDay: false,
+      outfitMode: 'classic',
     }));
 
     setStudents(nextStudents);
     setErrorText('');
     setEditing(false);
     setShowStarPrint(false);
-    setMottoOpenStudentId(null);
   }
 
   function useDemoClass() {
@@ -233,19 +271,25 @@ export default function BehaviorBuddyPage() {
     setErrorText('');
     setEditing(true);
     setShowStarPrint(false);
-    setMottoOpenStudentId(null);
+    setShowCharacterSheets(false);
   }
 
   function updateStudent(id: string, updater: (student: BuddyStudent) => BuddyStudent) {
     setStudents(prev => prev.map(student => (student.id === id ? updater(student) : student)));
   }
 
-  function toggleMotto(studentId: string) {
-    setMottoOpenStudentId(prev => (prev === studentId ? null : studentId));
-  }
 
   function printStars() {
     setShowStarPrint(true);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.print();
+      }, 120);
+    }
+  }
+
+  function printCharacterSheets() {
+    setShowCharacterSheets(true);
     if (typeof window !== 'undefined') {
       window.setTimeout(() => {
         window.print();
@@ -292,25 +336,8 @@ export default function BehaviorBuddyPage() {
           <span className="wow-chip rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-zinc-200/85">Character outfit mode</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(Object.keys(OUTFIT_MODE_META) as OutfitMode[]).map(mode => {
-              const active = outfitMode === mode;
-              return (
-                <button
-                  key={`outfit-${mode}`}
-                  type="button"
-                  onClick={() => setOutfitMode(mode)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                    active ? OUTFIT_MODE_META[mode].chip : 'border-zinc-300/35 bg-zinc-900/45 text-zinc-100 hover:border-zinc-100/55'
-                  }`}
-                >
-                  {OUTFIT_MODE_META[mode].label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3 text-sm text-zinc-100">
+          👕 Tap each student card to swap outfit + accessory mode (classic, special, winter).
         </div>
       </div>
 
@@ -508,95 +535,6 @@ export default function BehaviorBuddyPage() {
             )}
           </div>
 
-          {students.length > 0 && (
-            <div className="mb-4 rounded-2xl border border-emerald-200/50 bg-gradient-to-r from-emerald-400/18 via-cyan-400/12 to-emerald-400/18 px-3 py-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <p className="zoo-fun-font text-lg sm:text-2xl font-black text-emerald-50">
-                  🌈 Green Zone lineup <span className="text-emerald-200">({zoneBuckets.green.length})</span>
-                </p>
-                <span className="rounded-full border border-emerald-200/50 bg-emerald-500/20 px-2.5 py-1 text-xs text-emerald-100">
-                  Horizontal quick view for whole class
-                </span>
-              </div>
-
-              {zoneBuckets.green.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-emerald-200/50 px-3 py-2 text-sm text-emerald-100/90">
-                  No students in Green Zone yet. Tap Green on any card below to refill the top lineup.
-                </p>
-              ) : (
-                <div className="green-lane-wrap">
-                  {zoneBuckets.green.map(student => {
-                    const character = characterMap.get(student.characterId) ?? ZOO_CHARACTERS[0];
-                    return (
-                      <article key={`green-lane-${student.id}`} className="green-lane-card rounded-xl border border-emerald-200/55 bg-emerald-500/22 px-2.5 py-2">
-                        <div className="flex items-center gap-2.5">
-                          <Image
-                            src={character.image}
-                            alt={`${character.name} avatar`}
-                            width={56}
-                            height={56}
-                            className="h-14 w-14 rounded-xl border border-emerald-100/50 bg-white/15 object-contain buddy-bounce"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="zoo-fun-font text-lg font-black text-emerald-50 leading-tight break-words">{student.name}</p>
-                            <p className="text-xs text-emerald-100/90 break-words" title={character.motto}>
-                              {character.emoji} {character.name}
-                            </p>
-                            <p className="mt-0.5 text-[11px] leading-tight text-emerald-100/85 break-words">{character.personalityLine}</p>
-                            <p className="mt-0.5 text-[10px] text-emerald-100/85 break-words">👗 {character.outfits[outfitMode]}</p>
-                            <button
-                              type="button"
-                              onClick={() => toggleMotto(student.id)}
-                              className="mt-1 inline-flex rounded-full border border-emerald-100/45 bg-emerald-300/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-50 hover:border-emerald-100/75"
-                            >
-                              {mottoOpenStudentId === student.id ? 'Hide motto' : 'Tap motto'}
-                            </button>
-                            {mottoOpenStudentId === student.id && (
-                              <p className="mt-1 text-[11px] leading-tight text-emerald-50 break-words">“{character.motto}”</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="mt-2 grid grid-cols-3 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => updateStudent(student.id, current => ({ ...current, zone: 'yellow' }))}
-                            className="rounded-lg border border-amber-200/65 bg-amber-400/28 py-1 text-xs font-bold text-amber-50 hover:bg-amber-400/35"
-                          >
-                            🟡
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => updateStudent(student.id, current => ({ ...current, zone: 'red' }))}
-                            className="rounded-lg border border-rose-200/65 bg-rose-400/28 py-1 text-xs font-bold text-rose-50 hover:bg-rose-400/35"
-                          >
-                            🔴
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const nextStar = !student.starDay;
-                              updateStudent(student.id, current => ({ ...current, starDay: nextStar }));
-                              if (nextStar) {
-                                triggerCelebration(fillCharacterText(character.starCheer, student.name));
-                              }
-                            }}
-                            className={`rounded-lg border py-1 text-xs font-bold ${
-                              student.starDay
-                                ? 'border-fuchsia-100/80 bg-fuchsia-400/45 text-fuchsia-50'
-                                : 'border-emerald-100/55 bg-emerald-300/25 text-emerald-50 hover:bg-emerald-300/33'
-                            }`}
-                          >
-                            ⭐
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
             {ZONE_ORDER.map(zone => (
               <article key={zone} className={`rounded-2xl border p-3.5 ${ZONE_META[zone].shell} flex flex-col min-h-[420px] max-h-[72vh]`}>
@@ -618,50 +556,70 @@ export default function BehaviorBuddyPage() {
                       return (
                         <div key={student.id} className={`rounded-2xl border p-3 ${ZONE_META[student.zone].studentShell}`}>
                           <div className="flex items-center gap-3">
-                            <Image
-                              src={character.image}
-                              alt={`${character.name} avatar`}
-                              width={96}
-                              height={96}
-                              className={`h-20 w-20 rounded-2xl border border-zinc-200/30 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
-                            />
+                            <div className="relative">
+                              <Image
+                                src={character.image}
+                                alt={`${character.name} avatar`}
+                                width={96}
+                                height={96}
+                                className={`h-20 w-20 rounded-2xl border border-zinc-200/30 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
+                              />
+                              <span className="absolute -right-1 -top-1 rounded-full border border-white/70 bg-black/65 px-1.5 py-0.5 text-[11px]" aria-label={`Outfit mode ${OUTFIT_MODE_META[student.outfitMode].label}`}>
+                                {OUTFIT_MODE_META[student.outfitMode].emoji}
+                              </span>
+                            </div>
                             <div className="min-w-0 flex-1">
                               <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight break-words">{student.name}</p>
-                              <p className="text-sm text-zinc-50 leading-snug break-words" title={character.motto}>
+                              <p className="text-sm text-zinc-50 leading-snug break-words">
                                 {character.emoji} {character.name}
                               </p>
-                              <p className="mt-1 rounded-lg border border-white/25 bg-white/10 px-2 py-1 text-xs text-zinc-100 break-words">
-                                {character.personalityLine}
-                              </p>
-                              <p className="mt-1 rounded-lg border border-white/20 bg-black/15 px-2 py-1 text-[11px] text-zinc-100 break-words">
-                                Outfit: {character.outfits[outfitMode]}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => toggleMotto(student.id)}
-                                className="mt-2 rounded-xl border border-fuchsia-100/40 bg-fuchsia-500/25 px-3 py-2 text-sm font-semibold text-fuchsia-50 hover:border-fuchsia-100/75"
-                              >
-                                {mottoOpenStudentId === student.id ? 'Hide motto' : 'Tap for motto'}
-                              </button>
-                              {mottoOpenStudentId === student.id && (
-                                <p className="mt-1 rounded-lg border border-fuchsia-200/45 bg-fuchsia-500/20 px-2 py-1 text-xs text-fuchsia-50 break-words">
-                                  “{character.motto}”
-                                </p>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextCharacter = characterMap.get(nextCharacterId(student.characterId)) ?? ZOO_CHARACTERS[0];
-                                  updateStudent(student.id, current => ({
-                                    ...current,
-                                    characterId: nextCharacter.id,
-                                  }));
-                                  triggerCelebration(`🎭 ${nextCharacter.name} joined ${student.name}: ${nextCharacter.personalityLine}`);
-                                }}
-                                className="mt-2 rounded-xl border border-cyan-100/50 bg-cyan-500/30 px-3 py-2 text-sm font-semibold text-cyan-50 hover:border-cyan-100"
-                              >
-                                Swap buddy
-                              </button>
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {splitOutfitItems(character.outfits[student.outfitMode]).map(item => (
+                                  <span
+                                    key={`${student.id}-${item}`}
+                                    title={item}
+                                    className="inline-flex items-center gap-1 rounded-full border border-white/35 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-100"
+                                  >
+                                    <span aria-hidden>{outfitIconForItem(item)}</span>
+                                    <span className="sr-only">{item}</span>
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                {(Object.keys(OUTFIT_MODE_META) as OutfitMode[]).map(mode => {
+                                  const activeMode = student.outfitMode === mode;
+                                  return (
+                                    <button
+                                      key={`${student.id}-mode-${mode}`}
+                                      type="button"
+                                      onClick={() => updateStudent(student.id, current => ({ ...current, outfitMode: mode }))}
+                                      className={`rounded-lg border px-2 py-1 text-sm ${
+                                        activeMode
+                                          ? OUTFIT_MODE_META[mode].chip
+                                          : 'border-zinc-200/35 bg-zinc-950/50 text-zinc-200 hover:border-zinc-100/60'
+                                      }`}
+                                      aria-label={`Set ${student.name} to ${OUTFIT_MODE_META[mode].label}`}
+                                      title={OUTFIT_MODE_META[mode].label}
+                                    >
+                                      {OUTFIT_MODE_META[mode].emoji}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextCharacter = characterMap.get(nextCharacterId(student.characterId)) ?? ZOO_CHARACTERS[0];
+                                    updateStudent(student.id, current => ({
+                                      ...current,
+                                      characterId: nextCharacter.id,
+                                    }));
+                                    triggerCelebration(`🎭 ${nextCharacter.name} joined ${student.name}!`);
+                                  }}
+                                  className="rounded-xl border border-cyan-100/50 bg-cyan-500/30 px-2.5 py-1.5 text-xs font-semibold text-cyan-50 hover:border-cyan-100"
+                                >
+                                  🎭 Swap buddy
+                                </button>
+                              </div>
                               {student.starDay && (
                                 <p className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-fuchsia-200/70 bg-fuchsia-500/30 px-2.5 py-0.5 text-xs text-fuchsia-50">
                                   <Star size={12} /> Star Day Hero
@@ -721,73 +679,117 @@ export default function BehaviorBuddyPage() {
         </section>
       </div>
 
-      <section className="character-sheets-shell mt-5 card-glow rounded-2xl p-4 sm:p-5">
+      <section className="mt-5 no-print rounded-2xl border border-zinc-700/70 bg-zinc-950/60 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-zinc-300">Meet the Zoo Crew</p>
-            <h2 className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-100">Character sheets (one per buddy)</h2>
-            <p className="text-sm text-zinc-300 mt-1">
-              Outfit mode: <span className={`rounded-full border px-2 py-0.5 ml-1 ${OUTFIT_MODE_META[outfitMode].chip}`}>{OUTFIT_MODE_META[outfitMode].label}</span>
-            </p>
+            <p className="text-xs uppercase tracking-[0.16em] text-zinc-300">Character Cards Studio</p>
+            <p className="text-sm text-zinc-200 mt-1">Classroom board stays focused. Open printable character cards in their own panel.</p>
           </div>
           <button
             type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined') {
-                window.print();
-              }
-            }}
-            className="no-print inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-3 py-2 text-xs text-zinc-100 hover:border-zinc-300"
+            onClick={() => setShowCharacterSheets(prev => !prev)}
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-500 px-3 py-2 text-xs font-semibold text-zinc-100 hover:border-zinc-200"
           >
-            <Printer size={14} /> Print character sheets
+            {showCharacterSheets ? 'Hide printable character cards' : 'Open printable character cards'}
           </button>
         </div>
-
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 character-sheets-grid">
-          {ZOO_CHARACTERS.map(character => (
-            <article key={`sheet-${character.id}`} className="character-sheet-card rounded-2xl border border-zinc-700 bg-zinc-950/60 p-4">
-              <div className="flex items-start gap-3">
-                <Image
-                  src={character.image}
-                  alt={`${character.name} character sheet art`}
-                  width={112}
-                  height={112}
-                  className="h-20 w-20 rounded-2xl border border-zinc-200/25 bg-white/10 object-contain"
-                />
-                <div className="min-w-0">
-                  <p className="text-xs uppercase tracking-[0.15em] text-zinc-400">{character.emoji} {character.title}</p>
-                  <h3 className="zoo-fun-font text-2xl font-black leading-tight text-zinc-100">{character.name}</h3>
-                  <p className="mt-1 text-xs text-zinc-300">{character.backstory}</p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {character.traits.map(trait => (
-                  <span key={`${character.id}-${trait}`} className="rounded-full border border-cyan-300/45 bg-cyan-500/15 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
-                    {trait}
-                  </span>
-                ))}
-              </div>
-
-              <p className="mt-3 rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/15 px-2.5 py-2 text-sm text-fuchsia-100">
-                Classroom motto: “{character.motto}”
-              </p>
-
-              <div className="mt-3 rounded-xl border border-zinc-700/80 bg-black/20 px-2.5 py-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-300">Signature accessories</p>
-                <ul className="mt-1 text-xs text-zinc-200 list-disc pl-4 space-y-0.5">
-                  {character.accessories.map(accessory => (
-                    <li key={`${character.id}-${accessory}`}>{accessory}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <p className="mt-3 text-xs text-zinc-200 rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">Storyline episode: {character.storyline}</p>
-              <p className="mt-2 text-xs text-zinc-300">Current outfit mode: {character.outfits[outfitMode]}</p>
-            </article>
-          ))}
-        </div>
       </section>
+
+      {showCharacterSheets && (
+        <section className="character-sheets-shell mt-5 card-glow rounded-2xl p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-zinc-300">Meet the Zoo Crew</p>
+              <h2 className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-100">Printable character cards</h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(Object.keys(OUTFIT_MODE_META) as OutfitMode[]).map(mode => {
+                const active = sheetOutfitMode === mode;
+                return (
+                  <button
+                    key={`sheet-outfit-${mode}`}
+                    type="button"
+                    onClick={() => setSheetOutfitMode(mode)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                      active ? OUTFIT_MODE_META[mode].chip : 'border-zinc-300/35 bg-zinc-900/45 text-zinc-100 hover:border-zinc-100/55'
+                    }`}
+                  >
+                    {OUTFIT_MODE_META[mode].emoji} {OUTFIT_MODE_META[mode].label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={printCharacterSheets}
+                className="no-print inline-flex items-center gap-2 rounded-xl border border-zinc-600 px-3 py-2 text-xs text-zinc-100 hover:border-zinc-300"
+              >
+                <Printer size={14} /> Print character cards
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 character-sheets-grid">
+            {ZOO_CHARACTERS.map(character => {
+              const outfitItems = splitOutfitItems(character.outfits[sheetOutfitMode]);
+
+              return (
+                <article key={`sheet-${character.id}`} className="character-sheet-card rounded-2xl border border-zinc-700 bg-zinc-950/60 p-4">
+                  <div className="flex items-start gap-3">
+                    <Image
+                      src={character.image}
+                      alt={`${character.name} character sheet art`}
+                      width={112}
+                      height={112}
+                      className="h-20 w-20 rounded-2xl border border-zinc-200/25 bg-white/10 object-contain"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.15em] text-zinc-400">
+                        {character.emoji} {character.title}
+                      </p>
+                      <h3 className="zoo-fun-font text-2xl font-black leading-tight text-zinc-100">{character.name}</h3>
+                      <p className="mt-1 text-xs text-zinc-300">{character.backstory}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {character.traits.map(trait => (
+                      <span key={`${character.id}-${trait}`} className="rounded-full border border-cyan-300/45 bg-cyan-500/15 px-2 py-0.5 text-[11px] font-semibold text-cyan-100">
+                        {trait}
+                      </span>
+                    ))}
+                  </div>
+
+                  <p className="mt-3 rounded-xl border border-fuchsia-300/35 bg-fuchsia-500/15 px-2.5 py-2 text-sm text-fuchsia-100">
+                    Classroom motto: “{character.motto}”
+                  </p>
+
+                  <div className="mt-3 rounded-xl border border-zinc-700/80 bg-black/20 px-2.5 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-300">
+                      Outfit + accessories ({OUTFIT_MODE_META[sheetOutfitMode].emoji} {OUTFIT_MODE_META[sheetOutfitMode].label})
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {outfitItems.map(item => (
+                        <span key={`${character.id}-${sheetOutfitMode}-${item}`} className="rounded-full border border-white/30 bg-white/5 px-2 py-0.5 text-xs text-zinc-200">
+                          {outfitIconForItem(item)} {item}
+                        </span>
+                      ))}
+                    </div>
+                    <ul className="mt-2 text-xs text-zinc-200 list-disc pl-4 space-y-0.5">
+                      {character.accessories.map(accessory => (
+                        <li key={`${character.id}-${accessory}`}>{accessory}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <p className="mt-3 text-xs text-zinc-200 rounded-xl border border-amber-300/35 bg-amber-500/10 px-2.5 py-2">
+                    Storyline episode: {character.storyline}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {starCount > 0 && showStarPrint && (
         <section className="star-awards-shell mt-5 card-glow rounded-2xl p-4 sm:p-5">
