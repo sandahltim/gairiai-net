@@ -131,6 +131,21 @@ function outfitIconForItem(item: string): string {
   return hit?.icon ?? '🧩';
 }
 
+function nextOutfitMode(mode: OutfitMode): OutfitMode {
+  if (mode === 'classic') return 'special';
+  if (mode === 'special') return 'winter';
+  return 'classic';
+}
+
+function outfitImageForCharacter(imagePath: string, mode: OutfitMode): string {
+  if (mode === 'classic') return imagePath;
+
+  const extensionIndex = imagePath.lastIndexOf('.');
+  if (extensionIndex <= 0) return imagePath;
+
+  return `${imagePath.slice(0, extensionIndex)}-${mode}${imagePath.slice(extensionIndex)}`;
+}
+
 export default function BehaviorBuddyPage() {
   const [students, setStudents] = useState<BuddyStudent[]>([]);
   const [draftNames, setDraftNames] = useState('');
@@ -337,7 +352,7 @@ export default function BehaviorBuddyPage() {
         </div>
 
         <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3 text-sm text-zinc-100">
-          👕 Tap each student card to swap outfit + accessory mode (classic, special, winter).
+          👕 Tap Outfit on any student card to cycle real visual looks (classic, special, winter).
         </div>
       </div>
 
@@ -558,7 +573,7 @@ export default function BehaviorBuddyPage() {
                           <div className="flex items-center gap-3">
                             <div className="relative">
                               <Image
-                                src={character.image}
+                                src={outfitImageForCharacter(character.image, student.outfitMode)}
                                 alt={`${character.name} avatar`}
                                 width={96}
                                 height={96}
@@ -570,41 +585,22 @@ export default function BehaviorBuddyPage() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight break-words">{student.name}</p>
-                              <p className="text-sm text-zinc-50 leading-snug break-words">
-                                {character.emoji} {character.name}
+                              <p className="text-xs text-zinc-100/80 leading-snug break-words">
+                                {character.emoji} Buddy look: {OUTFIT_MODE_META[student.outfitMode].label}
                               </p>
-                              <div className="mt-1.5 flex flex-wrap gap-1">
-                                {splitOutfitItems(character.outfits[student.outfitMode]).map(item => (
-                                  <span
-                                    key={`${student.id}-${item}`}
-                                    title={item}
-                                    className="inline-flex items-center gap-1 rounded-full border border-white/35 bg-black/20 px-2 py-0.5 text-[11px] text-zinc-100"
-                                  >
-                                    <span aria-hidden>{outfitIconForItem(item)}</span>
-                                    <span className="sr-only">{item}</span>
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                {(Object.keys(OUTFIT_MODE_META) as OutfitMode[]).map(mode => {
-                                  const activeMode = student.outfitMode === mode;
-                                  return (
-                                    <button
-                                      key={`${student.id}-mode-${mode}`}
-                                      type="button"
-                                      onClick={() => updateStudent(student.id, current => ({ ...current, outfitMode: mode }))}
-                                      className={`rounded-lg border px-2 py-1 text-sm ${
-                                        activeMode
-                                          ? OUTFIT_MODE_META[mode].chip
-                                          : 'border-zinc-200/35 bg-zinc-950/50 text-zinc-200 hover:border-zinc-100/60'
-                                      }`}
-                                      aria-label={`Set ${student.name} to ${OUTFIT_MODE_META[mode].label}`}
-                                      title={OUTFIT_MODE_META[mode].label}
-                                    >
-                                      {OUTFIT_MODE_META[mode].emoji}
-                                    </button>
-                                  );
-                                })}
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nextMode = nextOutfitMode(student.outfitMode);
+                                    updateStudent(student.id, current => ({ ...current, outfitMode: nextMode }));
+                                  }}
+                                  className={`rounded-xl border px-2.5 py-1.5 text-xs font-semibold ${OUTFIT_MODE_META[student.outfitMode].chip}`}
+                                  aria-label={`Cycle outfit for ${student.name}`}
+                                  title="Tap to cycle outfit"
+                                >
+                                  {OUTFIT_MODE_META[student.outfitMode].emoji} Outfit
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -736,7 +732,7 @@ export default function BehaviorBuddyPage() {
                 <article key={`sheet-${character.id}`} className="character-sheet-card rounded-2xl border border-zinc-700 bg-zinc-950/60 p-4">
                   <div className="flex items-start gap-3">
                     <Image
-                      src={character.image}
+                      src={outfitImageForCharacter(character.image, sheetOutfitMode)}
                       alt={`${character.name} character sheet art`}
                       width={112}
                       height={112}
@@ -827,7 +823,7 @@ export default function BehaviorBuddyPage() {
 
                   <div className="mt-3 flex items-center gap-3">
                     <Image
-                      src={character.image}
+                      src={outfitImageForCharacter(character.image, student.outfitMode)}
                       alt={`${character.name} award art`}
                       width={120}
                       height={120}

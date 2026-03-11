@@ -1,7 +1,7 @@
 ---
 title: Behavior Buddy Board
 date: 2026-03-08
-description: Big playful preschool behavior board with giant Green/Yellow/Red tap controls, per-student outfit/accessory swaps, cleaner kid-first cards, split printable character-card studio, and Star Day award printing.
+description: Big playful preschool behavior board with giant Green/Yellow/Red tap controls, per-student visual outfit swaps, cleaner kid-first cards, split printable character-card studio, and Star Day award printing.
 type: tools
 tags:
   - preschool
@@ -22,7 +22,7 @@ Behavior Buddy Board helps teachers run behavior coaching on a smartboard:
 - Trigger character-specific celebration moments when students hit Green Zone or Star Day
 - Use teacher-friendly support radar cues to instantly see which students need check-ins
 - Keep student cards kid-first with less text and stronger visual focus
-- Tap per student to swap outfit/accessory mode (classic, special occasion, winter)
+- Tap per student to cycle real visual outfit variants (classic, special occasion, winter)
 - Open printable Zoo Crew character cards in a separate panel (split from board workflow)
 - Mark "Star Day" moments for positive reinforcement (and clear stars for a new day)
 - Print Star Day award cards for take-home celebration
