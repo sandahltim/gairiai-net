@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { startTransition, useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Pencil, Printer, RotateCcw, Save, Sparkles, Star, Users } from 'lucide-react';
 import { type OutfitMode, ZOO_CHARACTERS } from '@/lib/zoo-characters';
 
@@ -144,6 +144,39 @@ function outfitImageForCharacter(imagePath: string, mode: OutfitMode): string {
   if (extensionIndex <= 0) return imagePath;
 
   return `${imagePath.slice(0, extensionIndex)}-${mode}${imagePath.slice(extensionIndex)}`;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const cleaned = hex.replace('#', '').trim();
+  if (!/^[0-9a-fA-F]{6}$/.test(cleaned)) {
+    return `rgba(34, 197, 94, ${alpha})`;
+  }
+
+  const value = Number.parseInt(cleaned, 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function studentCardSurface(accent: string, zone: Zone): CSSProperties {
+  const zoneTint: Record<Zone, string> = {
+    green: '#22c55e',
+    yellow: '#f59e0b',
+    red: '#f43f5e',
+  };
+
+  return {
+    background: `linear-gradient(155deg, ${hexToRgba(accent, 0.36)} 0%, ${hexToRgba(zoneTint[zone], 0.22)} 45%, rgba(15,23,42,0.76) 100%)`,
+    boxShadow: `0 10px 24px ${hexToRgba(accent, 0.24)}`,
+  };
+}
+
+function avatarHalo(accent: string): CSSProperties {
+  return {
+    background: `radial-gradient(circle at 30% 20%, ${hexToRgba(accent, 0.5)} 0%, rgba(255,255,255,0.06) 55%, rgba(9,9,11,0.55) 100%)`,
+    boxShadow: `0 8px 20px ${hexToRgba(accent, 0.28)}`,
+  };
 }
 
 export default function BehaviorBuddyPage() {
@@ -569,25 +602,25 @@ export default function BehaviorBuddyPage() {
                       const character = characterMap.get(student.characterId) ?? ZOO_CHARACTERS[0];
 
                       return (
-                        <div key={student.id} className={`rounded-2xl border p-3 ${ZONE_META[student.zone].studentShell}`}>
+                        <div
+                          key={student.id}
+                          className="rounded-3xl border border-white/35 p-3.5"
+                          style={studentCardSurface(character.accent, student.zone)}
+                        >
                           <div className="flex items-center gap-3">
-                            <div className="relative">
+                            <div className="rounded-[1.25rem] p-1.5" style={avatarHalo(character.accent)}>
                               <Image
                                 src={outfitImageForCharacter(character.image, student.outfitMode)}
                                 alt={`${character.name} avatar`}
-                                width={96}
-                                height={96}
-                                className={`h-20 w-20 rounded-2xl border border-zinc-200/30 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
+                                width={110}
+                                height={110}
+                                className={`h-[5.4rem] w-[5.4rem] rounded-[1rem] border border-white/45 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
                               />
-                              <span className="absolute -right-1 -top-1 rounded-full border border-white/70 bg-black/65 px-1.5 py-0.5 text-[11px]" aria-label={`Outfit mode ${OUTFIT_MODE_META[student.outfitMode].label}`}>
-                                {OUTFIT_MODE_META[student.outfitMode].emoji}
-                              </span>
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="zoo-fun-font text-2xl sm:text-3xl font-black text-zinc-50 leading-tight break-words">{student.name}</p>
-                              <p className="text-xs text-zinc-100/80 leading-snug break-words">
-                                {character.emoji} Buddy look: {OUTFIT_MODE_META[student.outfitMode].label}
-                              </p>
+                              <p className="zoo-fun-font text-3xl font-black text-white leading-tight break-words">{student.name}</p>
+                              <p className="text-sm text-zinc-100/90 truncate">{character.emoji} {character.name}</p>
+
                               <div className="mt-2 flex flex-wrap items-center gap-2">
                                 <button
                                   type="button"
@@ -595,11 +628,11 @@ export default function BehaviorBuddyPage() {
                                     const nextMode = nextOutfitMode(student.outfitMode);
                                     updateStudent(student.id, current => ({ ...current, outfitMode: nextMode }));
                                   }}
-                                  className={`rounded-xl border px-2.5 py-1.5 text-xs font-semibold ${OUTFIT_MODE_META[student.outfitMode].chip}`}
+                                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${OUTFIT_MODE_META[student.outfitMode].chip}`}
                                   aria-label={`Cycle outfit for ${student.name}`}
                                   title="Tap to cycle outfit"
                                 >
-                                  {OUTFIT_MODE_META[student.outfitMode].emoji} Outfit
+                                  {OUTFIT_MODE_META[student.outfitMode].emoji} Look
                                 </button>
                                 <button
                                   type="button"
@@ -611,22 +644,28 @@ export default function BehaviorBuddyPage() {
                                     }));
                                     triggerCelebration(`🎭 ${nextCharacter.name} joined ${student.name}!`);
                                   }}
-                                  className="rounded-xl border border-cyan-100/50 bg-cyan-500/30 px-2.5 py-1.5 text-xs font-semibold text-cyan-50 hover:border-cyan-100"
+                                  className="rounded-full border border-cyan-100/55 bg-cyan-500/30 px-3 py-1.5 text-xs font-semibold text-cyan-50 hover:border-cyan-100"
                                 >
-                                  🎭 Swap buddy
+                                  🎭 Swap
                                 </button>
+                                {student.starDay && (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-fuchsia-200/70 bg-fuchsia-500/35 px-2.5 py-1 text-xs font-semibold text-fuchsia-50">
+                                    ⭐ Star
+                                  </span>
+                                )}
                               </div>
-                              {student.starDay && (
-                                <p className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-fuchsia-200/70 bg-fuchsia-500/30 px-2.5 py-0.5 text-xs text-fuchsia-50">
-                                  <Star size={12} /> Star Day Hero
-                                </p>
-                              )}
                             </div>
                           </div>
 
                           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                             {ZONE_ORDER.map(targetZone => {
                               const isActive = student.zone === targetZone;
+                              const zoneLabel: Record<Zone, string> = {
+                                green: 'Ready',
+                                yellow: 'Reset',
+                                red: 'Support',
+                              };
+
                               return (
                                 <button
                                   key={`${student.id}-${targetZone}`}
@@ -637,11 +676,14 @@ export default function BehaviorBuddyPage() {
                                     }
                                     updateStudent(student.id, current => ({ ...current, zone: targetZone }));
                                   }}
-                                  className={`rounded-xl border py-3 text-base font-black transition-colors min-h-[52px] ${
+                                  className={`rounded-xl border py-2.5 text-sm font-black transition-colors min-h-[50px] ${
                                     isActive ? ZONE_META[targetZone].activeButton : ZONE_META[targetZone].button
                                   }`}
                                 >
-                                  {ZONE_META[targetZone].short}
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="text-base leading-none">{ZONE_META[targetZone].emoji}</span>
+                                    {zoneLabel[targetZone]}
+                                  </span>
                                 </button>
                               );
                             })}
