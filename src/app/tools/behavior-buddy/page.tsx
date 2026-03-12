@@ -138,12 +138,18 @@ function nextOutfitMode(mode: OutfitMode): OutfitMode {
 }
 
 function outfitImageForCharacter(imagePath: string, mode: OutfitMode): string {
-  if (mode === 'classic') return imagePath;
-
   const extensionIndex = imagePath.lastIndexOf('.');
   if (extensionIndex <= 0) return imagePath;
 
-  return `${imagePath.slice(0, extensionIndex)}-${mode}${imagePath.slice(extensionIndex)}`;
+  const base = imagePath.slice(0, extensionIndex);
+  const extension = imagePath.slice(extensionIndex);
+
+  if (base.endsWith('-classic')) {
+    return `${base.slice(0, -'-classic'.length)}-${mode}${extension}`;
+  }
+
+  if (mode === 'classic') return imagePath;
+  return `${base}-${mode}${extension}`;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
