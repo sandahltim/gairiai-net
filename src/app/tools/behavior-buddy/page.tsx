@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { startTransition, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Pencil, Printer, RotateCcw, Save, Sparkles, Star, Users } from 'lucide-react';
+import { ZooCharacterAvatar } from '@/components/ZooCharacterAvatar';
 import { type OutfitMode, ZOO_CHARACTERS } from '@/lib/zoo-characters';
 
 type Zone = 'green' | 'yellow' | 'red';
@@ -390,8 +390,9 @@ export default function BehaviorBuddyPage() {
           <span className="wow-chip rounded-full border border-amber-200/50 bg-amber-400/20 px-3 py-1 text-amber-50">🖨️ Printable celebration cards</span>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3 text-sm text-zinc-100">
-          👕 Tap Outfit on any student card to cycle real visual looks (classic, special, winter).
+        <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3 text-sm text-zinc-100 space-y-1">
+          <p>👕 Tap Outfit on any student card to cycle real visual looks (classic, special, winter).</p>
+          <p className="text-xs text-zinc-300">SVG pilot is live for Tilly, Leo, Bibi, and Olive. Remaining buddies still use the approved PNG set for now.</p>
         </div>
       </div>
 
@@ -615,11 +616,11 @@ export default function BehaviorBuddyPage() {
                         >
                           <div className="flex items-center gap-3">
                             <div className="rounded-[1.25rem] p-1.5" style={avatarHalo(character.accent)}>
-                              <Image
-                                src={outfitImageForCharacter(character.image, student.outfitMode)}
+                              <ZooCharacterAvatar
+                                characterId={character.id}
+                                mode={student.outfitMode}
+                                fallbackSrc={outfitImageForCharacter(character.image, student.outfitMode)}
                                 alt={`${character.name} avatar`}
-                                width={110}
-                                height={110}
                                 className={`h-[5.4rem] w-[5.4rem] rounded-[1rem] border border-white/45 bg-white/10 object-contain ${student.zone === 'green' ? 'buddy-bounce' : ''}`}
                               />
                             </div>
@@ -779,11 +780,11 @@ export default function BehaviorBuddyPage() {
               return (
                 <article key={`sheet-${character.id}`} className="character-sheet-card rounded-2xl border border-zinc-700 bg-zinc-950/60 p-4">
                   <div className="flex items-start gap-3">
-                    <Image
-                      src={outfitImageForCharacter(character.image, sheetOutfitMode)}
+                    <ZooCharacterAvatar
+                      characterId={character.id}
+                      mode={sheetOutfitMode}
+                      fallbackSrc={outfitImageForCharacter(character.image, sheetOutfitMode)}
                       alt={`${character.name} character sheet art`}
-                      width={112}
-                      height={112}
                       className="h-20 w-20 rounded-2xl border border-zinc-200/25 bg-white/10 object-contain"
                     />
                     <div className="min-w-0">
@@ -870,11 +871,11 @@ export default function BehaviorBuddyPage() {
                   <p className="text-sm text-zinc-600">{fillCharacterText(character.tagline, student.name)}</p>
 
                   <div className="mt-3 flex items-center gap-3">
-                    <Image
-                      src={outfitImageForCharacter(character.image, student.outfitMode)}
+                    <ZooCharacterAvatar
+                      characterId={character.id}
+                      mode={student.outfitMode}
+                      fallbackSrc={outfitImageForCharacter(character.image, student.outfitMode)}
                       alt={`${character.name} award art`}
-                      width={120}
-                      height={120}
                       className="h-20 w-20 rounded-xl border border-zinc-300 bg-zinc-50 object-contain"
                     />
                     <div>
