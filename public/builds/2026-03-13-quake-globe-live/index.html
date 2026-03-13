@@ -503,9 +503,12 @@
       requestAnimationFrame(function loop(now) {
         const dt = Math.min(0.05, (now - prev) / 1000);
         prev = now;
+        // wallTime = Unix ms for comparisons against q.time / q.spawnAt (which are Date.now()-based)
+        // now = performance.now() ms for animation uniforms / dt only
+        const wallTime = Date.now();
 
-        tick(dt, now, scene);
-        updateQuakeBuffers(gl, meshes, now);
+        tick(dt, now, wallTime, scene);
+        updateQuakeBuffers(gl, meshes, now, wallTime);
         render(gl, programs, meshes, post, scene, now);
 
         requestAnimationFrame(loop);
@@ -751,7 +754,7 @@
       }
     }
 
-    function tick(dt, now, scene) {
+    function tick(dt, now, wallTime, scene) {
       updatePerformance(dt);
 
       state.camera.radius = lerp(state.camera.radius, state.camera.targetRadius, 0.13);
@@ -780,7 +783,7 @@
       mat4Multiply(scene.viewProj, scene.proj, scene.view);
       mat4Invert(scene.invViewProj, scene.viewProj);
 
-      buildRippleUniforms(now, scene);
+      buildRippleUniforms(wallTime, scene);
       buildHeatUniforms(scene);
       updateHover(now, scene);
     }
@@ -862,13 +865,13 @@
       cardCoords.textContent = `${q.lat.toFixed(2)}°, ${q.lon.toFixed(2)}°`;
     }
 
-    function buildRippleUniforms(now, scene) {
+    function buildRippleUniforms(wallTime, scene) {
       if (!state.allowRipples) return;
       const active = [];
       for (let i = 0; i < state.visibleIndices.length; i += 1) {
         const idx = state.visibleIndices[i];
         const q = state.quakes[idx];
-        const ageSec = (now - q.time) / 1000;
+        const ageSec = (wallTime - q.time) / 1000;
         if (ageSec < 0 || ageSec > 15) continue;
         active.push({ idx, score: q.mag * 2 - ageSec * 0.25 });
       }
@@ -879,7 +882,7 @@
         scene.ripplesPos[i * 3 + 0] = q.xyz[0];
         scene.ripplesPos[i * 3 + 1] = q.xyz[1];
         scene.ripplesPos[i * 3 + 2] = q.xyz[2];
-        scene.ripplesAge[i] = (now - q.time) / 1000;
+        scene.ripplesAge[i] = (wallTime - q.time) / 1000;
       }
       scene.rippleCount = count;
     }
@@ -1078,10 +1081,10 @@
       }, 1600);
     }
 
-    function updateQuakeBuffers(glCtx, meshes, now) {
+    function updateQuakeBuffers(glCtx, meshes, now, wallTime) {
       const maxVisible = state.qualityReduced ? 1400 : 2400;
       const hoursWindow = state.sliderHours;
-      const cutoff = now - hoursWindow * 3600 * 1000;
+      const cutoff = wallTime - hoursWindow * 3600 * 1000;
       const positions = meshes.quakePositions;
       const mags = meshes.quakeMags;
       const ages = meshes.quakeAges;
@@ -1094,10 +1097,10 @@
         const q = state.quakes[i];
         if (!q) continue;
         if (!state.liveMode && q.time < cutoff) continue;
-        if (now < q.spawnAt) continue;
+        if (wallTime < q.spawnAt) continue;
         if (count >= maxVisible) break;
 
-        const ageSec = Math.max(0, (now - q.time) / 1000);
+        const ageSec = Math.max(0, (wallTime - q.time) / 1000);
         const fadeWindow = state.feedMode === '24h' ? 24 * 3600 : 7 * 24 * 3600;
         const ageNorm = clamp(ageSec / fadeWindow, 0, 1);
 
