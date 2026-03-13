@@ -1,0 +1,2019 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Quake Globe Live</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --ink: #e4e4ed;
+      --panel: rgba(5, 10, 25, 0.86);
+      --panel-border: rgba(100, 160, 255, 0.3);
+      --accent: #4488ff;
+      --good: #49f0a5;
+      --warn: #ffd166;
+      --bad: #ff4d6d;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      touch-action: none;
+    }
+
+    body { position: relative; }
+
+    #gl {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: radial-gradient(circle at 50% 35%, #03050c 0%, #000005 55%, #000003 100%);
+    }
+
+    .hud {
+      position: fixed;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+      z-index: 4;
+    }
+
+    .top-left {
+      left: 12px;
+      top: 12px;
+      min-width: 220px;
+      padding: 10px 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .top-right {
+      right: 12px;
+      top: 12px;
+      min-width: 165px;
+      padding: 10px 12px;
+      font-size: 11px;
+      color: #a9bcf0;
+    }
+
+    .bottom-center {
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 12px;
+      width: min(740px, calc(100vw - 24px));
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .bottom-right {
+      right: 12px;
+      bottom: 12px;
+      min-width: 180px;
+      padding: 10px 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .center-right {
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%) translateX(130%);
+      width: min(360px, calc(100vw - 24px));
+      padding: 12px;
+      opacity: 0;
+      transition: transform 180ms ease, opacity 180ms ease;
+      pointer-events: none;
+    }
+
+    .center-right.visible {
+      transform: translateY(-50%) translateX(0);
+      opacity: 1;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #8ea2d4;
+    }
+
+    .value {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      color: #d7e5ff;
+    }
+
+    #statusLine {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #b7caef;
+      min-height: 16px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #6f7d9f;
+      box-shadow: 0 0 0 0 rgba(111, 125, 159, 0.6);
+      animation: pulse 1.2s infinite;
+    }
+
+    .dot.live {
+      background: var(--good);
+      box-shadow: 0 0 10px rgba(73, 240, 165, 0.9);
+    }
+
+    .dot.warn { background: var(--warn); }
+    .dot.bad { background: var(--bad); }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      60% { transform: scale(1.14); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+
+    .mode-toggle {
+      display: inline-flex;
+      border: 1px solid rgba(120, 170, 255, 0.35);
+      border-radius: 10px;
+      overflow: hidden;
+      align-self: flex-start;
+    }
+
+    .mode-btn {
+      border: 0;
+      margin: 0;
+      padding: 8px 14px;
+      color: #c7d9ff;
+      background: rgba(22, 35, 70, 0.65);
+      font-size: 13px;
+      cursor: pointer;
+      min-height: 44px;
+      min-width: 72px;
+    }
+
+    .mode-btn.active {
+      background: rgba(68, 136, 255, 0.35);
+      color: #f4f8ff;
+    }
+
+    #timeRange {
+      width: 100%;
+      margin: 2px 0;
+      accent-color: #76a5ff;
+      min-height: 44px;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(230, 238, 255, 0.25);
+      flex-shrink: 0;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 4px 0;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
+      color: #edf4ff;
+    }
+
+    .subtitle {
+      margin: 4px 0 10px;
+      font-size: 12px;
+      color: #a9bcf0;
+    }
+
+    .badge {
+      font-family: 'Courier New', monospace;
+      font-weight: 700;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      padding: 4px 10px;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+    }
+
+    #reducedNotice {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 3;
+      font-size: 11px;
+      color: #b8c7ea;
+      padding: 8px 10px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 210, 110, 0.35);
+      background: rgba(60, 45, 15, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+
+    #reducedNotice.visible { opacity: 1; }
+
+    .mobile-only { display: none; }
+
+    @media (max-width: 860px) {
+      .top-right { display: none; }
+      .bottom-right { right: 8px; bottom: 8px; min-width: 156px; }
+      .top-left { top: 8px; left: 8px; min-width: 200px; }
+      .bottom-center { bottom: calc(8px + env(safe-area-inset-bottom)); width: calc(100vw - 16px); }
+      .center-right {
+        right: 50%;
+        top: auto;
+        bottom: 132px;
+        transform: translateX(50%) translateY(120%);
+      }
+      .center-right.visible { transform: translateX(50%) translateY(0%); }
+      .mobile-only { display: inline; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-label="Interactive 3D live earthquake globe"></canvas>
+
+  <section class="hud top-left" aria-live="polite">
+    <div class="row">
+      <span class="label">Live Quakes</span>
+      <span class="value" id="quakeCount">0</span>
+    </div>
+    <div class="row" style="margin-top:4px;">
+      <span class="label">Last Updated</span>
+      <span class="value" id="lastUpdated">--</span>
+    </div>
+    <div style="margin-top:8px;" id="statusLine"><span class="dot" id="statusDot"></span><span id="statusText">Scanning for seismic activity...</span></div>
+  </section>
+
+  <section class="hud top-right">
+    <div class="label" style="margin-bottom: 6px;">Controls</div>
+    <div>Drag: orbit globe</div>
+    <div>Scroll / pinch: zoom</div>
+    <div>Click quake: lock camera</div>
+    <div style="margin-top:8px;">Space: reset orbit</div>
+    <div>H: heatmap</div>
+    <div>A: audio rumble</div>
+    <div>T: cycle time window</div>
+  </section>
+
+  <section class="hud bottom-center">
+    <div class="row" style="justify-content:flex-start; gap:10px;">
+      <div class="mode-toggle" role="tablist" aria-label="Feed range">
+        <button class="mode-btn active" id="mode24" role="tab" aria-selected="true">24h</button>
+        <button class="mode-btn" id="mode7d" role="tab" aria-selected="false">7d</button>
+      </div>
+      <div class="label" id="windowLabel">Showing last 24 hours</div>
+      <div class="value" id="liveBadge">LIVE</div>
+    </div>
+    <input id="timeRange" aria-label="Time window slider" type="range" min="1" max="24" value="24" step="1">
+    <div class="row" style="font-size:12px; color:#b1c5f7;">
+      <span>History</span>
+      <span id="sliderValue">24h</span>
+      <span>Now</span>
+    </div>
+  </section>
+
+  <section class="hud bottom-right" aria-label="Magnitude legend">
+    <div class="label" style="margin-bottom:6px;">Magnitude Legend</div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#6644ff"></span><span>&lt; 2.0</span></div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#00aaff"></span><span>2.0 – 3.9</span></div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#ffcc00"></span><span>4.0 – 4.9</span></div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#ff6600"></span><span>5.0 – 5.9</span></div>
+    <div class="legend-item"><span class="legend-swatch" style="background:#ff2200"></span><span>6.0 – 6.9</span></div>
+    <div class="legend-item"><span class="legend-swatch" style="background:linear-gradient(45deg,#fff,#ff0000)"></span><span>7.0+</span></div>
+  </section>
+
+  <section class="hud center-right" id="infoCard" aria-live="polite">
+    <h2 class="title" id="cardTitle">No quake selected</h2>
+    <p class="subtitle" id="cardSubtitle">Hover a burst to inspect.</p>
+    <div class="badge" id="magBadge">M0.0</div>
+    <div class="row" style="margin-top:10px;"><span class="label">Depth</span><span class="value" id="cardDepth">--</span></div>
+    <div class="row"><span class="label">When</span><span class="value" id="cardWhen">--</span></div>
+    <div class="row"><span class="label">Coords</span><span class="value" id="cardCoords">--</span></div>
+    <div class="row"><span class="label">Source</span><span class="value">USGS</span></div>
+    <div class="subtitle mobile-only" style="margin-top:8px;">Tap elsewhere to dismiss.</div>
+  </section>
+
+  <div id="reducedNotice">Reduced quality mode active (performance safeguard).</div>
+
+  <script>
+    'use strict';
+
+    const canvas = document.getElementById('gl');
+    const quakeCountEl = document.getElementById('quakeCount');
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const mode24Btn = document.getElementById('mode24');
+    const mode7dBtn = document.getElementById('mode7d');
+    const timeRange = document.getElementById('timeRange');
+    const sliderValueEl = document.getElementById('sliderValue');
+    const windowLabelEl = document.getElementById('windowLabel');
+    const liveBadgeEl = document.getElementById('liveBadge');
+    const infoCard = document.getElementById('infoCard');
+    const cardTitle = document.getElementById('cardTitle');
+    const cardSubtitle = document.getElementById('cardSubtitle');
+    const magBadge = document.getElementById('magBadge');
+    const cardDepth = document.getElementById('cardDepth');
+    const cardWhen = document.getElementById('cardWhen');
+    const cardCoords = document.getElementById('cardCoords');
+    const reducedNotice = document.getElementById('reducedNotice');
+
+    const ENDPOINTS = {
+      '24h': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson',
+      '7d': 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson'
+    };
+
+    const MAX_QUAKES = 2800;
+    const MAX_RIPPLES = 30;
+    const MAX_HEAT = 14;
+    const STAR_COUNT = 2000;
+
+    const state = {
+      quakes: [],
+      quakeMap: new Map(),
+      visibleIndices: [],
+      hoveredIndex: -1,
+      selectedIndex: -1,
+      feedMode: '24h',
+      sliderHours: 24,
+      liveMode: true,
+      lastFetchMs: 0,
+      isFetching: false,
+      autoSpin: true,
+      globeSpin: 0,
+      heatmap: false,
+      audioEnabled: true,
+      qualityReduced: false,
+      allowBloom: true,
+      allowRipples: true,
+      fpSamples: [],
+      lowFpsDuration: 0,
+      pointer: {
+        x: 0,
+        y: 0,
+        down: false,
+        moved: 0,
+        lastX: 0,
+        lastY: 0,
+        hoverTimer: 0,
+        pinchDist: 0,
+        touches: 0
+      },
+      camera: {
+        radius: 3.2,
+        targetRadius: 3.2,
+        orientation: [0, 0, 0, 1],
+        targetOrientation: [0, 0, 0, 1],
+        inertiaYaw: 0,
+        inertiaPitch: 0,
+        focusBlend: 0
+      },
+      audio: {
+        ctx: null,
+        unlocked: false
+      },
+      viewport: {
+        width: 1,
+        height: 1,
+        dpr: 1,
+        aspect: 1
+      },
+      cacheKey: 'quake-globe-live-cache-v1'
+    };
+
+    const gl = canvas.getContext('webgl2', {
+      antialias: true,
+      alpha: false,
+      premultipliedAlpha: false,
+      powerPreference: 'high-performance'
+    });
+
+    if (!gl) {
+      renderFallback();
+    } else {
+      init();
+    }
+
+    function renderFallback() {
+      document.body.style.background = '#0a0a0f';
+      const box = document.createElement('div');
+      box.style.position = 'fixed';
+      box.style.inset = '0';
+      box.style.display = 'grid';
+      box.style.placeItems = 'center';
+      box.style.padding = '24px';
+
+      const panel = document.createElement('div');
+      panel.style.maxWidth = '540px';
+      panel.style.border = '1px solid rgba(100,160,255,.28)';
+      panel.style.borderRadius = '14px';
+      panel.style.padding = '24px';
+      panel.style.background = 'rgba(8,12,24,.86)';
+      panel.style.color = '#dfe9ff';
+      panel.style.textAlign = 'center';
+
+      const h = document.createElement('h1');
+      h.textContent = 'WebGL2 is required for Quake Globe Live';
+      h.style.marginTop = '0';
+      h.style.fontFamily = 'system-ui, sans-serif';
+      h.style.fontSize = '22px';
+
+      const p = document.createElement('p');
+      p.textContent = 'Your browser does not expose WebGL2. Try current Chrome, Edge, or Firefox.';
+      p.style.color = '#b9c8ea';
+
+      const emoji = document.createElement('div');
+      emoji.textContent = '🌍  ✦  🌋  ✦  🌍';
+      emoji.style.fontSize = '34px';
+      emoji.style.marginTop = '10px';
+
+      panel.appendChild(h);
+      panel.appendChild(p);
+      panel.appendChild(emoji);
+      box.appendChild(panel);
+      document.body.replaceChildren(box);
+    }
+
+    function init() {
+      const programs = createPrograms(gl);
+      const meshes = createMeshes(gl);
+      const post = createPostPipeline(gl);
+      const scene = {
+        view: new Float32Array(16),
+        proj: new Float32Array(16),
+        viewProj: new Float32Array(16),
+        invViewProj: new Float32Array(16),
+        cameraPos: [0, 0, 3.2],
+        sunDir: normalize3([0.8, 0.25, 0.55]),
+        ripplesPos: new Float32Array(MAX_RIPPLES * 3),
+        ripplesAge: new Float32Array(MAX_RIPPLES),
+        heatPos: new Float32Array(MAX_HEAT * 3),
+        heatWeight: new Float32Array(MAX_HEAT)
+      };
+
+      hookUI();
+      resize();
+
+      loadCache();
+      fetchQuakes(true);
+      setInterval(() => {
+        if (state.liveMode && !state.isFetching) {
+          fetchQuakes(false);
+        }
+      }, 60000);
+
+      let prev = performance.now();
+      requestAnimationFrame(function loop(now) {
+        const dt = Math.min(0.05, (now - prev) / 1000);
+        prev = now;
+
+        tick(dt, now, scene);
+        updateQuakeBuffers(gl, meshes, now);
+        render(gl, programs, meshes, post, scene, now);
+
+        requestAnimationFrame(loop);
+      });
+    }
+
+    function hookUI() {
+      mode24Btn.addEventListener('click', () => setMode('24h'));
+      mode7dBtn.addEventListener('click', () => setMode('7d'));
+
+      timeRange.addEventListener('input', () => {
+        state.sliderHours = Number(timeRange.value);
+        state.liveMode = state.sliderHours >= Number(timeRange.max);
+        updateTimeLabels();
+      });
+
+      canvas.addEventListener('pointerdown', onPointerDown);
+      canvas.addEventListener('pointermove', onPointerMove);
+      canvas.addEventListener('pointerup', onPointerUp);
+      canvas.addEventListener('pointercancel', onPointerUp);
+      canvas.addEventListener('wheel', onWheel, { passive: false });
+
+      canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+      canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+      canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+
+      window.addEventListener('resize', resize);
+
+      window.addEventListener('keydown', (ev) => {
+        if (ev.code === 'Space') {
+          ev.preventDefault();
+          resetCamera();
+          state.selectedIndex = -1;
+        } else if (ev.key === 'h' || ev.key === 'H') {
+          state.heatmap = !state.heatmap;
+          flashStatus(state.heatmap ? 'Heatmap enabled' : 'Heatmap disabled', 'live');
+        } else if (ev.key === 'a' || ev.key === 'A') {
+          state.audioEnabled = !state.audioEnabled;
+          flashStatus(state.audioEnabled ? 'Audio rumble on' : 'Audio rumble off', 'warn');
+        } else if (ev.key === 't' || ev.key === 'T') {
+          cycleMode();
+        }
+        unlockAudio();
+      });
+
+      canvas.addEventListener('click', () => {
+        unlockAudio();
+        if (state.pointer.moved < 5 && state.hoveredIndex >= 0) {
+          state.selectedIndex = state.hoveredIndex;
+          focusOnQuake(state.quakes[state.selectedIndex]);
+          updateInfoCard(state.quakes[state.selectedIndex], true);
+        } else if (state.pointer.moved < 5 && state.selectedIndex >= 0) {
+          state.selectedIndex = -1;
+        }
+      });
+
+      updateTimeLabels();
+    }
+
+    function setMode(mode) {
+      if (state.feedMode === mode) return;
+      state.feedMode = mode;
+      mode24Btn.classList.toggle('active', mode === '24h');
+      mode7dBtn.classList.toggle('active', mode === '7d');
+      mode24Btn.setAttribute('aria-selected', String(mode === '24h'));
+      mode7dBtn.setAttribute('aria-selected', String(mode === '7d'));
+
+      if (mode === '24h') {
+        timeRange.max = '24';
+        state.sliderHours = Math.min(24, state.sliderHours);
+      } else {
+        timeRange.max = '168';
+        state.sliderHours = Math.max(24, state.sliderHours);
+      }
+      timeRange.value = String(state.sliderHours);
+      state.liveMode = true;
+      state.sliderHours = Number(timeRange.max);
+      timeRange.value = timeRange.max;
+      updateTimeLabels();
+      fetchQuakes(true);
+    }
+
+    function cycleMode() {
+      if (state.feedMode === '24h') {
+        setMode('7d');
+      } else {
+        setMode('24h');
+      }
+    }
+
+    function updateTimeLabels() {
+      const hours = state.sliderHours;
+      sliderValueEl.textContent = hours >= 24 ? `${Math.round(hours / 24)}d` : `${hours}h`;
+      if (state.feedMode === '24h') {
+        windowLabelEl.textContent = `Showing last ${hours} hour${hours === 1 ? '' : 's'}`;
+      } else {
+        windowLabelEl.textContent = `Showing last ${hours >= 24 ? Math.round(hours / 24) + ' day' + (hours >= 48 ? 's' : '') : hours + 'h'}`;
+      }
+      liveBadgeEl.textContent = state.liveMode ? 'LIVE' : 'HISTORY';
+      liveBadgeEl.style.color = state.liveMode ? '#4ef2aa' : '#f3c96b';
+      statusDot.classList.toggle('live', state.liveMode);
+    }
+
+    function onPointerDown(ev) {
+      canvas.setPointerCapture(ev.pointerId);
+      state.pointer.down = true;
+      state.pointer.moved = 0;
+      state.pointer.lastX = ev.clientX;
+      state.pointer.lastY = ev.clientY;
+      state.pointer.x = ev.clientX;
+      state.pointer.y = ev.clientY;
+      state.autoSpin = false;
+    }
+
+    function onPointerMove(ev) {
+      state.pointer.x = ev.clientX;
+      state.pointer.y = ev.clientY;
+      if (state.pointer.down) {
+        const dx = ev.clientX - state.pointer.lastX;
+        const dy = ev.clientY - state.pointer.lastY;
+        state.pointer.moved += Math.abs(dx) + Math.abs(dy);
+        state.pointer.lastX = ev.clientX;
+        state.pointer.lastY = ev.clientY;
+        applyOrbitDelta(dx, dy);
+      } else {
+        state.pointer.hoverTimer = 0;
+      }
+    }
+
+    function onPointerUp(ev) {
+      if (canvas.hasPointerCapture(ev.pointerId)) {
+        canvas.releasePointerCapture(ev.pointerId);
+      }
+      state.pointer.down = false;
+    }
+
+    function onWheel(ev) {
+      ev.preventDefault();
+      const delta = Math.sign(ev.deltaY);
+      state.camera.targetRadius = clamp(state.camera.targetRadius + delta * 0.22, 1.5, 5.0);
+      state.autoSpin = false;
+    }
+
+    function onTouchStart(ev) {
+      ev.preventDefault();
+      state.pointer.touches = ev.touches.length;
+      if (ev.touches.length === 1) {
+        const t = ev.touches[0];
+        state.pointer.lastX = t.clientX;
+        state.pointer.lastY = t.clientY;
+        state.pointer.down = true;
+        state.pointer.moved = 0;
+        state.autoSpin = false;
+      } else if (ev.touches.length === 2) {
+        state.pointer.down = false;
+        state.pointer.pinchDist = touchDistance(ev.touches[0], ev.touches[1]);
+      }
+    }
+
+    function onTouchMove(ev) {
+      ev.preventDefault();
+      if (ev.touches.length === 1 && state.pointer.down) {
+        const t = ev.touches[0];
+        const dx = t.clientX - state.pointer.lastX;
+        const dy = t.clientY - state.pointer.lastY;
+        state.pointer.lastX = t.clientX;
+        state.pointer.lastY = t.clientY;
+        state.pointer.moved += Math.abs(dx) + Math.abs(dy);
+        applyOrbitDelta(dx, dy);
+      } else if (ev.touches.length === 2) {
+        const d = touchDistance(ev.touches[0], ev.touches[1]);
+        const diff = d - state.pointer.pinchDist;
+        state.pointer.pinchDist = d;
+        state.camera.targetRadius = clamp(state.camera.targetRadius - diff * 0.006, 1.5, 5.0);
+        state.autoSpin = false;
+      }
+    }
+
+    function onTouchEnd(ev) {
+      ev.preventDefault();
+      state.pointer.touches = ev.touches.length;
+      if (ev.touches.length === 0) {
+        state.pointer.down = false;
+      }
+    }
+
+    function touchDistance(a, b) {
+      const dx = a.clientX - b.clientX;
+      const dy = a.clientY - b.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function applyOrbitDelta(dx, dy) {
+      const yaw = -dx * 0.0056;
+      const pitch = -dy * 0.0052;
+
+      const qYaw = quatFromAxisAngle([0, 1, 0], yaw);
+      const right = rotateVecByQuat([1, 0, 0], state.camera.targetOrientation);
+      const qPitch = quatFromAxisAngle(right, pitch);
+
+      const next = quatNormalize(quatMul(qPitch, quatMul(qYaw, state.camera.targetOrientation)));
+      state.camera.targetOrientation = next;
+      state.camera.inertiaYaw = yaw;
+      state.camera.inertiaPitch = pitch;
+    }
+
+    function resetCamera() {
+      state.camera.targetOrientation = [0, 0, 0, 1];
+      state.camera.orientation = [0, 0, 0, 1];
+      state.camera.targetRadius = 3.2;
+      state.camera.radius = 3.2;
+      state.autoSpin = true;
+      flashStatus('Auto orbit reset', 'live');
+    }
+
+    function focusOnQuake(quake) {
+      if (!quake) return;
+      const dir = normalize3(quake.xyz.slice());
+      const q = quatFromUnitVectors([0, 0, 1], dir);
+      state.camera.targetOrientation = q;
+      state.camera.targetRadius = 2.45;
+      state.camera.focusBlend = 1;
+      state.autoSpin = false;
+    }
+
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const h = Math.max(1, Math.floor(window.innerHeight * dpr));
+      canvas.width = w;
+      canvas.height = h;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+
+      state.viewport.width = w;
+      state.viewport.height = h;
+      state.viewport.dpr = dpr;
+      state.viewport.aspect = w / h;
+
+      gl.viewport(0, 0, w, h);
+      if (gl._postResize) {
+        gl._postResize(w, h);
+      }
+    }
+
+    function tick(dt, now, scene) {
+      updatePerformance(dt);
+
+      state.camera.radius = lerp(state.camera.radius, state.camera.targetRadius, 0.13);
+      state.camera.orientation = quatSlerp(state.camera.orientation, state.camera.targetOrientation, 0.15);
+
+      if (!state.pointer.down) {
+        state.camera.inertiaYaw *= 0.92;
+        state.camera.inertiaPitch *= 0.92;
+        if (Math.abs(state.camera.inertiaYaw) > 0.00001 || Math.abs(state.camera.inertiaPitch) > 0.00001) {
+          applyOrbitDelta(-state.camera.inertiaYaw * 120, -state.camera.inertiaPitch * 120);
+        }
+      }
+
+      if (state.autoSpin) {
+        state.globeSpin += dt * 0.0314;
+      }
+
+      const basePos = [0, 0, state.camera.radius];
+      const camPos = rotateVecByQuat(basePos, state.camera.orientation);
+      scene.cameraPos[0] = camPos[0];
+      scene.cameraPos[1] = camPos[1];
+      scene.cameraPos[2] = camPos[2];
+
+      mat4Perspective(scene.proj, Math.PI / 3.0, state.viewport.aspect, 0.01, 140.0);
+      mat4LookAt(scene.view, scene.cameraPos, [0, 0, 0], [0, 1, 0]);
+      mat4Multiply(scene.viewProj, scene.proj, scene.view);
+      mat4Invert(scene.invViewProj, scene.viewProj);
+
+      buildRippleUniforms(now, scene);
+      buildHeatUniforms(scene);
+      updateHover(now, scene);
+    }
+
+    function updatePerformance(dt) {
+      const fps = 1 / Math.max(0.0001, dt);
+      state.fpSamples.push(fps);
+      if (state.fpSamples.length > 60) state.fpSamples.shift();
+      const avg = state.fpSamples.reduce((a, b) => a + b, 0) / state.fpSamples.length;
+
+      if (avg < 30) {
+        state.lowFpsDuration += dt;
+      } else {
+        state.lowFpsDuration = Math.max(0, state.lowFpsDuration - dt * 1.5);
+      }
+
+      if (!state.qualityReduced && state.lowFpsDuration > 3) {
+        state.qualityReduced = true;
+        state.allowBloom = false;
+        state.allowRipples = false;
+        reducedNotice.classList.add('visible');
+      }
+
+      if (state.qualityReduced && avg > 42 && !state.pointer.down) {
+        state.qualityReduced = false;
+        state.allowBloom = true;
+        state.allowRipples = true;
+        reducedNotice.classList.remove('visible');
+      }
+    }
+
+    function updateHover(now, scene) {
+      state.pointer.hoverTimer += 1;
+      if (state.pointer.hoverTimer < 2) return;
+      state.pointer.hoverTimer = 0;
+
+      if (state.pointer.down) return;
+      if (state.visibleIndices.length === 0) {
+        state.hoveredIndex = -1;
+        infoCard.classList.remove('visible');
+        return;
+      }
+
+      let best = -1;
+      let bestDist = 40;
+      for (let i = 0; i < state.visibleIndices.length; i += 1) {
+        const qIdx = state.visibleIndices[i];
+        const q = state.quakes[qIdx];
+        if (!q || !q.screen) continue;
+        const dx = q.screen[0] - state.pointer.x;
+        const dy = q.screen[1] - state.pointer.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d < bestDist && q.screen[2] > 0) {
+          best = qIdx;
+          bestDist = d;
+        }
+      }
+
+      if (best >= 0) {
+        state.hoveredIndex = best;
+        updateInfoCard(state.quakes[best], false);
+        infoCard.classList.add('visible');
+      } else if (state.selectedIndex < 0) {
+        state.hoveredIndex = -1;
+        infoCard.classList.remove('visible');
+      }
+    }
+
+    function updateInfoCard(q, selected) {
+      if (!q) return;
+      cardTitle.textContent = q.place || 'Unnamed seismic event';
+      cardSubtitle.textContent = selected ? 'Camera locked to epicenter' : 'Hover details';
+      const color = magColor(q.mag);
+      magBadge.textContent = `M${q.mag.toFixed(1)}`;
+      magBadge.style.background = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.2)`;
+      magBadge.style.color = `rgb(${Math.min(255, color[0] + 60)}, ${Math.min(255, color[1] + 60)}, ${Math.min(255, color[2] + 60)})`;
+      cardDepth.textContent = `${q.depth.toFixed(1)} km`;
+      cardWhen.textContent = relativeTime(q.time);
+      cardCoords.textContent = `${q.lat.toFixed(2)}°, ${q.lon.toFixed(2)}°`;
+    }
+
+    function buildRippleUniforms(now, scene) {
+      if (!state.allowRipples) return;
+      const active = [];
+      for (let i = 0; i < state.visibleIndices.length; i += 1) {
+        const idx = state.visibleIndices[i];
+        const q = state.quakes[idx];
+        const ageSec = (now - q.time) / 1000;
+        if (ageSec < 0 || ageSec > 15) continue;
+        active.push({ idx, score: q.mag * 2 - ageSec * 0.25 });
+      }
+      active.sort((a, b) => b.score - a.score);
+      const count = Math.min(MAX_RIPPLES, active.length);
+      for (let i = 0; i < count; i += 1) {
+        const q = state.quakes[active[i].idx];
+        scene.ripplesPos[i * 3 + 0] = q.xyz[0];
+        scene.ripplesPos[i * 3 + 1] = q.xyz[1];
+        scene.ripplesPos[i * 3 + 2] = q.xyz[2];
+        scene.ripplesAge[i] = (now - q.time) / 1000;
+      }
+      scene.rippleCount = count;
+    }
+
+    function buildHeatUniforms(scene) {
+      let pick = [];
+      for (let i = 0; i < state.visibleIndices.length; i += 1) {
+        const q = state.quakes[state.visibleIndices[i]];
+        pick.push({ q, w: Math.max(0.15, q.mag) });
+      }
+      pick.sort((a, b) => b.w - a.w);
+      pick = pick.slice(0, MAX_HEAT);
+      for (let i = 0; i < pick.length; i += 1) {
+        scene.heatPos[i * 3 + 0] = pick[i].q.xyz[0];
+        scene.heatPos[i * 3 + 1] = pick[i].q.xyz[1];
+        scene.heatPos[i * 3 + 2] = pick[i].q.xyz[2];
+        scene.heatWeight[i] = pick[i].w;
+      }
+      scene.heatCount = pick.length;
+    }
+
+    async function fetchQuakes(force) {
+      if (state.isFetching) return;
+      if (!force && !state.liveMode) return;
+
+      const url = ENDPOINTS[state.feedMode];
+      state.isFetching = true;
+      setStatus('Fetching live data...', 'warn');
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        ingestQuakes(data);
+        state.lastFetchMs = Date.now();
+        lastUpdatedEl.textContent = new Date(state.lastFetchMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        saveCache(data);
+
+        setStatus(`Live feed synced (${state.quakes.length} events)`, 'live');
+        triggerAudioForNewQuakes();
+      } catch (err) {
+        const loaded = loadCache();
+        if (loaded) {
+          setStatus('Live unavailable — showing cached data', 'warn');
+        } else {
+          setStatus('Live feed unavailable', 'bad');
+        }
+      } finally {
+        clearTimeout(timeout);
+        state.isFetching = false;
+      }
+    }
+
+    function ingestQuakes(data) {
+      if (!data || !Array.isArray(data.features)) return;
+      const now = Date.now();
+      const fresh = [];
+
+      for (let i = 0; i < data.features.length; i += 1) {
+        const f = data.features[i];
+        const c = f.geometry && f.geometry.coordinates;
+        const p = f.properties || {};
+        if (!c || c.length < 2) continue;
+
+        const lon = Number(c[0]);
+        const lat = Number(c[1]);
+        const depth = Number.isFinite(c[2]) ? Number(c[2]) : 0;
+        const mag = Number.isFinite(p.mag) ? Number(p.mag) : 0;
+        const time = Number.isFinite(p.time) ? Number(p.time) : now;
+        const id = String(f.id || `${lon}-${lat}-${time}`);
+
+        const xyz = latLonToXYZ(lat, lon, 1.025);
+        const known = state.quakeMap.get(id);
+        const spawnAt = known ? known.spawnAt : now + i * 45;
+
+        fresh.push({
+          id,
+          lon,
+          lat,
+          depth,
+          mag,
+          time,
+          place: p.place || 'Unknown location',
+          sig: Number.isFinite(p.sig) ? p.sig : 0,
+          xyz,
+          spawnAt,
+          screen: [0, 0, 0]
+        });
+      }
+
+      fresh.sort((a, b) => a.time - b.time);
+      state.quakes = fresh.slice(-MAX_QUAKES);
+      state.quakeMap.clear();
+      for (let i = 0; i < state.quakes.length; i += 1) {
+        state.quakeMap.set(state.quakes[i].id, state.quakes[i]);
+      }
+
+      if (state.selectedIndex >= state.quakes.length) state.selectedIndex = -1;
+      quakeCountEl.textContent = String(state.quakes.length);
+    }
+
+    function saveCache(data) {
+      try {
+        const packed = {
+          at: Date.now(),
+          mode: state.feedMode,
+          data
+        };
+        localStorage.setItem(state.cacheKey, JSON.stringify(packed));
+      } catch {
+        // no-op
+      }
+    }
+
+    function loadCache() {
+      try {
+        const raw = localStorage.getItem(state.cacheKey);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.data) return false;
+        ingestQuakes(parsed.data);
+        lastUpdatedEl.textContent = new Date(parsed.at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    function triggerAudioForNewQuakes() {
+      if (!state.audioEnabled) return;
+      if (!state.audio.unlocked) return;
+      const now = Date.now();
+      const windowMs = 65000;
+
+      let delay = 0;
+      for (let i = 0; i < state.quakes.length; i += 1) {
+        const q = state.quakes[i];
+        if (now - q.time < windowMs && q.mag >= 5) {
+          const mag = q.mag;
+          setTimeout(() => rumble(mag), delay);
+          delay += 120;
+        }
+      }
+    }
+
+    function unlockAudio() {
+      if (!state.audioEnabled) return;
+      if (!state.audio.ctx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        state.audio.ctx = new Ctx();
+      }
+      if (state.audio.ctx.state === 'suspended') {
+        state.audio.ctx.resume();
+      }
+      state.audio.unlocked = true;
+    }
+
+    function rumble(mag) {
+      const ctx = state.audio.ctx;
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 210;
+      osc.type = 'sine';
+      osc.frequency.value = 40 + Math.max(0, mag - 5) * 8;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.linearRampToValueAtTime(0.22 * Math.min(mag - 3.5, 1.8), now + 0.3);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 3.0);
+    }
+
+    function setStatus(text, tone) {
+      statusText.textContent = text;
+      statusDot.classList.remove('live', 'warn', 'bad');
+      if (tone === 'live') statusDot.classList.add('live');
+      if (tone === 'warn') statusDot.classList.add('warn');
+      if (tone === 'bad') statusDot.classList.add('bad');
+    }
+
+    function flashStatus(text, tone) {
+      setStatus(text, tone);
+      setTimeout(() => {
+        if (state.isFetching) return;
+        setStatus(state.liveMode ? 'Monitoring seismic feed...' : 'History mode active', state.liveMode ? 'live' : 'warn');
+      }, 1600);
+    }
+
+    function updateQuakeBuffers(glCtx, meshes, now) {
+      const maxVisible = state.qualityReduced ? 1400 : 2400;
+      const hoursWindow = state.sliderHours;
+      const cutoff = now - hoursWindow * 3600 * 1000;
+      const positions = meshes.quakePositions;
+      const mags = meshes.quakeMags;
+      const ages = meshes.quakeAges;
+      const flags = meshes.quakeFlags;
+
+      let count = 0;
+      state.visibleIndices.length = 0;
+
+      for (let i = state.quakes.length - 1; i >= 0; i -= 1) {
+        const q = state.quakes[i];
+        if (!q) continue;
+        if (!state.liveMode && q.time < cutoff) continue;
+        if (now < q.spawnAt) continue;
+        if (count >= maxVisible) break;
+
+        const ageSec = Math.max(0, (now - q.time) / 1000);
+        const fadeWindow = state.feedMode === '24h' ? 24 * 3600 : 7 * 24 * 3600;
+        const ageNorm = clamp(ageSec / fadeWindow, 0, 1);
+
+        positions[count * 3 + 0] = q.xyz[0];
+        positions[count * 3 + 1] = q.xyz[1];
+        positions[count * 3 + 2] = q.xyz[2];
+        mags[count] = q.mag;
+        ages[count] = ageNorm;
+        flags[count] = (state.selectedIndex >= 0 && state.selectedIndex === i) ? 2 : (state.hoveredIndex === i ? 1 : 0);
+
+        projectToScreen(q, meshes.sceneViewProj, state.viewport.width, state.viewport.height);
+
+        state.visibleIndices.push(i);
+        count += 1;
+      }
+
+      meshes.quakeCount = count;
+
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, meshes.quakePosBuffer);
+      glCtx.bufferSubData(glCtx.ARRAY_BUFFER, 0, positions.subarray(0, count * 3));
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, meshes.quakeMagBuffer);
+      glCtx.bufferSubData(glCtx.ARRAY_BUFFER, 0, mags.subarray(0, count));
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, meshes.quakeAgeBuffer);
+      glCtx.bufferSubData(glCtx.ARRAY_BUFFER, 0, ages.subarray(0, count));
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, meshes.quakeFlagBuffer);
+      glCtx.bufferSubData(glCtx.ARRAY_BUFFER, 0, flags.subarray(0, count));
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, null);
+    }
+
+    function render(glCtx, programs, meshes, post, scene, now) {
+      meshes.sceneViewProj.set(scene.viewProj);
+
+      const useBloom = state.allowBloom && !state.qualityReduced;
+
+      if (useBloom) {
+        glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, post.scene.fbo);
+      } else {
+        glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, null);
+      }
+
+      glCtx.viewport(0, 0, state.viewport.width, state.viewport.height);
+      glCtx.enable(glCtx.DEPTH_TEST);
+      glCtx.depthFunc(glCtx.LEQUAL);
+      glCtx.clearColor(0, 0, 0, 1);
+      glCtx.clear(glCtx.COLOR_BUFFER_BIT | glCtx.DEPTH_BUFFER_BIT);
+
+      drawStars(glCtx, programs.star, meshes, scene, now);
+      drawGlobe(glCtx, programs.globe, meshes, scene, now);
+      drawQuakes(glCtx, programs.quake, meshes, scene, now);
+
+      if (useBloom) {
+        runBloom(glCtx, programs, post);
+      }
+    }
+
+    function drawStars(glCtx, program, meshes, scene, now) {
+      glCtx.useProgram(program.program);
+      glCtx.bindVertexArray(meshes.starVAO);
+      glCtx.uniformMatrix4fv(program.uViewProj, false, scene.viewProj);
+      glCtx.uniform1f(program.uTime, now * 0.001);
+      glCtx.uniform1f(program.uParallax, 0.2);
+      glCtx.drawArrays(glCtx.POINTS, 0, STAR_COUNT);
+      glCtx.bindVertexArray(null);
+    }
+
+    function drawGlobe(glCtx, program, meshes, scene, now) {
+      glCtx.useProgram(program.program);
+      glCtx.bindVertexArray(meshes.sphereVAO);
+      glCtx.uniformMatrix4fv(program.uViewProj, false, scene.viewProj);
+      glCtx.uniform1f(program.uSpin, state.globeSpin);
+      glCtx.uniform3fv(program.uCameraPos, scene.cameraPos);
+      glCtx.uniform3fv(program.uSunDir, scene.sunDir);
+      glCtx.uniform1i(program.uHeatEnabled, state.heatmap ? 1 : 0);
+      glCtx.uniform1i(program.uRippleCount, state.allowRipples ? scene.rippleCount : 0);
+      glCtx.uniform3fv(program.uRipplePos, scene.ripplesPos);
+      glCtx.uniform1fv(program.uRippleAge, scene.ripplesAge);
+      glCtx.uniform1i(program.uHeatCount, scene.heatCount || 0);
+      glCtx.uniform3fv(program.uHeatPos, scene.heatPos);
+      glCtx.uniform1fv(program.uHeatWeight, scene.heatWeight);
+      glCtx.drawElements(glCtx.TRIANGLES, meshes.sphereIndexCount, glCtx.UNSIGNED_INT, 0);
+      glCtx.bindVertexArray(null);
+    }
+
+    function drawQuakes(glCtx, program, meshes, scene, now) {
+      glCtx.enable(glCtx.BLEND);
+      glCtx.blendFunc(glCtx.SRC_ALPHA, glCtx.ONE);
+      glCtx.useProgram(program.program);
+      glCtx.bindVertexArray(meshes.quakeVAO);
+      glCtx.uniformMatrix4fv(program.uViewProj, false, scene.viewProj);
+      glCtx.uniform1f(program.uTime, now * 0.001);
+      glCtx.uniform1f(program.uPulse, Math.sin(now * 0.005) * 0.5 + 0.5);
+      glCtx.drawArrays(glCtx.POINTS, 0, meshes.quakeCount);
+      glCtx.bindVertexArray(null);
+      glCtx.disable(glCtx.BLEND);
+    }
+
+    function runBloom(glCtx, programs, post) {
+      glCtx.disable(glCtx.DEPTH_TEST);
+      glCtx.bindVertexArray(post.quadVAO);
+
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, post.bright.fbo);
+      glCtx.viewport(0, 0, post.bright.w, post.bright.h);
+      glCtx.useProgram(programs.postBright.program);
+      glCtx.activeTexture(glCtx.TEXTURE0);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, post.scene.tex);
+      glCtx.uniform1i(programs.postBright.uScene, 0);
+      glCtx.uniform1f(programs.postBright.uThreshold, 0.62);
+      glCtx.drawArrays(glCtx.TRIANGLES, 0, 3);
+
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, post.blurA.fbo);
+      glCtx.useProgram(programs.postBlur.program);
+      glCtx.activeTexture(glCtx.TEXTURE0);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, post.bright.tex);
+      glCtx.uniform1i(programs.postBlur.uTex, 0);
+      glCtx.uniform2f(programs.postBlur.uDir, 1.0 / post.bright.w, 0.0);
+      glCtx.drawArrays(glCtx.TRIANGLES, 0, 3);
+
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, post.bright.fbo);
+      glCtx.activeTexture(glCtx.TEXTURE0);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, post.blurA.tex);
+      glCtx.uniform2f(programs.postBlur.uDir, 0.0, 1.0 / post.bright.h);
+      glCtx.drawArrays(glCtx.TRIANGLES, 0, 3);
+
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, null);
+      glCtx.viewport(0, 0, state.viewport.width, state.viewport.height);
+      glCtx.useProgram(programs.postComposite.program);
+      glCtx.activeTexture(glCtx.TEXTURE0);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, post.scene.tex);
+      glCtx.uniform1i(programs.postComposite.uScene, 0);
+      glCtx.activeTexture(glCtx.TEXTURE1);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, post.bright.tex);
+      glCtx.uniform1i(programs.postComposite.uBloom, 1);
+      glCtx.uniform1f(programs.postComposite.uBloomStrength, 1.18);
+      glCtx.drawArrays(glCtx.TRIANGLES, 0, 3);
+
+      glCtx.bindVertexArray(null);
+      glCtx.enable(glCtx.DEPTH_TEST);
+    }
+
+    function projectToScreen(q, viewProj, w, h) {
+      const x = q.xyz[0], y = q.xyz[1], z = q.xyz[2];
+      const cx = viewProj[0] * x + viewProj[4] * y + viewProj[8] * z + viewProj[12];
+      const cy = viewProj[1] * x + viewProj[5] * y + viewProj[9] * z + viewProj[13];
+      const cz = viewProj[2] * x + viewProj[6] * y + viewProj[10] * z + viewProj[14];
+      const cw = viewProj[3] * x + viewProj[7] * y + viewProj[11] * z + viewProj[15];
+      if (cw <= 0) {
+        q.screen[2] = -1;
+        return;
+      }
+      const nx = cx / cw;
+      const ny = cy / cw;
+      q.screen[0] = (nx * 0.5 + 0.5) * (w / state.viewport.dpr);
+      q.screen[1] = (1 - (ny * 0.5 + 0.5)) * (h / state.viewport.dpr);
+      q.screen[2] = cz / cw;
+    }
+
+    function createPrograms(glCtx) {
+      const globeVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in vec3 aNormal;
+      uniform mat4 uViewProj;
+      uniform float uSpin;
+      out vec3 vPos;
+      out vec3 vNormal;
+      out vec3 vWorld;
+      mat3 rotY(float a){
+        float c = cos(a), s = sin(a);
+        return mat3(c,0.,-s, 0.,1.,0., s,0.,c);
+      }
+      void main(){
+        mat3 r = rotY(uSpin);
+        vec3 p = r * aPos;
+        vec3 n = normalize(r * aNormal);
+        vPos = p;
+        vNormal = n;
+        vWorld = p;
+        gl_Position = uViewProj * vec4(p, 1.0);
+      }`;
+
+      const globeFS = `#version 300 es
+      precision highp float;
+      in vec3 vPos;
+      in vec3 vNormal;
+      in vec3 vWorld;
+      out vec4 frag;
+
+      uniform vec3 uCameraPos;
+      uniform vec3 uSunDir;
+      uniform int uRippleCount;
+      uniform vec3 uRipplePos[${MAX_RIPPLES}];
+      uniform float uRippleAge[${MAX_RIPPLES}];
+      uniform int uHeatEnabled;
+      uniform int uHeatCount;
+      uniform vec3 uHeatPos[${MAX_HEAT}];
+      uniform float uHeatWeight[${MAX_HEAT}];
+
+      float hash(vec2 p){
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+      }
+
+      float noise(vec2 p){
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        float a = hash(i + vec2(0.0,0.0));
+        float b = hash(i + vec2(1.0,0.0));
+        float c = hash(i + vec2(0.0,1.0));
+        float d = hash(i + vec2(1.0,1.0));
+        return mix(mix(a,b,u.x), mix(c,d,u.x), u.y);
+      }
+
+      float fbm(vec2 p){
+        float v = 0.0;
+        float a = 0.5;
+        mat2 m = mat2(1.6,1.2,-1.2,1.6);
+        for(int i=0;i<5;i++){
+          v += a * noise(p);
+          p = m * p;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      float cityCluster(vec3 n){
+        vec3 c0 = normalize(vec3(-0.13,0.56,0.81));
+        vec3 c1 = normalize(vec3(0.71,0.62,0.09));
+        vec3 c2 = normalize(vec3(0.29,0.40,0.87));
+        vec3 c3 = normalize(vec3(-0.82,0.38,-0.31));
+        vec3 c4 = normalize(vec3(0.89,0.43,0.16));
+        float v = 0.0;
+        v += exp(-pow(acos(clamp(dot(n,c0),-1.,1.)) * 5.0, 2.0));
+        v += exp(-pow(acos(clamp(dot(n,c1),-1.,1.)) * 5.8, 2.0));
+        v += exp(-pow(acos(clamp(dot(n,c2),-1.,1.)) * 5.5, 2.0));
+        v += exp(-pow(acos(clamp(dot(n,c3),-1.,1.)) * 5.4, 2.0));
+        v += exp(-pow(acos(clamp(dot(n,c4),-1.,1.)) * 5.7, 2.0));
+        return clamp(v * 0.65, 0.0, 1.0);
+      }
+
+      vec3 heatLayer(vec3 n){
+        float heat = 0.0;
+        for(int i=0;i<${MAX_HEAT};i++){
+          if(i >= uHeatCount) break;
+          float d = acos(clamp(dot(n, normalize(uHeatPos[i])), -1.0, 1.0));
+          heat += exp(-d * 8.5) * uHeatWeight[i] * 0.08;
+        }
+        heat = clamp(heat, 0.0, 1.0);
+        return vec3(1.0, 0.35, 0.10) * heat;
+      }
+
+      vec3 rippleLayer(vec3 n){
+        vec3 c = vec3(0.0);
+        for(int i=0;i<${MAX_RIPPLES};i++){
+          if(i >= uRippleCount) break;
+          vec3 p = normalize(uRipplePos[i]);
+          float dist = acos(clamp(dot(n, p), -1.0, 1.0));
+          float radius = uRippleAge[i] * 0.55;
+          float band = abs(dist - radius);
+          float glow = smoothstep(0.06, 0.0, band) * exp(-uRippleAge[i] * 0.13);
+          c += vec3(0.20, 0.47, 1.0) * glow * 0.65;
+        }
+        return c;
+      }
+
+      void main(){
+        vec3 n = normalize(vNormal);
+        vec3 viewDir = normalize(uCameraPos - vWorld);
+        float fres = pow(1.0 - max(dot(viewDir, n), 0.0), 3.0);
+
+        float lat = asin(clamp(n.y, -1.0, 1.0));
+        float lon = atan(n.z, n.x);
+        vec2 uv = vec2(lon * 0.55 + 4.0, lat * 1.3 + 1.5);
+        float h = fbm(uv * 1.9);
+
+        vec3 ocean = vec3(0.015, 0.063, 0.17);
+        vec3 land = vec3(0.05, 0.16, 0.08);
+        float landMask = smoothstep(0.44, 0.58, h + n.y * 0.07);
+        vec3 base = mix(ocean, land, landMask);
+
+        float diffuse = max(dot(n, normalize(uSunDir)), 0.0);
+        vec3 lit = base * (0.16 + diffuse * 0.84);
+
+        float night = smoothstep(0.0, -0.25, dot(n, normalize(uSunDir)));
+        float city = cityCluster(n) * night;
+        vec3 cityGlow = vec3(1.0, 0.55, 0.22) * city * 0.26;
+
+        vec3 atm = vec3(0.10, 0.43, 1.0) * fres * 0.95;
+        vec3 ripples = rippleLayer(n);
+        vec3 heat = uHeatEnabled == 1 ? heatLayer(n) : vec3(0.0);
+
+        vec3 color = lit + cityGlow + atm + ripples + heat;
+        frag = vec4(color, 1.0);
+      }`;
+
+      const quakeVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in float aMag;
+      layout(location=2) in float aAge;
+      layout(location=3) in float aFlag;
+      uniform mat4 uViewProj;
+      uniform float uPulse;
+      out float vMag;
+      out float vAge;
+      out float vFlag;
+      void main(){
+        vec4 clip = uViewProj * vec4(aPos, 1.0);
+        gl_Position = clip;
+        vMag = aMag;
+        vAge = aAge;
+        vFlag = aFlag;
+        float m = clamp((aMag + 1.2) * 2.8, 2.0, 46.0);
+        float ageFade = 1.0 - clamp(aAge * 1.1, 0.0, 1.0);
+        float boost = vFlag > 0.5 ? 1.35 : 1.0;
+        gl_PointSize = m * ageFade * boost * (0.78 + uPulse * 0.22);
+      }`;
+
+      const quakeFS = `#version 300 es
+      precision highp float;
+      in float vMag;
+      in float vAge;
+      in float vFlag;
+      out vec4 frag;
+
+      vec3 magColor(float m){
+        if(m < 2.0) return vec3(0.40,0.27,1.0);
+        if(m < 4.0) return vec3(0.0,0.67,1.0);
+        if(m < 5.0) return vec3(1.0,0.8,0.0);
+        if(m < 6.0) return vec3(1.0,0.4,0.0);
+        if(m < 7.0) return vec3(1.0,0.13,0.0);
+        return vec3(1.0,1.0,1.0);
+      }
+
+      void main(){
+        vec2 uv = gl_PointCoord * 2.0 - 1.0;
+        float r = dot(uv, uv);
+        if(r > 1.0) discard;
+        float core = exp(-r * 10.0);
+        float halo = exp(-r * 2.5) * 0.6;
+        vec3 c = magColor(vMag);
+        if(vMag >= 7.0){
+          c = mix(vec3(1.0,1.0,1.0), vec3(1.0,0.05,0.0), smoothstep(0.0,1.0,r));
+        }
+        float ageFade = 1.0 - clamp(vAge * 1.05, 0.0, 1.0);
+        float alpha = (core + halo) * ageFade;
+        if(vFlag > 0.5){
+          alpha *= 1.35;
+        }
+        frag = vec4(c * (core * 1.2 + halo), alpha);
+      }`;
+
+      const starVS = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec3 aPos;
+      layout(location=1) in float aSeed;
+      uniform mat4 uViewProj;
+      uniform float uTime;
+      uniform float uParallax;
+      out float vSeed;
+      void main(){
+        vec3 pos = aPos;
+        pos.xy += vec2(sin(uTime * 0.03 + aSeed * 12.3), cos(uTime * 0.022 + aSeed * 9.1)) * uParallax * 0.03;
+        gl_Position = uViewProj * vec4(pos, 1.0);
+        gl_PointSize = mix(0.8, 2.2, fract(aSeed * 23.7));
+        vSeed = aSeed;
+      }`;
+
+      const starFS = `#version 300 es
+      precision highp float;
+      in float vSeed;
+      out vec4 frag;
+      void main(){
+        vec2 uv = gl_PointCoord * 2.0 - 1.0;
+        float d = dot(uv, uv);
+        if(d > 1.0) discard;
+        float tw = 0.55 + 0.45 * fract(sin(vSeed * 91.7) * 43758.54);
+        frag = vec4(vec3(0.8, 0.9, 1.0) * tw, (1.0 - d) * 0.85);
+      }`;
+
+      const postVS = `#version 300 es
+      precision highp float;
+      const vec2 P[3] = vec2[3](vec2(-1.,-1.), vec2(3.,-1.), vec2(-1.,3.));
+      out vec2 vUv;
+      void main(){
+        vec2 p = P[gl_VertexID];
+        gl_Position = vec4(p, 0.0, 1.0);
+        vUv = p * 0.5 + 0.5;
+      }`;
+
+      const brightFS = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      out vec4 frag;
+      uniform sampler2D uScene;
+      uniform float uThreshold;
+      void main(){
+        vec3 c = texture(uScene, vUv).rgb;
+        float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        frag = lum > uThreshold ? vec4(c,1.0) : vec4(0.0);
+      }`;
+
+      const blurFS = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      out vec4 frag;
+      uniform sampler2D uTex;
+      uniform vec2 uDir;
+      void main(){
+        vec3 sum = vec3(0.0);
+        float w0 = 0.227027;
+        float w1 = 0.1945946;
+        float w2 = 0.1216216;
+        float w3 = 0.054054;
+        float w4 = 0.016216;
+        sum += texture(uTex, vUv).rgb * w0;
+        sum += texture(uTex, vUv + uDir * 1.0).rgb * w1;
+        sum += texture(uTex, vUv - uDir * 1.0).rgb * w1;
+        sum += texture(uTex, vUv + uDir * 2.0).rgb * w2;
+        sum += texture(uTex, vUv - uDir * 2.0).rgb * w2;
+        sum += texture(uTex, vUv + uDir * 3.0).rgb * w3;
+        sum += texture(uTex, vUv - uDir * 3.0).rgb * w3;
+        sum += texture(uTex, vUv + uDir * 4.0).rgb * w4;
+        sum += texture(uTex, vUv - uDir * 4.0).rgb * w4;
+        frag = vec4(sum, 1.0);
+      }`;
+
+      const compositeFS = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      out vec4 frag;
+      uniform sampler2D uScene;
+      uniform sampler2D uBloom;
+      uniform float uBloomStrength;
+      void main(){
+        vec3 scene = texture(uScene, vUv).rgb;
+        vec3 bloom = texture(uBloom, vUv).rgb;
+        vec3 c = scene + bloom * uBloomStrength;
+        c = c / (c + vec3(1.0));
+        c = pow(c, vec3(0.96));
+        frag = vec4(c, 1.0);
+      }`;
+
+      return {
+        globe: linkProgram(glCtx, globeVS, globeFS, ['uViewProj','uSpin','uCameraPos','uSunDir','uRippleCount','uRipplePos','uRippleAge','uHeatEnabled','uHeatCount','uHeatPos','uHeatWeight']),
+        quake: linkProgram(glCtx, quakeVS, quakeFS, ['uViewProj','uTime','uPulse']),
+        star: linkProgram(glCtx, starVS, starFS, ['uViewProj','uTime','uParallax']),
+        postBright: linkProgram(glCtx, postVS, brightFS, ['uScene','uThreshold']),
+        postBlur: linkProgram(glCtx, postVS, blurFS, ['uTex','uDir']),
+        postComposite: linkProgram(glCtx, postVS, compositeFS, ['uScene','uBloom','uBloomStrength'])
+      };
+    }
+
+    function createMeshes(glCtx) {
+      const sphere = createSphere(96, 64);
+
+      const sphereVAO = glCtx.createVertexArray();
+      glCtx.bindVertexArray(sphereVAO);
+
+      const spherePosBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, spherePosBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, sphere.positions, glCtx.STATIC_DRAW);
+      glCtx.enableVertexAttribArray(0);
+      glCtx.vertexAttribPointer(0, 3, glCtx.FLOAT, false, 0, 0);
+
+      const sphereNormalBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, sphereNormalBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, sphere.normals, glCtx.STATIC_DRAW);
+      glCtx.enableVertexAttribArray(1);
+      glCtx.vertexAttribPointer(1, 3, glCtx.FLOAT, false, 0, 0);
+
+      const sphereIndexBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ELEMENT_ARRAY_BUFFER, sphereIndexBuffer);
+      glCtx.bufferData(glCtx.ELEMENT_ARRAY_BUFFER, sphere.indices, glCtx.STATIC_DRAW);
+      glCtx.bindVertexArray(null);
+
+      const starVAO = glCtx.createVertexArray();
+      glCtx.bindVertexArray(starVAO);
+      const starData = new Float32Array(STAR_COUNT * 3);
+      const starSeed = new Float32Array(STAR_COUNT);
+      for (let i = 0; i < STAR_COUNT; i += 1) {
+        const p = randomSpherePoint(26 + Math.random() * 35);
+        starData[i * 3 + 0] = p[0];
+        starData[i * 3 + 1] = p[1];
+        starData[i * 3 + 2] = p[2];
+        starSeed[i] = Math.random();
+      }
+      const starPosBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, starPosBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, starData, glCtx.STATIC_DRAW);
+      glCtx.enableVertexAttribArray(0);
+      glCtx.vertexAttribPointer(0, 3, glCtx.FLOAT, false, 0, 0);
+
+      const starSeedBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, starSeedBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, starSeed, glCtx.STATIC_DRAW);
+      glCtx.enableVertexAttribArray(1);
+      glCtx.vertexAttribPointer(1, 1, glCtx.FLOAT, false, 0, 0);
+      glCtx.bindVertexArray(null);
+
+      const quakeVAO = glCtx.createVertexArray();
+      glCtx.bindVertexArray(quakeVAO);
+      const quakePositions = new Float32Array(MAX_QUAKES * 3);
+      const quakeMags = new Float32Array(MAX_QUAKES);
+      const quakeAges = new Float32Array(MAX_QUAKES);
+      const quakeFlags = new Float32Array(MAX_QUAKES);
+
+      const quakePosBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, quakePosBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, quakePositions.byteLength, glCtx.DYNAMIC_DRAW);
+      glCtx.enableVertexAttribArray(0);
+      glCtx.vertexAttribPointer(0, 3, glCtx.FLOAT, false, 0, 0);
+
+      const quakeMagBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, quakeMagBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, quakeMags.byteLength, glCtx.DYNAMIC_DRAW);
+      glCtx.enableVertexAttribArray(1);
+      glCtx.vertexAttribPointer(1, 1, glCtx.FLOAT, false, 0, 0);
+
+      const quakeAgeBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, quakeAgeBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, quakeAges.byteLength, glCtx.DYNAMIC_DRAW);
+      glCtx.enableVertexAttribArray(2);
+      glCtx.vertexAttribPointer(2, 1, glCtx.FLOAT, false, 0, 0);
+
+      const quakeFlagBuffer = glCtx.createBuffer();
+      glCtx.bindBuffer(glCtx.ARRAY_BUFFER, quakeFlagBuffer);
+      glCtx.bufferData(glCtx.ARRAY_BUFFER, quakeFlags.byteLength, glCtx.DYNAMIC_DRAW);
+      glCtx.enableVertexAttribArray(3);
+      glCtx.vertexAttribPointer(3, 1, glCtx.FLOAT, false, 0, 0);
+      glCtx.bindVertexArray(null);
+
+      return {
+        sphereVAO,
+        sphereIndexCount: sphere.indices.length,
+        starVAO,
+        quakeVAO,
+        quakePosBuffer,
+        quakeMagBuffer,
+        quakeAgeBuffer,
+        quakeFlagBuffer,
+        quakePositions,
+        quakeMags,
+        quakeAges,
+        quakeFlags,
+        quakeCount: 0,
+        sceneViewProj: new Float32Array(16)
+      };
+    }
+
+    function createPostPipeline(glCtx) {
+      const quadVAO = glCtx.createVertexArray();
+      glCtx.bindVertexArray(quadVAO);
+      glCtx.bindVertexArray(null);
+
+      const post = {
+        quadVAO,
+        scene: { fbo: null, tex: null, w: 0, h: 0 },
+        bright: { fbo: null, tex: null, w: 0, h: 0 },
+        blurA: { fbo: null, tex: null, w: 0, h: 0 }
+      };
+
+      glCtx._postResize = (w, h) => {
+        recreateRenderTarget(glCtx, post.scene, w, h);
+        recreateRenderTarget(glCtx, post.bright, Math.max(1, Math.floor(w * 0.5)), Math.max(1, Math.floor(h * 0.5)));
+        recreateRenderTarget(glCtx, post.blurA, Math.max(1, Math.floor(w * 0.5)), Math.max(1, Math.floor(h * 0.5)));
+      };
+
+      return post;
+    }
+
+    function recreateRenderTarget(glCtx, target, w, h) {
+      if (target.tex) glCtx.deleteTexture(target.tex);
+      if (target.fbo) glCtx.deleteFramebuffer(target.fbo);
+
+      target.w = w;
+      target.h = h;
+      target.tex = glCtx.createTexture();
+      glCtx.bindTexture(glCtx.TEXTURE_2D, target.tex);
+      glCtx.texImage2D(glCtx.TEXTURE_2D, 0, glCtx.RGBA, w, h, 0, glCtx.RGBA, glCtx.UNSIGNED_BYTE, null);
+      glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MIN_FILTER, glCtx.LINEAR);
+      glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_MAG_FILTER, glCtx.LINEAR);
+      glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_S, glCtx.CLAMP_TO_EDGE);
+      glCtx.texParameteri(glCtx.TEXTURE_2D, glCtx.TEXTURE_WRAP_T, glCtx.CLAMP_TO_EDGE);
+
+      target.fbo = glCtx.createFramebuffer();
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, target.fbo);
+      glCtx.framebufferTexture2D(glCtx.FRAMEBUFFER, glCtx.COLOR_ATTACHMENT0, glCtx.TEXTURE_2D, target.tex, 0);
+
+      glCtx.bindFramebuffer(glCtx.FRAMEBUFFER, null);
+      glCtx.bindTexture(glCtx.TEXTURE_2D, null);
+    }
+
+    function linkProgram(glCtx, vsSrc, fsSrc, uniforms) {
+      const vs = compileShader(glCtx, glCtx.VERTEX_SHADER, vsSrc);
+      const fs = compileShader(glCtx, glCtx.FRAGMENT_SHADER, fsSrc);
+      const program = glCtx.createProgram();
+      glCtx.attachShader(program, vs);
+      glCtx.attachShader(program, fs);
+      glCtx.linkProgram(program);
+      if (!glCtx.getProgramParameter(program, glCtx.LINK_STATUS)) {
+        throw new Error(glCtx.getProgramInfoLog(program) || 'Program link failed');
+      }
+      const out = { program };
+      for (const name of uniforms) {
+        out[name] = glCtx.getUniformLocation(program, name);
+      }
+      glCtx.deleteShader(vs);
+      glCtx.deleteShader(fs);
+      return out;
+    }
+
+    function compileShader(glCtx, type, src) {
+      const shader = glCtx.createShader(type);
+      glCtx.shaderSource(shader, src);
+      glCtx.compileShader(shader);
+      if (!glCtx.getShaderParameter(shader, glCtx.COMPILE_STATUS)) {
+        throw new Error(glCtx.getShaderInfoLog(shader) || 'Shader compile failed');
+      }
+      return shader;
+    }
+
+    function createSphere(lonBands, latBands) {
+      const positions = [];
+      const normals = [];
+      const indices = [];
+
+      for (let y = 0; y <= latBands; y += 1) {
+        const v = y / latBands;
+        const theta = v * Math.PI;
+        const sinT = Math.sin(theta);
+        const cosT = Math.cos(theta);
+
+        for (let x = 0; x <= lonBands; x += 1) {
+          const u = x / lonBands;
+          const phi = u * Math.PI * 2;
+          const sinP = Math.sin(phi);
+          const cosP = Math.cos(phi);
+
+          const nx = sinT * cosP;
+          const ny = cosT;
+          const nz = sinT * sinP;
+          positions.push(nx, ny, nz);
+          normals.push(nx, ny, nz);
+        }
+      }
+
+      for (let y = 0; y < latBands; y += 1) {
+        for (let x = 0; x < lonBands; x += 1) {
+          const i = y * (lonBands + 1) + x;
+          const i2 = i + lonBands + 1;
+          indices.push(i, i2, i + 1);
+          indices.push(i + 1, i2, i2 + 1);
+        }
+      }
+
+      return {
+        positions: new Float32Array(positions),
+        normals: new Float32Array(normals),
+        indices: new Uint32Array(indices)
+      };
+    }
+
+    function randomSpherePoint(radius) {
+      const u = Math.random() * 2 - 1;
+      const a = Math.random() * Math.PI * 2;
+      const f = Math.sqrt(1 - u * u);
+      return [Math.cos(a) * f * radius, u * radius, Math.sin(a) * f * radius];
+    }
+
+    function latLonToXYZ(lat, lon, r) {
+      const latR = lat * Math.PI / 180;
+      const lonR = lon * Math.PI / 180;
+      const clat = Math.cos(latR);
+      return [
+        clat * Math.cos(lonR) * r,
+        Math.sin(latR) * r,
+        clat * Math.sin(lonR) * r
+      ];
+    }
+
+    function magColor(m) {
+      if (m < 2.0) return [102, 68, 255];
+      if (m < 4.0) return [0, 170, 255];
+      if (m < 5.0) return [255, 204, 0];
+      if (m < 6.0) return [255, 102, 0];
+      if (m < 7.0) return [255, 34, 0];
+      return [255, 255, 255];
+    }
+
+    function relativeTime(ts) {
+      const delta = Date.now() - ts;
+      const sec = Math.max(1, Math.floor(delta / 1000));
+      const min = Math.floor(sec / 60);
+      const hr = Math.floor(min / 60);
+      const day = Math.floor(hr / 24);
+      if (day > 0) return `${day}d ${hr % 24}h ago`;
+      if (hr > 0) return `${hr}h ${min % 60}m ago`;
+      if (min > 0) return `${min}m ${sec % 60}s ago`;
+      return `${sec}s ago`;
+    }
+
+    function clamp(v, a, b) {
+      return Math.max(a, Math.min(b, v));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function normalize3(v) {
+      const l = Math.hypot(v[0], v[1], v[2]) || 1;
+      return [v[0] / l, v[1] / l, v[2] / l];
+    }
+
+    function dot3(a, b) {
+      return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    }
+
+    function cross3(a, b) {
+      return [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0]
+      ];
+    }
+
+    function quatFromAxisAngle(axis, angle) {
+      const n = normalize3(axis);
+      const s = Math.sin(angle * 0.5);
+      return [n[0] * s, n[1] * s, n[2] * s, Math.cos(angle * 0.5)];
+    }
+
+    function quatMul(a, b) {
+      return [
+        a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+        a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+        a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+        a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]
+      ];
+    }
+
+    function quatNormalize(q) {
+      const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1;
+      return [q[0] / l, q[1] / l, q[2] / l, q[3] / l];
+    }
+
+    function quatSlerp(a, b, t) {
+      let cos = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+      let bb = b;
+      if (cos < 0) {
+        cos = -cos;
+        bb = [-b[0], -b[1], -b[2], -b[3]];
+      }
+      if (cos > 0.9995) {
+        return quatNormalize([
+          lerp(a[0], bb[0], t),
+          lerp(a[1], bb[1], t),
+          lerp(a[2], bb[2], t),
+          lerp(a[3], bb[3], t)
+        ]);
+      }
+      const theta = Math.acos(clamp(cos, -1, 1));
+      const sinT = Math.sin(theta);
+      const w0 = Math.sin((1 - t) * theta) / sinT;
+      const w1 = Math.sin(t * theta) / sinT;
+      return [
+        a[0] * w0 + bb[0] * w1,
+        a[1] * w0 + bb[1] * w1,
+        a[2] * w0 + bb[2] * w1,
+        a[3] * w0 + bb[3] * w1
+      ];
+    }
+
+    function quatFromUnitVectors(from, to) {
+      const f = normalize3(from);
+      const t = normalize3(to);
+      let r = dot3(f, t) + 1;
+      let xyz;
+      if (r < 0.000001) {
+        r = 0;
+        xyz = Math.abs(f[0]) > Math.abs(f[2]) ? [-f[1], f[0], 0] : [0, -f[2], f[1]];
+      } else {
+        xyz = cross3(f, t);
+      }
+      return quatNormalize([xyz[0], xyz[1], xyz[2], r]);
+    }
+
+    function rotateVecByQuat(v, q) {
+      const x = v[0], y = v[1], z = v[2];
+      const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+
+      const ix = qw * x + qy * z - qz * y;
+      const iy = qw * y + qz * x - qx * z;
+      const iz = qw * z + qx * y - qy * x;
+      const iw = -qx * x - qy * y - qz * z;
+
+      return [
+        ix * qw + iw * -qx + iy * -qz - iz * -qy,
+        iy * qw + iw * -qy + iz * -qx - ix * -qz,
+        iz * qw + iw * -qz + ix * -qy - iy * -qx
+      ];
+    }
+
+    function mat4Perspective(out, fovy, aspect, near, far) {
+      const f = 1 / Math.tan(fovy / 2);
+      const nf = 1 / (near - far);
+      out[0] = f / aspect; out[1] = 0; out[2] = 0; out[3] = 0;
+      out[4] = 0; out[5] = f; out[6] = 0; out[7] = 0;
+      out[8] = 0; out[9] = 0; out[10] = (far + near) * nf; out[11] = -1;
+      out[12] = 0; out[13] = 0; out[14] = (2 * far * near) * nf; out[15] = 0;
+    }
+
+    function mat4LookAt(out, eye, center, up) {
+      let zx = eye[0] - center[0];
+      let zy = eye[1] - center[1];
+      let zz = eye[2] - center[2];
+      let len = Math.hypot(zx, zy, zz);
+      if (len === 0) {
+        zz = 1;
+      } else {
+        zx /= len; zy /= len; zz /= len;
+      }
+
+      let xx = up[1] * zz - up[2] * zy;
+      let xy = up[2] * zx - up[0] * zz;
+      let xz = up[0] * zy - up[1] * zx;
+      len = Math.hypot(xx, xy, xz);
+      if (len === 0) {
+        xx = 1;
+      } else {
+        xx /= len; xy /= len; xz /= len;
+      }
+
+      const yx = zy * xz - zz * xy;
+      const yy = zz * xx - zx * xz;
+      const yz = zx * xy - zy * xx;
+
+      out[0] = xx; out[1] = yx; out[2] = zx; out[3] = 0;
+      out[4] = xy; out[5] = yy; out[6] = zy; out[7] = 0;
+      out[8] = xz; out[9] = yz; out[10] = zz; out[11] = 0;
+      out[12] = -(xx * eye[0] + xy * eye[1] + xz * eye[2]);
+      out[13] = -(yx * eye[0] + yy * eye[1] + yz * eye[2]);
+      out[14] = -(zx * eye[0] + zy * eye[1] + zz * eye[2]);
+      out[15] = 1;
+    }
+
+    function mat4Multiply(out, a, b) {
+      const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+      const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+      const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+      const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+      const b00 = b[0], b01 = b[1], b02 = b[2], b03 = b[3];
+      const b10 = b[4], b11 = b[5], b12 = b[6], b13 = b[7];
+      const b20 = b[8], b21 = b[9], b22 = b[10], b23 = b[11];
+      const b30 = b[12], b31 = b[13], b32 = b[14], b33 = b[15];
+
+      out[0] = a00 * b00 + a10 * b01 + a20 * b02 + a30 * b03;
+      out[1] = a01 * b00 + a11 * b01 + a21 * b02 + a31 * b03;
+      out[2] = a02 * b00 + a12 * b01 + a22 * b02 + a32 * b03;
+      out[3] = a03 * b00 + a13 * b01 + a23 * b02 + a33 * b03;
+      out[4] = a00 * b10 + a10 * b11 + a20 * b12 + a30 * b13;
+      out[5] = a01 * b10 + a11 * b11 + a21 * b12 + a31 * b13;
+      out[6] = a02 * b10 + a12 * b11 + a22 * b12 + a32 * b13;
+      out[7] = a03 * b10 + a13 * b11 + a23 * b12 + a33 * b13;
+      out[8] = a00 * b20 + a10 * b21 + a20 * b22 + a30 * b23;
+      out[9] = a01 * b20 + a11 * b21 + a21 * b22 + a31 * b23;
+      out[10] = a02 * b20 + a12 * b21 + a22 * b22 + a32 * b23;
+      out[11] = a03 * b20 + a13 * b21 + a23 * b22 + a33 * b23;
+      out[12] = a00 * b30 + a10 * b31 + a20 * b32 + a30 * b33;
+      out[13] = a01 * b30 + a11 * b31 + a21 * b32 + a31 * b33;
+      out[14] = a02 * b30 + a12 * b31 + a22 * b32 + a32 * b33;
+      out[15] = a03 * b30 + a13 * b31 + a23 * b32 + a33 * b33;
+    }
+
+    function mat4Invert(out, a) {
+      const a00 = a[0], a01 = a[1], a02 = a[2], a03 = a[3];
+      const a10 = a[4], a11 = a[5], a12 = a[6], a13 = a[7];
+      const a20 = a[8], a21 = a[9], a22 = a[10], a23 = a[11];
+      const a30 = a[12], a31 = a[13], a32 = a[14], a33 = a[15];
+
+      const b00 = a00 * a11 - a01 * a10;
+      const b01 = a00 * a12 - a02 * a10;
+      const b02 = a00 * a13 - a03 * a10;
+      const b03 = a01 * a12 - a02 * a11;
+      const b04 = a01 * a13 - a03 * a11;
+      const b05 = a02 * a13 - a03 * a12;
+      const b06 = a20 * a31 - a21 * a30;
+      const b07 = a20 * a32 - a22 * a30;
+      const b08 = a20 * a33 - a23 * a30;
+      const b09 = a21 * a32 - a22 * a31;
+      const b10 = a21 * a33 - a23 * a31;
+      const b11 = a22 * a33 - a23 * a32;
+
+      let det = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06;
+      if (!det) return null;
+      det = 1 / det;
+
+      out[0] = (a11 * b11 - a12 * b10 + a13 * b09) * det;
+      out[1] = (-a01 * b11 + a02 * b10 - a03 * b09) * det;
+      out[2] = (a31 * b05 - a32 * b04 + a33 * b03) * det;
+      out[3] = (-a21 * b05 + a22 * b04 - a23 * b03) * det;
+      out[4] = (-a10 * b11 + a12 * b08 - a13 * b07) * det;
+      out[5] = (a00 * b11 - a02 * b08 + a03 * b07) * det;
+      out[6] = (-a30 * b05 + a32 * b02 - a33 * b01) * det;
+      out[7] = (a20 * b05 - a22 * b02 + a23 * b01) * det;
+      out[8] = (a10 * b10 - a11 * b08 + a13 * b06) * det;
+      out[9] = (-a00 * b10 + a01 * b08 - a03 * b06) * det;
+      out[10] = (a30 * b04 - a31 * b02 + a33 * b00) * det;
+      out[11] = (-a20 * b04 + a21 * b02 - a23 * b00) * det;
+      out[12] = (-a10 * b09 + a11 * b07 - a12 * b06) * det;
+      out[13] = (a00 * b09 - a01 * b07 + a02 * b06) * det;
+      out[14] = (-a30 * b03 + a31 * b01 - a32 * b00) * det;
+      out[15] = (a20 * b03 - a21 * b01 + a22 * b00) * det;
+      return out;
+    }
+  </script>
+</body>
+</html>
