@@ -1,0 +1,1750 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lenia Alive</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000510;
+      --ink: #eef2ff;
+      --muted: rgba(255, 255, 255, 0.56);
+      --panel: rgba(0, 5, 16, 0.88);
+      --panel-line: rgba(255, 255, 255, 0.08);
+      --panel-strong: rgba(255, 255, 255, 0.12);
+      --accent: #00e085;
+      --accent-dim: rgba(0, 224, 133, 0.12);
+      --track: #1a2b40;
+      --danger: #ff5c5c;
+      --toast: rgba(9, 18, 34, 0.92);
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+      --mono: "SFMono-Regular", "Cascadia Code", "Fira Code", "Menlo", monospace;
+      --sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      overscroll-behavior: none;
+    }
+
+    body {
+      position: relative;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button,
+    input[type="range"] {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid rgba(0, 224, 133, 0.9);
+      outline-offset: 2px;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    #app::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 22%, rgba(0, 170, 187, 0.08), transparent 26%),
+        radial-gradient(circle at 50% 65%, rgba(0, 224, 133, 0.06), transparent 32%);
+      z-index: 0;
+    }
+
+    #fieldShell {
+      position: absolute;
+      inset: 0 0 164px;
+      display: grid;
+      place-items: center;
+      padding: 72px 16px 20px;
+    }
+
+    #fieldFrame {
+      position: relative;
+      width: min(90vw, calc(100vh - 220px));
+      height: min(90vw, calc(100vh - 220px));
+      min-width: min(84vw, 320px);
+      min-height: min(84vw, 320px);
+      max-width: 820px;
+      max-height: 820px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+        var(--bg);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.02) inset,
+        0 28px 70px rgba(0, 0, 0, 0.55),
+        0 0 90px rgba(0, 170, 187, 0.08);
+    }
+
+    #fieldFrame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 46%, rgba(255, 255, 255, 0.03), transparent 48%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0), rgba(0, 0, 0, 0.32) 92%);
+      mix-blend-mode: screen;
+      z-index: 2;
+    }
+
+    #fieldFrame::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      pointer-events: none;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 3;
+    }
+
+    #simCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+      background: #000510;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    #scanOverlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 4;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.015)),
+        repeating-linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02) 0 1px,
+          rgba(255, 255, 255, 0) 1px 4px
+        );
+      mix-blend-mode: soft-light;
+      opacity: 0.5;
+    }
+
+    .hud {
+      position: absolute;
+      z-index: 8;
+      border: 1px solid var(--panel-line);
+      background: var(--panel);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: var(--shadow);
+    }
+
+    #titleCard {
+      top: 14px;
+      left: 14px;
+      max-width: min(420px, calc(100vw - 28px));
+      padding: 12px 14px;
+      border-radius: 20px;
+    }
+
+    #titleCard h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+      letter-spacing: 0.02em;
+    }
+
+    #titleCard p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+      max-width: 38ch;
+    }
+
+    #statusCard {
+      top: 14px;
+      right: 14px;
+      min-width: 188px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      font-family: var(--mono);
+    }
+
+    .statusRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 2px 0;
+      font-size: 0.78rem;
+    }
+
+    .statusLabel {
+      color: rgba(255, 255, 255, 0.42);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.66rem;
+    }
+
+    .statusValue {
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    #helpCard {
+      left: 14px;
+      bottom: 176px;
+      max-width: min(360px, calc(100vw - 28px));
+      padding: 10px 12px;
+      border-radius: 18px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    #helpCard strong {
+      color: rgba(255, 255, 255, 0.98);
+      font-weight: 700;
+    }
+
+    #helpCard p {
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    #helpCard span {
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    #toast {
+      right: 14px;
+      bottom: 176px;
+      max-width: min(300px, calc(100vw - 28px));
+      padding: 11px 13px;
+      border-radius: 18px;
+      background: var(--toast);
+      border-color: rgba(0, 224, 133, 0.24);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    #toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #controlBar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9;
+      background: rgba(0, 5, 16, 0.88);
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+      display: grid;
+      gap: 10px;
+    }
+
+    #controlTop {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    #controlTop h2 {
+      margin: 0;
+      font-size: 0.94rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.74);
+      font-family: var(--mono);
+    }
+
+    #controlTop p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.42);
+      font-size: 0.78rem;
+    }
+
+    #controlGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .controlSection {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .sectionLabel {
+      font-size: 0.68rem;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.42);
+      font-family: var(--mono);
+    }
+
+    .pillRack,
+    .speedRack,
+    .buttonRack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .presetPill,
+    .speedPill,
+    .actionButton {
+      min-height: 44px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.5);
+      padding: 5px 14px;
+      cursor: pointer;
+      transition:
+        transform 140ms ease,
+        background 140ms ease,
+        color 140ms ease,
+        border-color 140ms ease;
+      font-size: 0.78rem;
+      letter-spacing: 0.01em;
+    }
+
+    .presetPill:hover,
+    .speedPill:hover,
+    .actionButton:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .presetPill.active,
+    .speedPill.active,
+    .actionButton.primary {
+      background: rgba(0, 224, 133, 0.12);
+      color: #00e085;
+      border-color: #00e085;
+      box-shadow: 0 0 0 1px rgba(0, 224, 133, 0.15) inset;
+    }
+
+    .actionButton.pause {
+      min-width: 56px;
+      justify-content: center;
+      display: inline-flex;
+      align-items: center;
+      font-size: 1rem;
+      font-family: var(--mono);
+    }
+
+    .actionButton.clear {
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .sliderRack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .sliderRow {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) 56px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sliderLabel {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+    }
+
+    .sliderRow output {
+      font-family: var(--mono);
+      font-size: 0.74rem;
+      color: #00e085;
+      text-align: right;
+    }
+
+    .sliderRow input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: #00e085;
+      min-height: 44px;
+      background: transparent;
+    }
+
+    .sliderRow input[type="range"]::-webkit-slider-runnable-track {
+      height: 7px;
+      border-radius: 999px;
+      background: var(--track);
+    }
+
+    .sliderRow input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      margin-top: -5.5px;
+      border-radius: 50%;
+      background: #00e085;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(0, 224, 133, 0.18);
+    }
+
+    .sliderRow input[type="range"]::-moz-range-track {
+      height: 7px;
+      border-radius: 999px;
+      background: var(--track);
+      border: 0;
+    }
+
+    .sliderRow input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #00e085;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(0, 224, 133, 0.18);
+    }
+
+    #fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 5, 16, 0.96);
+    }
+
+    #fallback.visible {
+      display: flex;
+    }
+
+    #fallbackPanel {
+      width: min(560px, calc(100vw - 32px));
+      border-radius: 26px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    #fallbackPanel h2 {
+      margin: 0 0 10px;
+      font-size: 1.12rem;
+      letter-spacing: 0.02em;
+    }
+
+    #fallbackPanel p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.68);
+      line-height: 1.55;
+    }
+
+    @media (min-width: 880px) {
+      #fieldShell {
+        inset: 0 0 148px;
+        padding-top: 28px;
+      }
+
+      #helpCard,
+      #toast {
+        bottom: 160px;
+      }
+
+      #controlGrid {
+        grid-template-columns: 1.2fr 1.7fr 0.9fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      #fieldShell {
+        inset: 0 0 232px;
+        padding-top: 88px;
+      }
+
+      #fieldFrame {
+        width: min(92vw, calc(100vh - 330px));
+        height: min(92vw, calc(100vh - 330px));
+        border-radius: 24px;
+      }
+
+      #helpCard,
+      #toast {
+        display: none;
+      }
+
+      #controlBar {
+        gap: 8px;
+      }
+
+      #controlTop {
+        gap: 6px;
+      }
+
+      #controlTop p {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="fieldShell">
+      <div id="fieldFrame">
+        <canvas id="simCanvas" width="512" height="512" aria-label="Lenia Alive simulation canvas"></canvas>
+        <div id="scanOverlay" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <section id="titleCard" class="hud" aria-label="Title and summary">
+      <h1>Lenia Alive</h1>
+      <p>Continuous cellular automata that look less like pixels and more like dark-field microscopy. Pure convolution. Pure emergence.</p>
+    </section>
+
+    <section id="statusCard" class="hud" aria-label="Simulation status">
+      <div class="statusRow"><span class="statusLabel">Species</span><span id="speciesStatus" class="statusValue">Orbium</span></div>
+      <div class="statusRow"><span class="statusLabel">State</span><span id="runStatus" class="statusValue">Running</span></div>
+      <div class="statusRow"><span class="statusLabel">Speed</span><span id="speedStatus" class="statusValue">2×</span></div>
+      <div class="statusRow"><span class="statusLabel">FPS</span><span id="fpsStatus" class="statusValue">--</span></div>
+      <div class="statusRow"><span class="statusLabel">Steps</span><span id="stepStatus" class="statusValue">0</span></div>
+    </section>
+
+    <section id="helpCard" class="hud" aria-label="Interaction help">
+      <p><strong>Paint</strong> left drag <span>•</span> <strong>Erase</strong> right drag <span>•</span> <strong>Splat</strong> Ctrl + click <span>•</span> <strong>Pause</strong> Space</p>
+    </section>
+
+    <div id="toast" class="hud" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <section id="controlBar" aria-label="Lenia controls">
+      <div id="controlTop">
+        <div>
+          <h2>Microscopy Console</h2>
+          <p>Choose a species, tune the growth window, and watch the field drift into behavior.</p>
+        </div>
+      </div>
+      <div id="controlGrid">
+        <div class="controlSection">
+          <div class="sectionLabel">Species Presets</div>
+          <div id="presetRack" class="pillRack"></div>
+        </div>
+        <div class="controlSection">
+          <div class="sectionLabel">Parameters</div>
+          <div id="sliderRack" class="sliderRack"></div>
+        </div>
+        <div class="controlSection">
+          <div class="sectionLabel">Transport</div>
+          <div id="speedRack" class="speedRack"></div>
+          <div id="actionRack" class="buttonRack"></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="fallback" aria-live="polite">
+      <div id="fallbackPanel">
+        <h2>Lenia Alive requires WebGL2</h2>
+        <p>Please open this build in Chrome, Firefox, or Edge (2020+) on hardware with WebGL2 and floating-point render targets enabled.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const GRID_SIZE = 512;
+      const KERNEL_SIZE = 41;
+      const MAX_RADIUS = 20;
+      const BRUSH_RADIUS = 8;
+      const BRUSH_VALUE = 0.85;
+      const SPLAT_STD = 10;
+      const SPLAT_VARIANCE = SPLAT_STD * SPLAT_STD * 2;
+      const TAU = Math.PI * 2;
+
+      const PRESETS = [
+        {
+          key: "orbium",
+          label: "Orbium",
+          radius: 13,
+          mu: 0.15,
+          sigma: 0.015,
+          dt: 0.1,
+          seed(data) {
+            stampRLEPattern(data, PATTERNS.orbium, 1.4);
+          }
+        },
+        {
+          key: "hydrogeminium",
+          label: "Hydrogeminium",
+          radius: 13,
+          mu: 0.26,
+          sigma: 0.036,
+          dt: 0.1,
+          seed(data) {
+            stampRLEPattern(data, PATTERNS.hydrogeminium, 13 / 18);
+          }
+        },
+        {
+          key: "scutium",
+          label: "Scutium",
+          radius: 12,
+          mu: 0.175,
+          sigma: 0.015,
+          dt: 0.1,
+          seed(data) {
+            stampRLEPattern(data, PATTERNS.scutium, 0.92);
+          }
+        },
+        {
+          key: "chaos",
+          label: "Chaos",
+          radius: 10,
+          mu: 0.13,
+          sigma: 0.012,
+          dt: 0.1,
+          seed(data) {
+            fillChaosRegion(data, 206, 206, 100, 100);
+          }
+        }
+      ];
+
+      const PARAMS = [
+        { key: "radius", label: "R", min: 5, max: 20, step: 1, defaultValue: 13, format: formatInteger },
+        { key: "mu", label: "μ", min: 0.05, max: 0.5, step: 0.005, defaultValue: 0.15, format: formatTriple },
+        { key: "sigma", label: "σ", min: 0.005, max: 0.05, step: 0.001, defaultValue: 0.015, format: formatTriple },
+        { key: "dt", label: "dt", min: 0.01, max: 0.4, step: 0.01, defaultValue: 0.1, format: formatDouble }
+      ];
+
+      const UI_SPEEDS = [1, 2, 4, 8];
+      const SPEED_SEQUENCE = [1, 2, 4, 8, 16];
+      const PATTERNS = {
+        orbium: "7.MD6.qL$6.pKqEqFURpApBRAqQ$5.VqTrSsBrOpXpWpTpWpUpCrQ$4.CQrQsTsWsApITNPpGqGvL$3.IpIpWrOsGsBqXpJ4.LsFrL$A.DpKpSpJpDqOqUqSqE5.ExD$qL.pBpTT2.qCrGrVrWqM5.sTpP$.pGpWpD3.qUsMtItQtJ6.tL$.uFqGH3.pXtOuR2vFsK5.sM$.tUqL4.GuNwAwVxBwNpC4.qXpA$2.uH5.vBxGyEyMyHtW4.qIpL$2.wV5.tIyG3yOxQqW2.FqHpJ$2.tUS4.rM2yOyJyOyHtVpPMpFqNV$2.HsR4.pUxAyOxLxDxEuVrMqBqGqKJ$3.sLpE3.pEuNxHwRwGvUuLsHrCqTpR$3.TrMS2.pFsLvDvPvEuPtNsGrGqIP$4.pRqRpNpFpTrNtGtVtStGsMrNqNpF$5.pMqKqLqRrIsCsLsIrTrFqJpHE$6.RpSqJqPqVqWqRqKpRXE$8.OpBpIpJpFTK!",
+        hydrogeminium: "38.B$34.EJpIrI2tBrNpSG$31.rDtTuKtOsWtOwA2yOyBuUrIT$29.qCwF11yOvMrAQ$27.JtJ14yOtQqEL$24.pPsM17yOxWsRqEJ$23.qH20yOxMtQqOB$23.rD9yOwStTvO9yOyBuFpS$23.rV4yOxExUyIyDvGrDpPtJ10yOxMsHB$22.5yOwNqH6.sPyI10yOuIpA$20.vW6yOrQ7.pSvJxWyL8yOvEpU$18.pPyG5yOyL11.pUtGwAyD6yOvOqO$17.pIwX5yO15.rSxE6yOwVrLG$14.GQpSsF5yOwN15.rIyG7yOtBpD$11.GrDsUsRrXsP6yOB15.uK8yOvEpX$10.EtJ3yOvW7yOQ15.wD8yOwQqM$9.LtJ8yOyGyDuAsMpU15.uIyI7yOwQqC$7.LpUuF8yOyIxJqM.pSpP15.pSuXyL6yOuNQ$5.pFrGsP5yOyGxUxMxRyGyLyIwA19.rIyD5yOwNqR$4.pNwF6yOwLuCrSqErXwDyI2yOuF18.uS5yOuPqJ$3.B7yOsCpA4.qCvWyDyOyG17.yD5yOuAJ$3.wA6yO9.uKwXxJ16.7yOT$2.pP6yOB10.rQrL15.tL6yOrN$2.xE5yOvM4.BO8.GpIqTqWB8.pA6yOuA$.sKxJ5yO5.pFpA7.qJuAuSwDwNrN5.JqR7yOrI$LtJxP4yOpPJpDqEpN10.xPyBwAuUwAuSsH2qOrNuA8yOpI$TuAyB3yOvWqTrNvGxCrN9.uUxCxJvBqJvG13yO$OuUyG3yOxMrStD2yOsU9.sUvTwVvOqO7yOyGxJwQwXxJwSG$EvJyB4yOrXrIxWyOyB9.LuNxPyL3yOyBvJwQxEvOsMQTrQrX$.uSxMyI3yOsHpApIyOyD3.VpA5.wQ4yOxU2.pApS$.tGwLxR3yOuPpKOsUrSpSrLuCuNqW5.4yOyB$.qWvBxCyD2yOyLtBqTqRsHuUwQxHuUL4.wI3yOrQ$.GtBwIxWyL2yOyLvWuKuUvOuKrVB4.vM2yOvG$2.qMvExPyI5yOxHtOpA4.BuK2yOwVG$3.sWwNxWyL6yOpF2.GqCuU2yOxJrA$3.pUuFwNxRyL5yOwXvMvRwV3yOxEsF$4.qTtQvOxHyL8yOyGxJvOrX$5.pXsCuCwLyD3yOyIxJvGsRrIqTV$6.EpPrNuAvWwDwVvWtD$10.pDqOrDqH!",
+        scutium: "5.pGQ$6.sUsDqRR$4.VpXrJwKvNtXrW$2.ApVrGrWsIwKyOyDwTuNO$2.qArOrIqIpPpTxH2yOyIvKqG$rVpIrNrJpH4.xP3yOvFqWA$sKvNsKqE5.pI4yOuHqPC$sNxBuMpD5.JuN3yOwXsUpN$sGxFyOT5.pCtIyF3yOuKqUH$rPwXyOxT5.qKtSxS3yOvIrQT$pQwK2yOtWXJXqHsGuWxW3yOvPsApC$.vQ3yOuVsLsGsXuMwOyK3yOvHrVpC$.rKyK3yOxEwBwCwXyE3yOxQuMrJU$.WvC5yOyM5yOwFtJqOL$2.rVwO9yOwWuMsApOC$2.pLtBwK6yOyJwQuTsQqLP$3.qHsWvEwUxTyCxRwWvRuGsNqSpA$3.HqBrUtHuGuPuLtVsXrSqIXB$4.DpDqEqW2rIqWqGpJN$6.ENTUPHA!"
+      };
+
+      const app = {
+        canvas: document.getElementById("simCanvas"),
+        fallback: document.getElementById("fallback"),
+        toast: document.getElementById("toast"),
+        presetRack: document.getElementById("presetRack"),
+        sliderRack: document.getElementById("sliderRack"),
+        speedRack: document.getElementById("speedRack"),
+        actionRack: document.getElementById("actionRack"),
+        speciesStatus: document.getElementById("speciesStatus"),
+        runStatus: document.getElementById("runStatus"),
+        speedStatus: document.getElementById("speedStatus"),
+        fpsStatus: document.getElementById("fpsStatus"),
+        stepStatus: document.getElementById("stepStatus"),
+        gl: null,
+        extColorBufferFloat: null,
+        quadBuffer: null,
+        stepProgram: null,
+        displayProgram: null,
+        brushProgram: null,
+        stateTextures: [],
+        framebuffers: [],
+        kernelTexture: null,
+        writeIndex: 1,
+        readIndex: 0,
+        running: true,
+        frameHandle: 0,
+        lastFrameTime: 0,
+        fpsSmooth: 60,
+        slowFrameStreak: 0,
+        toastTimer: 0,
+        stepsPerFrame: 2,
+        totalSteps: 0,
+        uniforms: {
+          step: {},
+          display: {},
+          brush: {}
+        },
+        controls: {
+          presetButtons: new Map(),
+          speedButtons: new Map(),
+          sliderInputs: new Map(),
+          sliderOutputs: new Map(),
+          pauseButton: null,
+          clearButton: null,
+          seedButton: null
+        },
+        params: {
+          radius: 13,
+          mu: 0.15,
+          sigma: 0.015,
+          dt: 0.1
+        },
+        activePreset: PRESETS[0].key,
+        activePointer: null,
+        isPainting: false,
+        brushMode: 0,
+        rngSeed: 1,
+        pointerDownId: null
+      };
+
+      const quadVertexSource = `#version 300 es
+        precision highp float;
+        in vec2 aPosition;
+        out vec2 vUv;
+        void main() {
+          vUv = aPosition * 0.5 + 0.5;
+          gl_Position = vec4(aPosition, 0.0, 1.0);
+        }
+      `;
+
+      const stepFragmentSource = `#version 300 es
+        precision highp float;
+        uniform sampler2D uState;
+        uniform sampler2D uKernel;
+        uniform float uMu;
+        uniform float uSigma;
+        uniform float uDt;
+        uniform int uRadius;
+        out vec4 fragColor;
+
+        float growth(float U) {
+          float diff = (U - uMu) / uSigma;
+          return 2.0 * exp(-0.5 * diff * diff) - 1.0;
+        }
+
+        void main() {
+          vec2 px = gl_FragCoord.xy;
+          float sum = 0.0;
+          for (int dy = -20; dy <= 20; dy++) {
+            for (int dx = -20; dx <= 20; dx++) {
+              if (dx * dx + dy * dy > uRadius * uRadius) {
+                continue;
+              }
+              vec2 kcoord = (vec2(float(dx + 20), float(dy + 20)) + 0.5) / 41.0;
+              float k = texture(uKernel, kcoord).r;
+              vec2 scoord = fract((px + vec2(float(dx), float(dy))) / 512.0);
+              sum += k * texture(uState, scoord).r;
+            }
+          }
+          float v = texture(uState, px / 512.0).r;
+          float newV = clamp(v + uDt * growth(sum), 0.0, 1.0);
+          fragColor = vec4(newV, 0.0, 0.0, 1.0);
+        }
+      `;
+
+      const displayFragmentSource = `#version 300 es
+        precision highp float;
+        uniform sampler2D uState;
+        in vec2 vUv;
+        out vec4 fragColor;
+
+        vec3 colormap(float t) {
+          if (t < 0.05) {
+            return vec3(0.0, 0.02, 0.063);
+          }
+          vec3 stops[9] = vec3[9](
+            vec3(0.000, 0.020, 0.063),
+            vec3(0.043, 0.043, 0.369),
+            vec3(0.102, 0.169, 0.561),
+            vec3(0.000, 0.667, 0.733),
+            vec3(0.000, 0.878, 0.522),
+            vec3(0.667, 0.933, 0.000),
+            vec3(1.000, 0.600, 0.000),
+            vec3(1.000, 0.267, 0.000),
+            vec3(1.000, 1.000, 1.000)
+          );
+          float positions[9] = float[9](0.0, 0.08, 0.20, 0.35, 0.50, 0.65, 0.80, 0.90, 1.00);
+          for (int i = 0; i < 8; i++) {
+            if (t >= positions[i] && t <= positions[i + 1]) {
+              float f = (t - positions[i]) / (positions[i + 1] - positions[i]);
+              return mix(stops[i], stops[i + 1], f);
+            }
+          }
+          return stops[8];
+        }
+
+        float field(vec2 uv) {
+          return texture(uState, fract(uv)).r;
+        }
+
+        void main() {
+          vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+          vec2 px = vec2(1.0 / 512.0);
+          float center = field(uv);
+          float around =
+            field(uv + vec2(px.x, 0.0)) +
+            field(uv - vec2(px.x, 0.0)) +
+            field(uv + vec2(0.0, px.y)) +
+            field(uv - vec2(0.0, px.y)) +
+            field(uv + vec2(px.x, px.y)) +
+            field(uv + vec2(-px.x, px.y)) +
+            field(uv + vec2(px.x, -px.y)) +
+            field(uv + vec2(-px.x, -px.y));
+          float aura = max(0.0, around / 8.0 - 0.04) * 1.4;
+          float hotspot = smoothstep(0.78, 1.0, center);
+          vec3 base = colormap(center);
+          vec3 glow = colormap(clamp(center + aura * 0.6, 0.0, 1.0));
+          base += glow * aura * 0.35;
+          base += vec3(1.0, 0.72, 0.42) * hotspot * hotspot * 0.25;
+          float vignette = smoothstep(0.96, 0.22, distance(vUv, vec2(0.5)));
+          float microscope = 0.97 + 0.03 * sin((vUv.y + vUv.x * 0.2) * 512.0 * 0.3);
+          base *= vignette * microscope;
+          fragColor = vec4(base, 1.0);
+        }
+      `;
+
+      const brushFragmentSource = `#version 300 es
+        precision highp float;
+        uniform sampler2D uState;
+        uniform vec2 uFrom;
+        uniform vec2 uTo;
+        uniform float uRadius;
+        uniform float uValue;
+        uniform float uMode;
+        uniform float uSeed;
+        out vec4 fragColor;
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float segmentDistance(vec2 p, vec2 a, vec2 b) {
+          vec2 pa = p - a;
+          vec2 ba = b - a;
+          float h = clamp(dot(pa, ba) / max(dot(ba, ba), 0.0001), 0.0, 1.0);
+          return length(pa - ba * h);
+        }
+
+        void main() {
+          vec2 px = gl_FragCoord.xy;
+          float current = texture(uState, px / 512.0).r;
+          float nextValue = current;
+          vec2 startPoint = vec2(uFrom.x, 512.0 - uFrom.y);
+          vec2 endPoint = vec2(uTo.x, 512.0 - uTo.y);
+
+          if (uMode < 1.5) {
+            float dist = segmentDistance(px, startPoint, endPoint);
+            float feather = 1.0 - smoothstep(uRadius - 2.0, uRadius + 0.75, dist);
+            if (uMode < 0.5) {
+              nextValue = mix(current, uValue, feather);
+            } else {
+              nextValue = current * (1.0 - feather);
+            }
+          } else {
+            vec2 delta = px - startPoint;
+            float g = exp(-dot(delta, delta) / 200.0);
+            float n1 = mix(0.84, 1.16, hash(px * 0.117 + vec2(uSeed, -uSeed)));
+            float n2 = mix(0.92, 1.08, hash(px * 0.221 + vec2(-uSeed, uSeed * 0.37)));
+            float blob = 0.7 * g * n1 * n2;
+            nextValue = max(current, blob);
+          }
+
+          fragColor = vec4(clamp(nextValue, 0.0, 1.0), 0.0, 0.0, 1.0);
+        }
+      `;
+
+      buildPresetButtons();
+      buildSliderControls();
+      buildSpeedButtons();
+      buildActionButtons();
+
+      const gl = initWebGL();
+      if (!gl) {
+        showFallback("Lenia Alive requires WebGL2 — please open in Chrome, Firefox, or Edge (2020+)");
+        return;
+      }
+
+      app.gl = gl;
+      app.extColorBufferFloat = gl.getExtension("EXT_color_buffer_float");
+
+      if (!app.extColorBufferFloat) {
+        showFallback("Lenia Alive requires WebGL2 floating-point render targets. Please open in Chrome, Firefox, or Edge (2020+).");
+        return;
+      }
+
+      try {
+        setupGLResources();
+      } catch (error) {
+        console.error(error);
+        showFallback("Lenia Alive could not initialize the GPU simulation on this device.");
+        return;
+      }
+
+      installGlobalEventHandlers();
+      loadPreset(PRESETS[0].key, true);
+      app.lastFrameTime = performance.now();
+      renderDisplay();
+      startLoop();
+
+      function initWebGL() {
+        const context = app.canvas.getContext("webgl2", {
+          antialias: false,
+          alpha: false,
+          depth: false,
+          stencil: false,
+          preserveDrawingBuffer: false,
+          powerPreference: "high-performance"
+        });
+        return context;
+      }
+
+      function setupGLResources() {
+        const glContext = app.gl;
+
+        app.quadBuffer = glContext.createBuffer();
+        glContext.bindBuffer(glContext.ARRAY_BUFFER, app.quadBuffer);
+        glContext.bufferData(
+          glContext.ARRAY_BUFFER,
+          new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1
+          ]),
+          glContext.STATIC_DRAW
+        );
+
+        app.stepProgram = createProgram(glContext, quadVertexSource, stepFragmentSource);
+        app.displayProgram = createProgram(glContext, quadVertexSource, displayFragmentSource);
+        app.brushProgram = createProgram(glContext, quadVertexSource, brushFragmentSource);
+
+        app.uniforms.step = collectUniforms(glContext, app.stepProgram, [
+          "uState", "uKernel", "uMu", "uSigma", "uDt", "uRadius"
+        ]);
+        app.uniforms.display = collectUniforms(glContext, app.displayProgram, [
+          "uState"
+        ]);
+        app.uniforms.brush = collectUniforms(glContext, app.brushProgram, [
+          "uState", "uFrom", "uTo", "uRadius", "uValue", "uMode", "uSeed"
+        ]);
+
+        app.stateTextures = [createStateTexture(glContext), createStateTexture(glContext)];
+        app.framebuffers = [
+          createFramebuffer(glContext, app.stateTextures[0]),
+          createFramebuffer(glContext, app.stateTextures[1])
+        ];
+        app.kernelTexture = createKernelTexture(glContext);
+
+        updateKernelTexture();
+        uploadStateData(createBlankState());
+        verifyFramebufferCompleteness();
+      }
+
+      function verifyFramebufferCompleteness() {
+        const glContext = app.gl;
+        for (let index = 0; index < app.framebuffers.length; index += 1) {
+          glContext.bindFramebuffer(glContext.FRAMEBUFFER, app.framebuffers[index]);
+          const status = glContext.checkFramebufferStatus(glContext.FRAMEBUFFER);
+          if (status !== glContext.FRAMEBUFFER_COMPLETE) {
+            throw new Error("Incomplete framebuffer: " + status);
+          }
+        }
+        glContext.bindFramebuffer(glContext.FRAMEBUFFER, null);
+      }
+
+      function createProgram(glContext, vertexSource, fragmentSource) {
+        const program = glContext.createProgram();
+        const vertexShader = createShader(glContext, glContext.VERTEX_SHADER, vertexSource);
+        const fragmentShader = createShader(glContext, glContext.FRAGMENT_SHADER, fragmentSource);
+        glContext.attachShader(program, vertexShader);
+        glContext.attachShader(program, fragmentShader);
+        glContext.linkProgram(program);
+        if (!glContext.getProgramParameter(program, glContext.LINK_STATUS)) {
+          const message = glContext.getProgramInfoLog(program) || "Program link failed";
+          glContext.deleteProgram(program);
+          glContext.deleteShader(vertexShader);
+          glContext.deleteShader(fragmentShader);
+          throw new Error(message);
+        }
+        glContext.deleteShader(vertexShader);
+        glContext.deleteShader(fragmentShader);
+        return program;
+      }
+
+      function createShader(glContext, type, source) {
+        const shader = glContext.createShader(type);
+        glContext.shaderSource(shader, source);
+        glContext.compileShader(shader);
+        if (!glContext.getShaderParameter(shader, glContext.COMPILE_STATUS)) {
+          const message = glContext.getShaderInfoLog(shader) || "Shader compile failed";
+          glContext.deleteShader(shader);
+          throw new Error(message);
+        }
+        return shader;
+      }
+
+      function collectUniforms(glContext, program, names) {
+        const result = {};
+        for (const name of names) {
+          result[name] = glContext.getUniformLocation(program, name);
+        }
+        return result;
+      }
+
+      function createStateTexture(glContext) {
+        const texture = glContext.createTexture();
+        glContext.bindTexture(glContext.TEXTURE_2D, texture);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MIN_FILTER, glContext.NEAREST);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MAG_FILTER, glContext.NEAREST);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_S, glContext.CLAMP_TO_EDGE);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_T, glContext.CLAMP_TO_EDGE);
+        glContext.texImage2D(
+          glContext.TEXTURE_2D,
+          0,
+          glContext.RGBA32F,
+          GRID_SIZE,
+          GRID_SIZE,
+          0,
+          glContext.RGBA,
+          glContext.FLOAT,
+          null
+        );
+        return texture;
+      }
+
+      function createKernelTexture(glContext) {
+        const texture = glContext.createTexture();
+        glContext.bindTexture(glContext.TEXTURE_2D, texture);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MIN_FILTER, glContext.NEAREST);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_MAG_FILTER, glContext.NEAREST);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_S, glContext.CLAMP_TO_EDGE);
+        glContext.texParameteri(glContext.TEXTURE_2D, glContext.TEXTURE_WRAP_T, glContext.CLAMP_TO_EDGE);
+        glContext.texImage2D(
+          glContext.TEXTURE_2D,
+          0,
+          glContext.RGBA32F,
+          KERNEL_SIZE,
+          KERNEL_SIZE,
+          0,
+          glContext.RGBA,
+          glContext.FLOAT,
+          null
+        );
+        return texture;
+      }
+
+      function createFramebuffer(glContext, texture) {
+        const framebuffer = glContext.createFramebuffer();
+        glContext.bindFramebuffer(glContext.FRAMEBUFFER, framebuffer);
+        glContext.framebufferTexture2D(glContext.FRAMEBUFFER, glContext.COLOR_ATTACHMENT0, glContext.TEXTURE_2D, texture, 0);
+        return framebuffer;
+      }
+
+      function updateKernelTexture() {
+        const glContext = app.gl;
+        const kernel = buildKernel(app.params.radius, 0.15);
+        glContext.bindTexture(glContext.TEXTURE_2D, app.kernelTexture);
+        glContext.texImage2D(
+          glContext.TEXTURE_2D,
+          0,
+          glContext.RGBA32F,
+          KERNEL_SIZE,
+          KERNEL_SIZE,
+          0,
+          glContext.RGBA,
+          glContext.FLOAT,
+          kernel
+        );
+      }
+
+      function buildKernel(radius, beta) {
+        const data = new Float32Array(KERNEL_SIZE * KERNEL_SIZE * 4);
+        let total = 0;
+        for (let dy = -MAX_RADIUS; dy <= MAX_RADIUS; dy += 1) {
+          for (let dx = -MAX_RADIUS; dx <= MAX_RADIUS; dx += 1) {
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const kernelValue = distance <= radius
+              ? Math.exp(-0.5 * Math.pow((distance / radius - 0.5) / beta, 2))
+              : 0;
+            const index = ((dy + MAX_RADIUS) * KERNEL_SIZE + (dx + MAX_RADIUS)) * 4;
+            data[index] = kernelValue;
+            total += kernelValue;
+          }
+        }
+        if (total > 0) {
+          for (let offset = 0; offset < data.length; offset += 4) {
+            data[offset] /= total;
+          }
+        }
+        return data;
+      }
+
+      function createBlankState() {
+        return new Float32Array(GRID_SIZE * GRID_SIZE * 4);
+      }
+
+      function uploadStateData(data) {
+        const glContext = app.gl;
+        for (const texture of app.stateTextures) {
+          glContext.bindTexture(glContext.TEXTURE_2D, texture);
+          glContext.texImage2D(
+            glContext.TEXTURE_2D,
+            0,
+            glContext.RGBA32F,
+            GRID_SIZE,
+            GRID_SIZE,
+            0,
+            glContext.RGBA,
+            glContext.FLOAT,
+            data
+          );
+        }
+        app.readIndex = 0;
+        app.writeIndex = 1;
+      }
+
+      function stampGaussian(data, cx, cy, amplitude, std) {
+        const radius = Math.ceil(std * 3.5);
+        const denom = 2 * std * std;
+        for (let y = Math.max(0, Math.floor(cy - radius)); y <= Math.min(GRID_SIZE - 1, Math.ceil(cy + radius)); y += 1) {
+          for (let x = Math.max(0, Math.floor(cx - radius)); x <= Math.min(GRID_SIZE - 1, Math.ceil(cx + radius)); x += 1) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const value = amplitude * Math.exp(-(dx * dx + dy * dy) / denom);
+            const index = (y * GRID_SIZE + x) * 4;
+            data[index] = Math.min(1, data[index] + value);
+            data[index + 3] = 1;
+          }
+        }
+      }
+
+      function stampEllipticalGaussian(data, cx, cy, amplitude, stdX, stdY) {
+        const radiusX = Math.ceil(stdX * 3.5);
+        const radiusY = Math.ceil(stdY * 3.5);
+        const denomX = 2 * stdX * stdX;
+        const denomY = 2 * stdY * stdY;
+        for (let y = Math.max(0, Math.floor(cy - radiusY)); y <= Math.min(GRID_SIZE - 1, Math.ceil(cy + radiusY)); y += 1) {
+          for (let x = Math.max(0, Math.floor(cx - radiusX)); x <= Math.min(GRID_SIZE - 1, Math.ceil(cx + radiusX)); x += 1) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const value = amplitude * Math.exp(-(dx * dx) / denomX - (dy * dy) / denomY);
+            const index = (y * GRID_SIZE + x) * 4;
+            data[index] = Math.min(1, data[index] + value);
+            data[index + 3] = 1;
+          }
+        }
+      }
+
+      function fillChaosRegion(data, left, top, width, height) {
+        const right = Math.min(GRID_SIZE, left + width);
+        const bottom = Math.min(GRID_SIZE, top + height);
+        for (let y = Math.max(0, top); y < bottom; y += 1) {
+          for (let x = Math.max(0, left); x < right; x += 1) {
+            const index = (y * GRID_SIZE + x) * 4;
+            data[index] = Math.random();
+            data[index + 3] = 1;
+          }
+        }
+      }
+
+      function stampRLEPattern(data, rle, scale) {
+        const rows = decodeRLEPattern(rle);
+        const height = rows.length;
+        const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
+        const scaledHeight = Math.max(1, Math.round(height * scale));
+        const scaledWidth = Math.max(1, Math.round(width * scale));
+        const originY = Math.floor(GRID_SIZE / 2 - scaledHeight / 2);
+        const originX = Math.floor(GRID_SIZE / 2 - scaledWidth / 2);
+
+        for (let y = 0; y < scaledHeight; y += 1) {
+          const sourceY = Math.min(height - 1, Math.floor(y / scale));
+          const row = rows[sourceY] || [];
+          for (let x = 0; x < scaledWidth; x += 1) {
+            const sourceX = Math.min(Math.max(0, row.length - 1), Math.floor(x / scale));
+            const value = row[sourceX] || 0;
+            if (value <= 0) {
+              continue;
+            }
+            const gridX = originX + x;
+            const gridY = originY + y;
+            if (gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE) {
+              continue;
+            }
+            const index = (gridY * GRID_SIZE + gridX) * 4;
+            data[index] = Math.max(data[index], value);
+            data[index + 3] = 1;
+          }
+        }
+      }
+
+      function decodeRLEPattern(rle) {
+        const rows = [];
+        let row = [];
+        let count = "";
+        let last = "";
+        const text = rle.trim().replace(/!$/, "") + "$";
+
+        for (const char of text) {
+          if (char >= "0" && char <= "9") {
+            count += char;
+            continue;
+          }
+
+          if ("pqrstuvwxy@".includes(char)) {
+            last = char;
+            continue;
+          }
+
+          const token = last + char;
+          const repeat = count === "" ? 1 : parseInt(count, 10);
+
+          if (token !== "$") {
+            const value = rleTokenToValue(token);
+            for (let index = 0; index < repeat; index += 1) {
+              row.push(value);
+            }
+          } else {
+            for (let index = 0; index < repeat; index += 1) {
+              rows.push(row);
+              row = [];
+            }
+          }
+
+          count = "";
+          last = "";
+        }
+
+        while (rows.length > 0 && rows[rows.length - 1].length === 0) {
+          rows.pop();
+        }
+
+        return rows;
+      }
+
+      function rleTokenToValue(token) {
+        if (token === "." || token === "b") {
+          return 0;
+        }
+
+        if (token === "o") {
+          return 1;
+        }
+
+        if (token.length === 1) {
+          return (token.charCodeAt(0) - 64) / 255;
+        }
+
+        return (((token.charCodeAt(0) - 112) * 24) + (token.charCodeAt(1) - 64 + 24)) / 255;
+      }
+
+      function renderQuad(program) {
+        const glContext = app.gl;
+        glContext.useProgram(program);
+        glContext.bindBuffer(glContext.ARRAY_BUFFER, app.quadBuffer);
+        const positionLocation = glContext.getAttribLocation(program, "aPosition");
+        glContext.enableVertexAttribArray(positionLocation);
+        glContext.vertexAttribPointer(positionLocation, 2, glContext.FLOAT, false, 0, 0);
+        glContext.drawArrays(glContext.TRIANGLE_STRIP, 0, 4);
+      }
+
+      function stepSimulation() {
+        const glContext = app.gl;
+        glContext.viewport(0, 0, GRID_SIZE, GRID_SIZE);
+        glContext.bindFramebuffer(glContext.FRAMEBUFFER, app.framebuffers[app.writeIndex]);
+        glContext.useProgram(app.stepProgram);
+        glContext.activeTexture(glContext.TEXTURE0);
+        glContext.bindTexture(glContext.TEXTURE_2D, app.stateTextures[app.readIndex]);
+        glContext.uniform1i(app.uniforms.step.uState, 0);
+        glContext.activeTexture(glContext.TEXTURE1);
+        glContext.bindTexture(glContext.TEXTURE_2D, app.kernelTexture);
+        glContext.uniform1i(app.uniforms.step.uKernel, 1);
+        glContext.uniform1f(app.uniforms.step.uMu, app.params.mu);
+        glContext.uniform1f(app.uniforms.step.uSigma, app.params.sigma);
+        glContext.uniform1f(app.uniforms.step.uDt, app.params.dt);
+        glContext.uniform1i(app.uniforms.step.uRadius, app.params.radius);
+        renderQuad(app.stepProgram);
+        swapStateTextures();
+        app.totalSteps += 1;
+      }
+
+      function renderDisplay() {
+        const glContext = app.gl;
+        glContext.bindFramebuffer(glContext.FRAMEBUFFER, null);
+        glContext.viewport(0, 0, app.canvas.width, app.canvas.height);
+        glContext.useProgram(app.displayProgram);
+        glContext.activeTexture(glContext.TEXTURE0);
+        glContext.bindTexture(glContext.TEXTURE_2D, app.stateTextures[app.readIndex]);
+        glContext.uniform1i(app.uniforms.display.uState, 0);
+        renderQuad(app.displayProgram);
+      }
+
+      function runBrushPass(mode, startPoint, endPoint, value) {
+        const glContext = app.gl;
+        glContext.viewport(0, 0, GRID_SIZE, GRID_SIZE);
+        glContext.bindFramebuffer(glContext.FRAMEBUFFER, app.framebuffers[app.writeIndex]);
+        glContext.useProgram(app.brushProgram);
+        glContext.activeTexture(glContext.TEXTURE0);
+        glContext.bindTexture(glContext.TEXTURE_2D, app.stateTextures[app.readIndex]);
+        glContext.uniform1i(app.uniforms.brush.uState, 0);
+        glContext.uniform2f(app.uniforms.brush.uFrom, startPoint.x, startPoint.y);
+        glContext.uniform2f(app.uniforms.brush.uTo, endPoint.x, endPoint.y);
+        glContext.uniform1f(app.uniforms.brush.uRadius, BRUSH_RADIUS);
+        glContext.uniform1f(app.uniforms.brush.uValue, value);
+        glContext.uniform1f(app.uniforms.brush.uMode, mode);
+        glContext.uniform1f(app.uniforms.brush.uSeed, nextRandomSeed());
+        renderQuad(app.brushProgram);
+        swapStateTextures();
+        renderDisplay();
+      }
+
+      function swapStateTextures() {
+        const previousRead = app.readIndex;
+        app.readIndex = app.writeIndex;
+        app.writeIndex = previousRead;
+      }
+
+      function startLoop() {
+        cancelAnimationFrame(app.frameHandle);
+        app.frameHandle = requestAnimationFrame(frameLoop);
+      }
+
+      function frameLoop(now) {
+        const delta = Math.max(0.001, now - app.lastFrameTime);
+        app.lastFrameTime = now;
+
+        const fps = Math.min(120, 1000 / Math.max(delta, 8));
+        app.fpsSmooth = app.fpsSmooth * 0.9 + fps * 0.1;
+        updatePerformanceTelemetry();
+
+        if (delta > 28) {
+          app.slowFrameStreak += 1;
+        } else {
+          app.slowFrameStreak = 0;
+        }
+
+        if (app.slowFrameStreak >= 3 && app.stepsPerFrame > 1) {
+          app.slowFrameStreak = 0;
+          setStepsPerFrame(Math.max(1, Math.floor(app.stepsPerFrame / 2)), true);
+        }
+
+        if (app.running) {
+          for (let iteration = 0; iteration < app.stepsPerFrame; iteration += 1) {
+            stepSimulation();
+          }
+        }
+
+        renderDisplay();
+        updateStatusUI();
+        app.frameHandle = requestAnimationFrame(frameLoop);
+      }
+
+      function updatePerformanceTelemetry() {
+        app.fpsStatus.textContent = formatInteger(Math.round(app.fpsSmooth));
+        app.stepStatus.textContent = formatInteger(app.totalSteps);
+        app.runStatus.textContent = app.running ? "Running" : "Paused";
+        app.speedStatus.textContent = app.stepsPerFrame + "×";
+        app.speciesStatus.textContent = getPresetByKey(app.activePreset).label;
+      }
+
+      function updateStatusUI() {
+        updatePerformanceTelemetry();
+        if (app.controls.pauseButton) {
+          app.controls.pauseButton.textContent = app.running ? "⏸" : "▶";
+          app.controls.pauseButton.setAttribute("aria-label", app.running ? "Pause simulation" : "Resume simulation");
+        }
+        for (const [speed, button] of app.controls.speedButtons.entries()) {
+          button.classList.toggle("active", speed === app.stepsPerFrame);
+        }
+      }
+
+      function buildPresetButtons() {
+        for (const preset of PRESETS) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "presetPill";
+          button.textContent = preset.label;
+          button.setAttribute("aria-label", "Load " + preset.label + " preset");
+          button.addEventListener("click", () => {
+            loadPreset(preset.key, false);
+          });
+          app.presetRack.appendChild(button);
+          app.controls.presetButtons.set(preset.key, button);
+        }
+      }
+
+      function buildSliderControls() {
+        for (const config of PARAMS) {
+          const row = document.createElement("label");
+          row.className = "sliderRow";
+          row.setAttribute("aria-label", config.label + " slider");
+
+          const label = document.createElement("span");
+          label.className = "sliderLabel";
+          label.textContent = config.label;
+
+          const input = document.createElement("input");
+          input.type = "range";
+          input.min = String(config.min);
+          input.max = String(config.max);
+          input.step = String(config.step);
+          input.value = String(config.defaultValue);
+          input.setAttribute("aria-label", config.label + " value");
+          input.addEventListener("input", () => {
+            applySliderValue(config.key, parseFloat(input.value), true);
+          });
+          input.addEventListener("change", () => {
+            if (config.key === "radius") {
+              updateKernelTexture();
+            }
+          });
+
+          const output = document.createElement("output");
+          output.textContent = config.format(config.defaultValue);
+
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(output);
+          app.sliderRack.appendChild(row);
+
+          app.controls.sliderInputs.set(config.key, input);
+          app.controls.sliderOutputs.set(config.key, output);
+        }
+      }
+
+      function buildSpeedButtons() {
+        for (const speed of UI_SPEEDS) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "speedPill";
+          button.textContent = speed + "×";
+          button.setAttribute("aria-label", "Set speed to " + speed + " times");
+          button.addEventListener("click", () => {
+            setStepsPerFrame(speed, false);
+          });
+          app.speedRack.appendChild(button);
+          app.controls.speedButtons.set(speed, button);
+        }
+      }
+
+      function buildActionButtons() {
+        const pauseButton = document.createElement("button");
+        pauseButton.type = "button";
+        pauseButton.className = "actionButton pause primary";
+        pauseButton.textContent = "⏸";
+        pauseButton.addEventListener("click", () => {
+          setRunning(!app.running);
+        });
+
+        const clearButton = document.createElement("button");
+        clearButton.type = "button";
+        clearButton.className = "actionButton clear";
+        clearButton.textContent = "× Clear";
+        clearButton.addEventListener("click", () => {
+          clearGrid();
+        });
+
+        const seedButton = document.createElement("button");
+        seedButton.type = "button";
+        seedButton.className = "actionButton";
+        seedButton.textContent = "Seed Orbium";
+        seedButton.addEventListener("click", () => {
+          loadPreset("orbium", false);
+        });
+
+        app.actionRack.appendChild(pauseButton);
+        app.actionRack.appendChild(clearButton);
+        app.actionRack.appendChild(seedButton);
+
+        app.controls.pauseButton = pauseButton;
+        app.controls.clearButton = clearButton;
+        app.controls.seedButton = seedButton;
+      }
+
+      function applySliderValue(key, value, shouldRender) {
+        app.params[key] = value;
+        const config = PARAMS.find((item) => item.key === key);
+        if (config) {
+          app.controls.sliderOutputs.get(key).textContent = config.format(value);
+        }
+        if (key === "radius") {
+          updateKernelTexture();
+        }
+        if (shouldRender) {
+          renderDisplay();
+        }
+      }
+
+      function loadPreset(key, isInitialLoad) {
+        const preset = getPresetByKey(key);
+        app.activePreset = key;
+
+        const state = createBlankState();
+        preset.seed(state);
+        uploadStateData(state);
+        app.totalSteps = 0;
+
+        applySliderValue("radius", preset.radius, false);
+        applySliderValue("mu", preset.mu, false);
+        applySliderValue("sigma", preset.sigma, false);
+        applySliderValue("dt", preset.dt, false);
+
+        app.controls.sliderInputs.get("radius").value = String(preset.radius);
+        app.controls.sliderInputs.get("mu").value = String(preset.mu);
+        app.controls.sliderInputs.get("sigma").value = String(preset.sigma);
+        app.controls.sliderInputs.get("dt").value = String(preset.dt);
+
+        for (const [presetKey, button] of app.controls.presetButtons.entries()) {
+          button.classList.toggle("active", presetKey === key);
+        }
+
+        if (isInitialLoad) {
+          setRunning(true);
+          setStepsPerFrame(2, false);
+        }
+
+        updateStatusUI();
+        renderDisplay();
+      }
+
+      function clearGrid() {
+        uploadStateData(createBlankState());
+        app.totalSteps = 0;
+        renderDisplay();
+        toast("Grid cleared to zero.");
+      }
+
+      function setRunning(nextRunning) {
+        app.running = nextRunning;
+        updateStatusUI();
+      }
+
+      function setStepsPerFrame(nextSpeed, autoThrottled) {
+        app.stepsPerFrame = nextSpeed;
+        for (const [speed, button] of app.controls.speedButtons.entries()) {
+          button.classList.toggle("active", speed === nextSpeed);
+        }
+        if (autoThrottled) {
+          toast("Auto-throttle engaged. Speed dropped to " + nextSpeed + "×.");
+        }
+        updateStatusUI();
+      }
+
+      function installGlobalEventHandlers() {
+        app.canvas.addEventListener("contextmenu", (event) => {
+          event.preventDefault();
+        });
+
+        app.canvas.addEventListener("pointerdown", handlePointerDown);
+        app.canvas.addEventListener("pointermove", handlePointerMove);
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerUp);
+        window.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            app.lastFrameTime = performance.now();
+          }
+        });
+      }
+
+      function handlePointerDown(event) {
+        const point = eventToGridPoint(event);
+        if (!point) {
+          return;
+        }
+
+        app.pointerDownId = event.pointerId;
+        app.activePointer = point;
+        app.isPainting = true;
+        app.brushMode = event.button === 2 ? 1 : 0;
+
+        app.canvas.setPointerCapture(event.pointerId);
+        event.preventDefault();
+
+        if (event.ctrlKey) {
+          runBrushPass(2, point, point, BRUSH_VALUE);
+          toast("Gaussian splat introduced.");
+          return;
+        }
+
+        runBrushPass(app.brushMode, point, point, BRUSH_VALUE);
+      }
+
+      function handlePointerMove(event) {
+        if (!app.isPainting || event.pointerId !== app.pointerDownId) {
+          return;
+        }
+        const point = eventToGridPoint(event);
+        if (!point || !app.activePointer) {
+          return;
+        }
+        runBrushPass(app.brushMode, app.activePointer, point, BRUSH_VALUE);
+        app.activePointer = point;
+        event.preventDefault();
+      }
+
+      function handlePointerUp(event) {
+        if (event.pointerId !== app.pointerDownId) {
+          return;
+        }
+        app.isPainting = false;
+        app.activePointer = null;
+        app.pointerDownId = null;
+      }
+
+      function handleKeyDown(event) {
+        if (event.target instanceof HTMLInputElement) {
+          if (event.key !== " " && event.key !== "Spacebar") {
+            return;
+          }
+        }
+
+        if (event.key === " " || event.key === "Spacebar") {
+          event.preventDefault();
+          setRunning(!app.running);
+          return;
+        }
+
+        if (event.key === "c" || event.key === "C") {
+          clearGrid();
+          return;
+        }
+
+        if (event.key === "s" || event.key === "S") {
+          loadPreset("orbium", false);
+          return;
+        }
+
+        if (event.key === "1") {
+          loadPreset(PRESETS[0].key, false);
+          return;
+        }
+
+        if (event.key === "2") {
+          loadPreset(PRESETS[1].key, false);
+          return;
+        }
+
+        if (event.key === "3") {
+          loadPreset(PRESETS[2].key, false);
+          return;
+        }
+
+        if (event.key === "4") {
+          loadPreset(PRESETS[3].key, false);
+          return;
+        }
+
+        if (event.key === "+" || event.key === "=") {
+          event.preventDefault();
+          const index = SPEED_SEQUENCE.indexOf(app.stepsPerFrame);
+          const nextIndex = Math.min(SPEED_SEQUENCE.length - 1, index + 1);
+          setStepsPerFrame(SPEED_SEQUENCE[nextIndex], false);
+          return;
+        }
+
+        if (event.key === "-") {
+          event.preventDefault();
+          const index = SPEED_SEQUENCE.indexOf(app.stepsPerFrame);
+          const nextIndex = Math.max(0, index - 1);
+          setStepsPerFrame(SPEED_SEQUENCE[nextIndex], false);
+        }
+      }
+
+      function eventToGridPoint(event) {
+        const rect = app.canvas.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          return null;
+        }
+        const x = ((event.clientX - rect.left) / rect.width) * GRID_SIZE;
+        const y = ((event.clientY - rect.top) / rect.height) * GRID_SIZE;
+        return {
+          x: clamp(x, 0, GRID_SIZE - 1),
+          y: clamp(y, 0, GRID_SIZE - 1)
+        };
+      }
+
+      function toast(message) {
+        window.clearTimeout(app.toastTimer);
+        app.toast.textContent = message;
+        app.toast.classList.add("visible");
+        app.toastTimer = window.setTimeout(() => {
+          app.toast.classList.remove("visible");
+        }, 2000);
+      }
+
+      function showFallback(message) {
+        app.fallback.classList.add("visible");
+        const panel = document.getElementById("fallbackPanel");
+        const heading = panel.querySelector("h2");
+        const paragraph = panel.querySelector("p");
+        if (heading) {
+          heading.textContent = "Lenia Alive requires WebGL2";
+        }
+        if (paragraph) {
+          paragraph.textContent = message;
+        }
+      }
+
+      function getPresetByKey(key) {
+        const preset = PRESETS.find((item) => item.key === key);
+        if (!preset) {
+          throw new Error("Unknown preset: " + key);
+        }
+        return preset;
+      }
+
+      function nextRandomSeed() {
+        app.rngSeed = (app.rngSeed * 1664525 + 1013904223) >>> 0;
+        return app.rngSeed / 4294967295;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function formatInteger(value) {
+        return String(Math.round(value));
+      }
+
+      function formatDouble(value) {
+        return Number(value).toFixed(2);
+      }
+
+      function formatTriple(value) {
+        return Number(value).toFixed(3);
+      }
+    })();
+  </script>
+</body>
+</html>
