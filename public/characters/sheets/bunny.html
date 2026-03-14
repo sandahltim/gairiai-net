@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Benny the Bunny — Meet the Zoo Crew</title>
+    <meta name="description" content="Meet Benny the Bunny from the Zoo Crew: The Curious One." />
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --surface: #12121c;
+        --text: #f4f4f5;
+        --muted: #c7c9d1;
+        --accent: #ec4899;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        background: radial-gradient(circle at top, #171728 0%, var(--bg) 55%);
+        color: var(--text);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .sheet {
+        width: min(980px, 100%);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 28px;
+        background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 24px;
+        box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+      }
+      .media {
+        background: rgba(255,255,255,0.03);
+        border-radius: 24px;
+        border: 1px solid rgba(255,255,255,0.1);
+        padding: 16px;
+        display: grid;
+        place-items: center;
+      }
+      .media img {
+        width: min(100%, 360px);
+        min-width: 300px;
+        max-width: 420px;
+        height: auto;
+        object-fit: contain;
+        filter: drop-shadow(0 20px 30px rgba(0,0,0,0.4));
+      }
+      .content { display: grid; gap: 16px; }
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.95rem;
+        letter-spacing: 0.03em;
+      }
+      h1 { margin: 0; font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1.05; }
+      .title { margin: 4px 0 0; color: var(--accent); font-weight: 800; font-size: clamp(1.1rem, 4vw, 1.5rem); }
+      .story { margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 1.7; }
+      .traits { display: flex; flex-wrap: wrap; gap: 10px; }
+      .trait {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.18);
+        font-weight: 700;
+        font-size: 0.95rem;
+      }
+      .motto {
+        margin: 0;
+        font-size: clamp(1.4rem, 4.8vw, 2rem);
+        font-weight: 900;
+        color: var(--accent);
+      }
+      .motto span { color: var(--text); }
+      .accessory {
+        border-left: 4px solid var(--accent);
+        background: rgba(255,255,255,0.04);
+        border-radius: 12px;
+        padding: 12px 14px;
+        color: var(--muted);
+        font-size: 0.96rem;
+      }
+      footer {
+        margin-top: 8px;
+        color: rgba(255,255,255,0.76);
+        font-size: 0.9rem;
+      }
+      @media (min-width: 860px) {
+        .sheet {
+          grid-template-columns: minmax(330px, 0.92fr) 1.08fr;
+          padding: 30px;
+          align-items: start;
+        }
+        .content { padding-top: 6px; }
+      }
+      @media (max-width: 420px) {
+        .media img { min-width: 0; width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <article class="sheet">
+      <section class="media">
+        <img src="/characters/approved/bunny.png" alt="Benny the Bunny character portrait" />
+      </section>
+      <section class="content">
+        <div class="kicker">🐰 Meet the Zoo Crew</div>
+        <header>
+          <h1>Benny the Bunny</h1>
+          <p class="title">"The Curious One"</p>
+        </header>
+        <p class="story">Benny has never met a question he didn&#x27;t want to chase down the rabbit hole. His one flopped ear means he&#x27;s always tilting his head to get a better look at something interesting. The carrot is for energy — curiosity takes a lot of fuel.</p>
+        <div class="traits"><span class="trait" style="background:rgba(255,255,255,0.18);">Curious</span><span class="trait" style="background:rgba(255,255,255,0.12);">Imaginative</span><span class="trait" style="background:rgba(255,255,255,0.08);">Wonderstruck</span></div>
+        <p class="motto">"<span>Ask why. Then ask again.</span>"</p>
+        <div class="accessory"><strong>Signature accessory:</strong> Carrot</div>
+        <footer>🐾 Little Learners Studio · gairiai.net</footer>
+      </section>
+    </article>
+  </body>
+</html>
