@@ -1,0 +1,2001 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Beat Beast</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --text: #e4e4ed;
+      --muted: #9fa5bb;
+      --panel: rgba(10, 10, 20, 0.88);
+      --border: rgba(164, 180, 255, 0.2);
+      --playhead: rgba(255, 255, 255, 0.1);
+      --cyan: #00d4ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Courier New", Courier, monospace;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    body {
+      position: relative;
+    }
+
+    #gl {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #0a0a0f;
+      z-index: 0;
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .topbar {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 12px;
+      pointer-events: none;
+    }
+
+    .title-block {
+      pointer-events: auto;
+      max-width: min(72ch, 68vw);
+      text-shadow: 0 0 14px rgba(0, 212, 255, 0.28);
+    }
+
+    .title-line-1 {
+      margin: 0;
+      font-size: clamp(1.05rem, 2.8vw, 1.35rem);
+      letter-spacing: 0.08em;
+      text-transform: lowercase;
+      font-weight: 700;
+      color: #f7fbff;
+    }
+
+    .title-line-2,
+    .title-line-3 {
+      margin: 2px 0 0;
+      font-size: clamp(0.66rem, 2.2vw, 0.82rem);
+      color: var(--muted);
+      text-transform: lowercase;
+      line-height: 1.35;
+      letter-spacing: 0.05em;
+    }
+
+    .control-group {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+      width: min(360px, 90vw);
+      pointer-events: auto;
+    }
+
+    .slider-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+      background: rgba(6, 8, 14, 0.55);
+      border: 1px solid rgba(125, 140, 214, 0.22);
+      border-radius: 12px;
+      padding: 8px 10px;
+      backdrop-filter: blur(10px);
+    }
+
+    .slider-row label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: lowercase;
+    }
+
+    .slider-row output {
+      font-size: 0.85rem;
+      min-width: 42px;
+      text-align: right;
+      color: #f5fbff;
+      font-weight: 700;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #00b8dd;
+      background: transparent;
+    }
+
+    .action-stack {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      pointer-events: auto;
+      min-width: 128px;
+    }
+
+    .ghost-btn {
+      appearance: none;
+      border: 1px solid rgba(156, 173, 255, 0.26);
+      border-radius: 12px;
+      background: rgba(6, 10, 18, 0.75);
+      color: #eff7ff;
+      font: inherit;
+      text-transform: lowercase;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 11px 14px;
+      min-height: 44px;
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      box-shadow: 0 0 0 rgba(0, 212, 255, 0);
+    }
+
+    .ghost-btn:hover,
+    .ghost-btn:focus-visible {
+      outline: none;
+      border-color: rgba(0, 212, 255, 0.78);
+      transform: translateY(-1px);
+      box-shadow: 0 0 18px rgba(0, 212, 255, 0.26);
+    }
+
+    .ghost-btn[data-playing="true"] {
+      border-color: rgba(255, 0, 110, 0.82);
+      box-shadow: 0 0 20px rgba(255, 0, 110, 0.24);
+    }
+
+    .sequencer-panel {
+      pointer-events: auto;
+      width: 100%;
+      min-height: 42vh;
+      max-height: 48vh;
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -14px 60px rgba(4, 8, 18, 0.72);
+      padding: 12px 10px 10px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 8px;
+      touch-action: pan-y;
+    }
+
+    .steps-header {
+      display: grid;
+      grid-template-columns: 68px repeat(16, minmax(32px, 1fr));
+      gap: 6px;
+      align-items: center;
+      color: #95a7d3;
+      font-size: 0.55rem;
+      user-select: none;
+      text-transform: lowercase;
+      letter-spacing: 0.06em;
+    }
+
+    .step-marker {
+      text-align: center;
+      padding: 4px 0;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      transition: background-color 0.12s ease, color 0.12s ease;
+    }
+
+    .step-marker.playhead {
+      background: rgba(255, 255, 255, 0.14);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      overflow-x: auto;
+      overflow-y: auto;
+      padding-bottom: 4px;
+    }
+
+    .voice-row {
+      display: grid;
+      grid-template-columns: 68px repeat(16, minmax(32px, 1fr));
+      gap: 6px;
+      align-items: center;
+      min-width: 720px;
+    }
+
+    .voice-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      text-transform: lowercase;
+      font-weight: 700;
+      color: #d8def4;
+      opacity: 0.96;
+      text-align: right;
+      padding-right: 4px;
+      user-select: none;
+    }
+
+    .seq-cell {
+      appearance: none;
+      border: 1px solid rgba(121, 137, 220, 0.24);
+      border-radius: 10px;
+      background: rgba(12, 14, 24, 0.9);
+      color: transparent;
+      min-height: 40px;
+      min-width: 36px;
+      cursor: pointer;
+      transition: transform 0.09s ease, filter 0.16s ease, box-shadow 0.2s ease, border-color 0.16s ease;
+      outline: none;
+      position: relative;
+      overflow: hidden;
+      touch-action: manipulation;
+    }
+
+    .seq-cell::after {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: 7px;
+      background: transparent;
+      transition: opacity 0.12s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .seq-cell:hover,
+    .seq-cell:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(181, 199, 255, 0.44);
+    }
+
+    .seq-cell.level-0 {
+      background: rgba(12, 14, 24, 0.88);
+      box-shadow: inset 0 0 0 1px rgba(8, 8, 16, 0.7);
+    }
+
+    .seq-cell.level-1::after,
+    .seq-cell.level-2::after,
+    .seq-cell.level-3::after {
+      opacity: 1;
+    }
+
+    .seq-cell.level-1::after {
+      filter: brightness(0.75);
+    }
+
+    .seq-cell.level-2::after {
+      filter: brightness(0.95);
+    }
+
+    .seq-cell.level-3 {
+      border-color: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 0 14px rgba(255, 255, 255, 0.2);
+    }
+
+    .seq-cell.level-3::after {
+      filter: brightness(1.18);
+    }
+
+    .seq-cell.playhead {
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 16px rgba(255, 255, 255, 0.16);
+      transform: translateY(-1px);
+    }
+
+    .hint {
+      color: #9da5be;
+      font-size: 0.7rem;
+      line-height: 1.45;
+      letter-spacing: 0.04em;
+      text-transform: lowercase;
+      user-select: none;
+      text-align: center;
+      padding: 2px 6px 4px;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .action-stack {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        min-width: 0;
+      }
+
+      .ghost-btn {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 0.83rem;
+      }
+
+      .sequencer-panel {
+        min-height: 44vh;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .title-line-1 {
+        font-size: 0.96rem;
+      }
+
+      .title-line-2,
+      .title-line-3 {
+        font-size: 0.61rem;
+      }
+
+      .voice-row,
+      .steps-header {
+        grid-template-columns: 58px repeat(16, minmax(34px, 1fr));
+      }
+
+      .voice-label {
+        font-size: 0.58rem;
+      }
+
+      .seq-cell {
+        min-height: 38px;
+      }
+
+      .hint {
+        font-size: 0.64rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <div id="overlay">
+    <header class="topbar">
+      <div class="title-block">
+        <p class="title-line-1">beat beast</p>
+        <p class="title-line-2">program rhythm. animate a glowing procedural creature.</p>
+        <p class="title-line-3">eight voices × sixteen steps. physics + synthesis + shader glow.</p>
+
+        <div class="control-group" role="group" aria-label="tempo controls">
+          <div class="slider-row">
+            <label for="bpm">bpm</label>
+            <input id="bpm" type="range" min="60" max="180" step="1" value="118" aria-label="tempo in beats per minute" />
+            <output id="bpmOut" for="bpm">118</output>
+          </div>
+          <div class="slider-row">
+            <label for="swing">swing</label>
+            <input id="swing" type="range" min="0" max="50" step="1" value="16" aria-label="swing amount" />
+            <output id="swingOut" for="swing">16%</output>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-stack" role="group" aria-label="transport controls">
+        <button id="playBtn" class="ghost-btn" type="button" aria-label="toggle playback">play</button>
+        <button id="randomBtn" class="ghost-btn" type="button" aria-label="randomize creature">randomize</button>
+        <button id="clearBtn" class="ghost-btn" type="button" aria-label="clear pattern">clear</button>
+      </div>
+    </header>
+
+    <section class="sequencer-panel" aria-label="drum sequencer">
+      <div id="stepsHeader" class="steps-header" aria-hidden="true"></div>
+      <div id="grid" role="grid" aria-label="8 by 16 beat grid"></div>
+      <div class="hint">space: play/stop · r: randomize · c: clear · tap: toggle · hold/right-click: velocity 40/80/127</div>
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const VOICES = [
+        { name: 'kick', colorHex: '#ff006e', rgb: [1.0, 0.0, 0.431], pan: 0.0 },
+        { name: 'snare', colorHex: '#ffd60a', rgb: [1.0, 0.839, 0.039], pan: -0.05 },
+        { name: 'hi-hat', colorHex: '#00ff88', rgb: [0.0, 1.0, 0.533], pan: 0.12 },
+        { name: 'open hat', colorHex: '#38bdf8', rgb: [0.219, 0.741, 0.972], pan: 0.2 },
+        { name: 'tom lo', colorHex: '#a855f7', rgb: [0.658, 0.333, 0.968], pan: -0.15 },
+        { name: 'tom hi', colorHex: '#f97316', rgb: [0.976, 0.451, 0.086], pan: 0.14 },
+        { name: 'clap', colorHex: '#ffffff', rgb: [1.0, 1.0, 1.0], pan: -0.1 },
+        { name: 'perc', colorHex: '#06b6d4', rgb: [0.023, 0.714, 0.831], pan: 0.08 }
+      ];
+
+      const STEPS = 16;
+      const VOICE_COUNT = VOICES.length;
+      const VELOCITY_LEVELS = [0, 40, 80, 127];
+      const MAX_NODES = 28;
+      const MAX_CONSTRAINTS = 55;
+      const PULSE_MS = 320;
+
+      const canvas = document.getElementById('gl');
+      const playBtn = document.getElementById('playBtn');
+      const randomBtn = document.getElementById('randomBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const bpmInput = document.getElementById('bpm');
+      const swingInput = document.getElementById('swing');
+      const bpmOut = document.getElementById('bpmOut');
+      const swingOut = document.getElementById('swingOut');
+      const grid = document.getElementById('grid');
+      const stepsHeader = document.getElementById('stepsHeader');
+      const panel = document.querySelector('.sequencer-panel');
+
+      const seq = {
+        pattern: Array.from({ length: VOICE_COUNT }, () => new Uint8Array(STEPS)),
+        cells: Array.from({ length: VOICE_COUNT }, () => Array(STEPS).fill(null)),
+        stepMarkers: [],
+        playing: false,
+        bpm: Number(bpmInput.value),
+        swing: Number(swingInput.value),
+        step: 0,
+        nextStepTime: 0,
+        lookaheadTimer: null,
+        scheduleAheadSec: 0.1,
+        lookaheadMs: 25
+      };
+
+      const pointer = {
+        active: false,
+        x: 0,
+        y: 0
+      };
+
+      const creature = {
+        nodes: [],
+        constraints: [],
+        glowPulses: [],
+        dissolveUntil: 0,
+        centerX: 0,
+        centerY: 0,
+        lastWidth: 0,
+        lastHeight: 0,
+        seed: Math.random()
+      };
+
+      const renderState = {
+        mode: 'webgl',
+        lastFrameMs: performance.now(),
+        energy: 0,
+        pulseMap: null
+      };
+
+      const audio = {
+        ctx: null,
+        master: null,
+        limiter: null,
+        analyser: null,
+        fftData: null,
+        noiseShort: null,
+        noiseLong: null,
+        ready: false
+      };
+
+      const glState = {
+        gl: null,
+        bgProgram: null,
+        bgAttrib: null,
+        bgUniforms: null,
+        bgBuffer: null,
+        pointProgram: null,
+        pointAttrib: null,
+        pointUniforms: null,
+        pointPosBuffer: null,
+        pointSizeBuffer: null,
+        pointColorBuffer: null,
+        lineProgram: null,
+        lineAttrib: null,
+        lineUniforms: null,
+        linePosBuffer: null,
+        lineColorBuffer: null
+      };
+
+      const fallback = {
+        ctx2d: null
+      };
+
+      function clamp(value, min, max) {
+        if (value < min) return min;
+        if (value > max) return max;
+        return value;
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function seededRng(seed) {
+        let t = Math.floor(seed * 4294967295) ^ 0x6f7a3b1d;
+        return () => {
+          t += 0x6d2b79f5;
+          let v = Math.imul(t ^ (t >>> 15), 1 | t);
+          v ^= v + Math.imul(v ^ (v >>> 7), 61 | v);
+          return ((v ^ (v >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function buildStepsHeader() {
+        const blank = document.createElement('div');
+        blank.className = 'step-marker';
+        blank.textContent = 'voice';
+        stepsHeader.appendChild(blank);
+
+        for (let s = 0; s < STEPS; s += 1) {
+          const marker = document.createElement('div');
+          marker.className = 'step-marker';
+          marker.textContent = String(s + 1);
+          stepsHeader.appendChild(marker);
+          seq.stepMarkers.push(marker);
+        }
+      }
+
+      function velocityToLevel(velocity) {
+        if (velocity <= 0) return 0;
+        if (velocity <= 40) return 1;
+        if (velocity <= 80) return 2;
+        return 3;
+      }
+
+      function cycleVelocity(current) {
+        const idx = VELOCITY_LEVELS.indexOf(current);
+        if (idx === -1) return VELOCITY_LEVELS[1];
+        return VELOCITY_LEVELS[(idx + 1) % VELOCITY_LEVELS.length];
+      }
+
+      function applyCellVisual(voice, step) {
+        const cell = seq.cells[voice][step];
+        if (!cell) return;
+
+        const velocity = seq.pattern[voice][step];
+        const level = velocityToLevel(velocity);
+
+        cell.classList.remove('level-0', 'level-1', 'level-2', 'level-3');
+        cell.classList.add(`level-${level}`);
+
+        const color = VOICES[voice].colorHex;
+        if (level === 0) {
+          cell.style.backgroundColor = 'rgba(12, 14, 24, 0.88)';
+          cell.style.boxShadow = 'inset 0 0 0 1px rgba(8,8,16,0.68)';
+          cell.style.borderColor = 'rgba(121, 137, 220, 0.24)';
+        } else if (level === 1) {
+          cell.style.backgroundColor = 'rgba(12, 14, 24, 0.92)';
+          cell.style.boxShadow = `0 0 10px ${hexToRgba(color, 0.18)}`;
+          cell.style.borderColor = hexToRgba(color, 0.45);
+          cell.style.setProperty('--cell-fill', hexToRgba(color, 0.55));
+        } else if (level === 2) {
+          cell.style.backgroundColor = 'rgba(14, 16, 26, 0.94)';
+          cell.style.boxShadow = `0 0 14px ${hexToRgba(color, 0.26)}`;
+          cell.style.borderColor = hexToRgba(color, 0.58);
+          cell.style.setProperty('--cell-fill', hexToRgba(color, 0.76));
+        } else {
+          cell.style.backgroundColor = 'rgba(16, 17, 26, 0.98)';
+          cell.style.boxShadow = `0 0 18px ${hexToRgba(color, 0.38)}`;
+          cell.style.borderColor = 'rgba(255,255,255,0.84)';
+          cell.style.setProperty('--cell-fill', hexToRgba(color, 1));
+        }
+
+        cell.style.setProperty('--voice-color', color);
+        cell.style.setProperty('--velocity', String(velocity));
+        cell.setAttribute('aria-pressed', velocity > 0 ? 'true' : 'false');
+        cell.setAttribute('aria-label', `${VOICES[voice].name}, step ${step + 1}, velocity ${velocity}`);
+      }
+
+      function hexToRgba(hex, alpha) {
+        const normalized = hex.replace('#', '');
+        const r = parseInt(normalized.substring(0, 2), 16);
+        const g = parseInt(normalized.substring(2, 4), 16);
+        const b = parseInt(normalized.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function setPlayhead(step) {
+        for (let m = 0; m < seq.stepMarkers.length; m += 1) {
+          seq.stepMarkers[m].classList.toggle('playhead', m === step);
+        }
+
+        for (let v = 0; v < VOICE_COUNT; v += 1) {
+          for (let s = 0; s < STEPS; s += 1) {
+            const cell = seq.cells[v][s];
+            if (!cell) continue;
+            cell.classList.toggle('playhead', s === step && seq.playing);
+          }
+        }
+      }
+
+      function buildSequencerGrid() {
+        for (let v = 0; v < VOICE_COUNT; v += 1) {
+          const row = document.createElement('div');
+          row.className = 'voice-row';
+          row.setAttribute('role', 'row');
+
+          const label = document.createElement('div');
+          label.className = 'voice-label';
+          label.textContent = VOICES[v].name;
+          label.style.color = VOICES[v].colorHex;
+          row.appendChild(label);
+
+          for (let s = 0; s < STEPS; s += 1) {
+            const cell = document.createElement('button');
+            cell.type = 'button';
+            cell.className = 'seq-cell level-0';
+            cell.setAttribute('role', 'gridcell');
+            cell.dataset.voice = String(v);
+            cell.dataset.step = String(s);
+            cell.dataset.holdTriggered = '0';
+            cell.style.setProperty('--cell-fill', 'transparent');
+
+            let holdTimer = null;
+
+            cell.addEventListener('click', (event) => {
+              if (cell.dataset.holdTriggered === '1') {
+                event.preventDefault();
+                cell.dataset.holdTriggered = '0';
+                return;
+              }
+              toggleCell(v, s);
+            });
+
+            cell.addEventListener('contextmenu', (event) => {
+              event.preventDefault();
+              cycleCellVelocity(v, s);
+            });
+
+            cell.addEventListener('pointerdown', (event) => {
+              if (event.pointerType === 'touch') {
+                holdTimer = window.setTimeout(() => {
+                  cell.dataset.holdTriggered = '1';
+                  cycleCellVelocity(v, s);
+                }, 450);
+              }
+            });
+
+            cell.addEventListener('pointerup', () => {
+              if (holdTimer !== null) {
+                window.clearTimeout(holdTimer);
+                holdTimer = null;
+              }
+            });
+
+            cell.addEventListener('pointercancel', () => {
+              if (holdTimer !== null) {
+                window.clearTimeout(holdTimer);
+                holdTimer = null;
+              }
+            });
+
+            seq.cells[v][s] = cell;
+            row.appendChild(cell);
+          }
+
+          grid.appendChild(row);
+        }
+
+        for (let s = 0; s < STEPS; s += 1) {
+          seq.pattern[0][s] = (s % 4 === 0) ? 127 : 0;
+        }
+
+        for (let v = 0; v < VOICE_COUNT; v += 1) {
+          for (let s = 0; s < STEPS; s += 1) {
+            applyCellVisual(v, s);
+          }
+        }
+
+        setPlayhead(0);
+      }
+
+      function toggleCell(voice, step) {
+        const current = seq.pattern[voice][step];
+        const next = current > 0 ? 0 : 80;
+        seq.pattern[voice][step] = next;
+        applyCellVisual(voice, step);
+
+        if (next > 0) {
+          triggerPreview(voice, next);
+          applyImpulse(voice, next);
+        }
+      }
+
+      function cycleCellVelocity(voice, step) {
+        const current = seq.pattern[voice][step];
+        const next = cycleVelocity(current);
+        seq.pattern[voice][step] = next;
+        applyCellVisual(voice, step);
+
+        if (next > 0) {
+          triggerPreview(voice, next);
+          applyImpulse(voice, next);
+        }
+      }
+
+      function clearPattern() {
+        for (let v = 0; v < VOICE_COUNT; v += 1) {
+          for (let s = 0; s < STEPS; s += 1) {
+            seq.pattern[v][s] = 0;
+            applyCellVisual(v, s);
+          }
+        }
+      }
+
+      function ensureAudio() {
+        if (audio.ready) return true;
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return false;
+
+        audio.ctx = new AudioCtx();
+        audio.master = audio.ctx.createGain();
+        audio.master.gain.value = 0.85;
+
+        audio.limiter = audio.ctx.createDynamicsCompressor();
+        audio.limiter.threshold.value = -14;
+        audio.limiter.knee.value = 14;
+        audio.limiter.ratio.value = 3;
+        audio.limiter.attack.value = 0.003;
+        audio.limiter.release.value = 0.25;
+
+        audio.analyser = audio.ctx.createAnalyser();
+        audio.analyser.fftSize = 256;
+        audio.analyser.smoothingTimeConstant = 0.85;
+        audio.fftData = new Uint8Array(audio.analyser.frequencyBinCount);
+
+        audio.master.connect(audio.limiter);
+        audio.limiter.connect(audio.analyser);
+        audio.analyser.connect(audio.ctx.destination);
+
+        audio.noiseShort = createNoiseBuffer(audio.ctx, 0.25);
+        audio.noiseLong = createNoiseBuffer(audio.ctx, 0.6);
+
+        audio.ready = true;
+        return true;
+      }
+
+      function createNoiseBuffer(ctx, duration) {
+        const length = Math.floor(ctx.sampleRate * duration);
+        const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < length; i += 1) {
+          data[i] = (Math.random() * 2 - 1) * (1 - i / length * 0.35);
+        }
+
+        return buffer;
+      }
+
+      function triggerPreview(voice, velocity) {
+        if (!ensureAudio()) return;
+        if (!audio.ctx) return;
+
+        if (audio.ctx.state === 'suspended') {
+          audio.ctx.resume().catch(() => {});
+        }
+
+        playVoice(voice, audio.ctx.currentTime + 0.005, velocity);
+      }
+
+      function createVoiceGain(velocity, scalar) {
+        if (!audio.ctx || !audio.master) return null;
+        const gainNode = audio.ctx.createGain();
+        gainNode.gain.value = clamp((velocity / 127) * scalar, 0.01, 1.9);
+
+        const panner = audio.ctx.createStereoPanner();
+        panner.pan.value = VOICES[scalar.voiceIndex || 0]?.pan || 0;
+
+        gainNode.connect(panner);
+        panner.connect(audio.master);
+        return { gainNode, panner };
+      }
+
+      function playVoice(voice, when, velocity) {
+        if (!audio.ctx || !audio.master) return;
+
+        if (voice === 0) {
+          synthKick(when, velocity);
+        } else if (voice === 1) {
+          synthSnare(when, velocity);
+        } else if (voice === 2) {
+          synthHat(when, velocity, false);
+        } else if (voice === 3) {
+          synthHat(when, velocity, true);
+        } else if (voice === 4) {
+          synthTom(when, velocity, false);
+        } else if (voice === 5) {
+          synthTom(when, velocity, true);
+        } else if (voice === 6) {
+          synthClap(when, velocity);
+        } else {
+          synthPerc(when, velocity);
+        }
+      }
+
+      function connectVoiceNode(node, voice) {
+        if (!audio.ctx || !audio.master) return;
+
+        const panner = audio.ctx.createStereoPanner();
+        panner.pan.value = VOICES[voice].pan;
+        node.connect(panner);
+        panner.connect(audio.master);
+      }
+
+      function synthKick(time, velocity) {
+        if (!audio.ctx) return;
+
+        const osc = audio.ctx.createOscillator();
+        const gain = audio.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(80, time);
+        osc.frequency.exponentialRampToValueAtTime(20, time + 0.25);
+
+        gain.gain.setValueAtTime((velocity / 127) * 1.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+
+        osc.connect(gain);
+        connectVoiceNode(gain, 0);
+
+        osc.start(time);
+        osc.stop(time + 0.36);
+      }
+
+      function synthSnare(time, velocity) {
+        if (!audio.ctx || !audio.noiseShort) return;
+
+        const src = audio.ctx.createBufferSource();
+        src.buffer = audio.noiseShort;
+
+        const band = audio.ctx.createBiquadFilter();
+        band.type = 'bandpass';
+        band.frequency.value = 200;
+        band.Q.value = 0.8;
+
+        const gain = audio.ctx.createGain();
+        gain.gain.setValueAtTime((velocity / 127) * 0.9, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+
+        src.connect(band);
+        band.connect(gain);
+        connectVoiceNode(gain, 1);
+
+        src.start(time);
+        src.stop(time + 0.2);
+      }
+
+      function synthHat(time, velocity, open) {
+        if (!audio.ctx || !audio.noiseLong) return;
+
+        const src = audio.ctx.createBufferSource();
+        src.buffer = audio.noiseLong;
+
+        const hp = audio.ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = open ? 6000 : 8000;
+        hp.Q.value = 0.45;
+
+        const gain = audio.ctx.createGain();
+        const decay = open ? 0.38 : 0.08;
+        const amp = open ? 0.6 : 0.48;
+        gain.gain.setValueAtTime((velocity / 127) * amp, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
+        src.connect(hp);
+        hp.connect(gain);
+        connectVoiceNode(gain, open ? 3 : 2);
+
+        src.start(time);
+        src.stop(time + decay + 0.03);
+      }
+
+      function synthTom(time, velocity, hi) {
+        if (!audio.ctx) return;
+
+        const osc = audio.ctx.createOscillator();
+        const gain = audio.ctx.createGain();
+
+        const start = hi ? 160 : 100;
+        const end = hi ? 70 : 50;
+        const fDecay = hi ? 0.16 : 0.22;
+        const aDecay = hi ? 0.2 : 0.28;
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(start, time);
+        osc.frequency.exponentialRampToValueAtTime(end, time + fDecay);
+
+        gain.gain.setValueAtTime((velocity / 127) * 0.85, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + aDecay);
+
+        osc.connect(gain);
+        connectVoiceNode(gain, hi ? 5 : 4);
+
+        osc.start(time);
+        osc.stop(time + aDecay + 0.03);
+      }
+
+      function synthClap(time, velocity) {
+        if (!audio.ctx || !audio.noiseShort) return;
+
+        const offsets = [0, 0.012, 0.022];
+        for (let i = 0; i < offsets.length; i += 1) {
+          const src = audio.ctx.createBufferSource();
+          src.buffer = audio.noiseShort;
+
+          const band = audio.ctx.createBiquadFilter();
+          band.type = 'bandpass';
+          band.frequency.value = 1100;
+          band.Q.value = 1.5;
+
+          const gain = audio.ctx.createGain();
+          const start = time + offsets[i];
+          gain.gain.setValueAtTime((velocity / 127) * 0.42, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.1);
+
+          src.connect(band);
+          band.connect(gain);
+          connectVoiceNode(gain, 6);
+
+          src.start(start);
+          src.stop(start + 0.12);
+        }
+      }
+
+      function synthPerc(time, velocity) {
+        if (!audio.ctx) return;
+
+        const osc = audio.ctx.createOscillator();
+        const gain = audio.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(500, time);
+        osc.frequency.exponentialRampToValueAtTime(200, time + 0.07);
+
+        gain.gain.setValueAtTime((velocity / 127) * 0.55, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.09);
+
+        osc.connect(gain);
+        connectVoiceNode(gain, 7);
+
+        osc.start(time);
+        osc.stop(time + 0.1);
+      }
+
+      function stepDurationSec() {
+        return 60 / seq.bpm / 4;
+      }
+
+      function advanceStep() {
+        const base = stepDurationSec();
+        const swing = (seq.step % 2 === 1) ? (seq.swing / 100) * base : 0;
+        seq.nextStepTime += base + swing;
+        seq.step = (seq.step + 1) % STEPS;
+        setPlayhead(seq.step);
+      }
+
+      function scheduleCurrentStep(when) {
+        const step = seq.step;
+
+        for (let voice = 0; voice < VOICE_COUNT; voice += 1) {
+          const velocity = seq.pattern[voice][step];
+          if (velocity <= 0) continue;
+
+          playVoice(voice, when, velocity);
+          applyImpulse(voice, velocity);
+          addGlowPulseForVoice(voice, velocity);
+        }
+      }
+
+      function schedulerTick() {
+        if (!seq.playing) return;
+        if (!audio.ctx) return;
+
+        const now = audio.ctx.currentTime;
+        while (seq.nextStepTime < now + seq.scheduleAheadSec) {
+          scheduleCurrentStep(seq.nextStepTime);
+          advanceStep();
+        }
+      }
+
+      function startSequencer() {
+        if (!ensureAudio()) return;
+        if (!audio.ctx) return;
+
+        if (audio.ctx.state === 'suspended') {
+          audio.ctx.resume().catch(() => {});
+        }
+
+        seq.playing = true;
+        seq.step = 0;
+        seq.nextStepTime = audio.ctx.currentTime + 0.01;
+
+        if (seq.lookaheadTimer !== null) {
+          window.clearInterval(seq.lookaheadTimer);
+        }
+        seq.lookaheadTimer = window.setInterval(schedulerTick, seq.lookaheadMs);
+
+        playBtn.textContent = 'stop';
+        playBtn.dataset.playing = 'true';
+        playBtn.setAttribute('aria-pressed', 'true');
+        setPlayhead(seq.step);
+      }
+
+      function stopSequencer() {
+        seq.playing = false;
+
+        if (seq.lookaheadTimer !== null) {
+          window.clearInterval(seq.lookaheadTimer);
+          seq.lookaheadTimer = null;
+        }
+
+        playBtn.textContent = 'play';
+        playBtn.dataset.playing = 'false';
+        playBtn.setAttribute('aria-pressed', 'false');
+
+        for (let v = 0; v < VOICE_COUNT; v += 1) {
+          for (let s = 0; s < STEPS; s += 1) {
+            const cell = seq.cells[v][s];
+            if (cell) cell.classList.remove('playhead');
+          }
+        }
+
+        for (let i = 0; i < seq.stepMarkers.length; i += 1) {
+          seq.stepMarkers[i].classList.remove('playhead');
+        }
+      }
+
+      function togglePlay() {
+        if (seq.playing) {
+          stopSequencer();
+        } else {
+          startSequencer();
+        }
+      }
+
+      function nodeColorForVoice(voiceIndex) {
+        const rgb = VOICES[voiceIndex]?.rgb || [0.0, 0.831, 1.0];
+        return { r: rgb[0], g: rgb[1], b: rgb[2] };
+      }
+
+      function createNode(x, y, voiceIndex, mass, radius) {
+        const color = nodeColorForVoice(voiceIndex);
+        return {
+          x,
+          y,
+          px: x,
+          py: y,
+          mass,
+          radius,
+          voiceIndex,
+          r: color.r,
+          g: color.g,
+          b: color.b
+        };
+      }
+
+      function tryAddConstraint(a, b, restLength, stiffness) {
+        if (creature.constraints.length >= MAX_CONSTRAINTS) return;
+        if (a === b) return;
+        creature.constraints.push({ a, b, restLength, stiffness });
+      }
+
+      function generateCreature(seed = Math.random()) {
+        creature.seed = seed;
+        const rnd = seededRng(seed);
+
+        creature.nodes = [];
+        creature.constraints = [];
+        creature.glowPulses = [];
+
+        const w = canvas.clientWidth || window.innerWidth;
+        const h = canvas.clientHeight || window.innerHeight;
+        creature.centerX = w * 0.5;
+        creature.centerY = h * 0.31;
+
+        const spineCount = 4 + Math.floor(rnd() * 3);
+        const spineSpacing = 35 + rnd() * 20;
+
+        const spineIndexes = [];
+
+        for (let i = 0; i < spineCount; i += 1) {
+          const y = creature.centerY - ((spineCount - 1) * spineSpacing) / 2 + i * spineSpacing;
+          const voiceIndex = i < 2 ? 0 : 1;
+          const mass = 0.95 + rnd() * 0.25;
+          const radius = 4 + rnd() * 2.5;
+          const node = createNode(creature.centerX, y, voiceIndex, mass, radius);
+          creature.nodes.push(node);
+          spineIndexes.push(creature.nodes.length - 1);
+
+          if (i > 0) {
+            tryAddConstraint(spineIndexes[i - 1], spineIndexes[i], spineSpacing, 0.8);
+          }
+        }
+
+        for (let s = 0; s < spineIndexes.length; s += 1) {
+          const baseIndex = spineIndexes[s];
+          const branchCount = Math.floor(rnd() * 3);
+
+          for (let b = 0; b < branchCount; b += 1) {
+            const side = b % 2 === 0 ? -1 : 1;
+            const angle = side * (Math.PI / 4 + rnd() * Math.PI / 3);
+            let prev = baseIndex;
+            const segCount = 1 + Math.floor(rnd() * 3);
+
+            for (let depth = 1; depth <= segCount; depth += 1) {
+              if (creature.nodes.length >= MAX_NODES) break;
+
+              const dist = 28 + rnd() * 32;
+              const nx = creature.nodes[prev].x + Math.cos(angle + (rnd() - 0.5) * 0.26) * dist;
+              const ny = creature.nodes[prev].y + Math.sin(angle + (rnd() - 0.5) * 0.22) * dist;
+
+              let voiceIndex = 7;
+              if (depth === 1) {
+                voiceIndex = side < 0 ? 2 : 3;
+              } else if (depth === 2) {
+                voiceIndex = side < 0 ? 4 : 5;
+              } else {
+                voiceIndex = side < 0 ? 6 : 7;
+              }
+
+              const node = createNode(nx, ny, voiceIndex, 0.6 + rnd() * 0.8, 3.6 + rnd() * 2.2);
+              creature.nodes.push(node);
+
+              const idx = creature.nodes.length - 1;
+              tryAddConstraint(prev, idx, dist, 0.4 + rnd() * 0.4);
+              prev = idx;
+            }
+          }
+        }
+
+        const crossCount = 2 + Math.floor(rnd() * 3);
+        for (let c = 0; c < crossCount; c += 1) {
+          const a = spineIndexes[Math.floor(rnd() * spineIndexes.length)];
+          const b = spineIndexes[Math.floor(rnd() * spineIndexes.length)];
+          if (a === b) continue;
+
+          const na = creature.nodes[a];
+          const nb = creature.nodes[b];
+          if (!na || !nb) continue;
+
+          const dx = nb.x - na.x;
+          const dy = nb.y - na.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 4) {
+            tryAddConstraint(a, b, dist, 0.26 + rnd() * 0.24);
+          }
+        }
+
+        if (creature.nodes.length > MAX_NODES) {
+          creature.nodes.length = MAX_NODES;
+          creature.constraints = creature.constraints.filter((c) => c.a < MAX_NODES && c.b < MAX_NODES);
+        }
+
+        if (creature.constraints.length > MAX_CONSTRAINTS) {
+          creature.constraints.length = MAX_CONSTRAINTS;
+        }
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const n = creature.nodes[i];
+          n.x += (rnd() - 0.5) * 6;
+          n.y += (rnd() - 0.5) * 6;
+          n.px = n.x - (rnd() - 0.5) * 2;
+          n.py = n.y - (rnd() - 0.5) * 2;
+        }
+      }
+
+      function addGlowPulse(index, voiceColor, velocity) {
+        creature.glowPulses.push({
+          nodeIndex: index,
+          startedAt: performance.now(),
+          voiceColor,
+          velocity
+        });
+
+        if (creature.glowPulses.length > 420) {
+          creature.glowPulses.splice(0, creature.glowPulses.length - 420);
+        }
+      }
+
+      function addGlowPulseForVoice(voice, velocity) {
+        const color = VOICES[voice].rgb;
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const node = creature.nodes[i];
+          if (node.voiceIndex !== voice) continue;
+          addGlowPulse(i, color, velocity);
+        }
+      }
+
+      function applyImpulse(voice, velocity) {
+        const tempoScale = Math.pow(120 / seq.bpm, 0.34);
+        const forceBase = 0.18 * tempoScale;
+        const velocityScale = 0.35 + (velocity / 127) * 0.95;
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const node = creature.nodes[i];
+          if (node.voiceIndex !== voice) continue;
+
+          const angle = Math.random() * Math.PI * 2;
+          const magnitude = forceBase * velocityScale * (0.7 + Math.random() * 0.8);
+          const impulseX = Math.cos(angle) * magnitude;
+          const impulseY = Math.sin(angle) * magnitude;
+
+          const vx = node.x - node.px;
+          const vy = node.y - node.py;
+
+          node.px = node.x - (vx + impulseX);
+          node.py = node.y - (vy + impulseY);
+
+          addGlowPulse(i, VOICES[voice].rgb, velocity);
+        }
+      }
+
+      function randomizeCreature() {
+        const now = performance.now();
+        creature.dissolveUntil = now + 400;
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const node = creature.nodes[i];
+          const angle = Math.random() * Math.PI * 2;
+          const burst = 3 + Math.random() * 5;
+          const vx = Math.cos(angle) * burst;
+          const vy = Math.sin(angle) * burst;
+
+          node.px = node.x - vx;
+          node.py = node.y - vy;
+        }
+
+        window.setTimeout(() => {
+          generateCreature(Math.random());
+        }, 420);
+      }
+
+      function updatePulseMap(nowMs) {
+        const map = new Float32Array(creature.nodes.length);
+        const active = [];
+
+        for (let i = 0; i < creature.glowPulses.length; i += 1) {
+          const pulse = creature.glowPulses[i];
+          const age = nowMs - pulse.startedAt;
+          if (age > PULSE_MS) continue;
+
+          const t = 1 - age / PULSE_MS;
+          const amp = clamp((pulse.velocity / 127) * t, 0, 1.4);
+          map[pulse.nodeIndex] += amp;
+          active.push(pulse);
+        }
+
+        creature.glowPulses = active;
+        renderState.pulseMap = map;
+      }
+
+      function applyIdleAndIntegrate(deltaMs) {
+        const dt = clamp(deltaMs, 8, 24) / 16.6667;
+        const damping = 0.985;
+        const panelTop = panel.getBoundingClientRect().top;
+        const minX = 14;
+        const maxX = window.innerWidth - 14;
+        const minY = 14;
+        const maxY = Math.max(60, panelTop - 14);
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const n = creature.nodes[i];
+
+          let vx = (n.x - n.px) * damping;
+          let vy = (n.y - n.py) * damping;
+
+          const noise = 0.12 + (n.voiceIndex * 0.015);
+          vx += (Math.random() - 0.5) * noise;
+          vy += (Math.random() - 0.5) * noise;
+
+          n.px = n.x;
+          n.py = n.y;
+
+          n.x += vx * dt;
+          n.y += vy * dt;
+
+          if (n.x < minX) {
+            n.x = minX;
+            n.px = n.x + vx * -0.35;
+          } else if (n.x > maxX) {
+            n.x = maxX;
+            n.px = n.x + vx * -0.35;
+          }
+
+          if (n.y < minY) {
+            n.y = minY;
+            n.py = n.y + vy * -0.35;
+          } else if (n.y > maxY) {
+            n.y = maxY;
+            n.py = n.y + vy * -0.35;
+          }
+        }
+
+        if (pointer.active) {
+          applyPointerAttraction();
+        }
+      }
+
+      function applyPointerAttraction() {
+        let closest = -1;
+        let closestDist = 999999;
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const n = creature.nodes[i];
+          const dx = pointer.x - n.x;
+          const dy = pointer.y - n.y;
+          const d = Math.hypot(dx, dy);
+          if (d < closestDist) {
+            closestDist = d;
+            closest = i;
+          }
+        }
+
+        if (closest >= 0 && closestDist < 120) {
+          const n = creature.nodes[closest];
+          n.x += (pointer.x - n.x) * 0.04;
+          n.y += (pointer.y - n.y) * 0.04;
+        }
+      }
+
+      function solveConstraints(deltaMs) {
+        const iterations = deltaMs > 50 ? 6 : 10;
+
+        for (let iter = 0; iter < iterations; iter += 1) {
+          for (let i = 0; i < creature.constraints.length; i += 1) {
+            const c = creature.constraints[i];
+            const a = creature.nodes[c.a];
+            const b = creature.nodes[c.b];
+            if (!a || !b) continue;
+
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy) || 0.0001;
+            const diff = (dist - c.restLength) / dist;
+            const stiffness = c.stiffness;
+
+            const invA = 1 / Math.max(0.001, a.mass);
+            const invB = 1 / Math.max(0.001, b.mass);
+            const totalInv = invA + invB;
+
+            const adjustX = dx * diff * stiffness;
+            const adjustY = dy * diff * stiffness;
+
+            a.x += adjustX * (invA / totalInv) * 0.5;
+            a.y += adjustY * (invA / totalInv) * 0.5;
+            b.x -= adjustX * (invB / totalInv) * 0.5;
+            b.y -= adjustY * (invB / totalInv) * 0.5;
+          }
+        }
+      }
+
+      function sampleEnergy() {
+        if (!audio.analyser || !audio.fftData) {
+          renderState.energy = lerp(renderState.energy, 0.03, 0.08);
+          return renderState.energy;
+        }
+
+        audio.analyser.getByteFrequencyData(audio.fftData);
+
+        let sum = 0;
+        const upper = Math.min(40, audio.fftData.length - 1);
+        for (let i = 0; i <= upper; i += 1) {
+          sum += audio.fftData[i];
+        }
+
+        const norm = clamp(sum / ((upper + 1) * 255), 0, 1);
+        renderState.energy = lerp(renderState.energy, norm, 0.2);
+        return renderState.energy;
+      }
+
+      function resizeCanvas(force = false) {
+        const w = Math.floor(window.innerWidth);
+        const h = Math.floor(window.innerHeight);
+
+        if (!force && canvas.width === w && canvas.height === h) {
+          return;
+        }
+
+        const oldW = creature.lastWidth || w;
+        const oldH = creature.lastHeight || h;
+
+        canvas.width = w;
+        canvas.height = h;
+
+        if (creature.nodes.length > 0 && (oldW !== w || oldH !== h)) {
+          const sx = w / oldW;
+          const sy = h / oldH;
+          for (let i = 0; i < creature.nodes.length; i += 1) {
+            const n = creature.nodes[i];
+            n.x *= sx;
+            n.y *= sy;
+            n.px *= sx;
+            n.py *= sy;
+          }
+        }
+
+        creature.lastWidth = w;
+        creature.lastHeight = h;
+
+        if (renderState.mode === 'webgl' && glState.gl) {
+          glState.gl.viewport(0, 0, w, h);
+        }
+      }
+
+      function compileShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        if (!shader) return null;
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const error = gl.getShaderInfoLog(shader);
+          console.error('shader compile error', error);
+          gl.deleteShader(shader);
+          return null;
+        }
+
+        return shader;
+      }
+
+      function linkProgram(gl, vsSource, fsSource) {
+        const vs = compileShader(gl, gl.VERTEX_SHADER, vsSource);
+        const fs = compileShader(gl, gl.FRAGMENT_SHADER, fsSource);
+        if (!vs || !fs) return null;
+
+        const program = gl.createProgram();
+        if (!program) return null;
+
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const error = gl.getProgramInfoLog(program);
+          console.error('program link error', error);
+          gl.deleteProgram(program);
+          return null;
+        }
+
+        return program;
+      }
+
+      function initRenderer() {
+        const gl = canvas.getContext('webgl2', {
+          antialias: true,
+          alpha: false,
+          premultipliedAlpha: false,
+          depth: false,
+          stencil: false
+        });
+
+        if (!gl) {
+          renderState.mode = 'canvas2d';
+          fallback.ctx2d = canvas.getContext('2d');
+          return;
+        }
+
+        glState.gl = gl;
+        renderState.mode = 'webgl';
+
+        const bgVS = `#version 300 es
+          in vec2 a_pos;
+          out vec2 v_uv;
+          void main() {
+            v_uv = a_pos * 0.5 + 0.5;
+            gl_Position = vec4(a_pos, 0.0, 1.0);
+          }
+        `;
+
+        const bgFS = `#version 300 es
+          precision mediump float;
+          in vec2 v_uv;
+          out vec4 outColor;
+
+          uniform float u_time;
+          uniform float u_energy;
+          uniform vec2 u_resolution;
+
+          vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+          vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+          vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
+
+          float snoise(vec2 v) {
+            const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                                -0.577350269189626, 0.024390243902439);
+            vec2 i = floor(v + dot(v, C.yy));
+            vec2 x0 = v - i + dot(i, C.xx);
+            vec2 i1;
+            i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+            vec4 x12 = x0.xyxy + C.xxzz;
+            x12.xy -= i1;
+
+            i = mod289(i);
+            vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0))
+                           + i.x + vec3(0.0, i1.x, 1.0));
+
+            vec3 m = max(0.5 - vec3(
+              dot(x0, x0),
+              dot(x12.xy, x12.xy),
+              dot(x12.zw, x12.zw)
+            ), 0.0);
+
+            m = m * m;
+            m = m * m;
+
+            vec3 x = 2.0 * fract(p * C.www) - 1.0;
+            vec3 h = abs(x) - 0.5;
+            vec3 ox = floor(x + 0.5);
+            vec3 a0 = x - ox;
+
+            m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+
+            vec3 g;
+            g.x = a0.x * x0.x + h.x * x0.y;
+            g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+            return 130.0 * dot(m, g);
+          }
+
+          void main() {
+            vec2 uv = gl_FragCoord.xy / u_resolution;
+            vec2 p = (uv - 0.5) * 3.0;
+
+            float n = snoise(p + vec2(u_time * 0.08, u_time * 0.03)) * 0.6
+                    + snoise(p * 2.1 + vec2(-u_time * 0.13, u_time * 0.05)) * 0.4;
+            n = n * 0.5 + 0.5;
+
+            vec3 color = mix(vec3(0.02, 0.01, 0.08), vec3(0.06, 0.02, 0.18), n);
+            color += vec3(0.0, 0.4, 0.6) * u_energy * 0.35 * n;
+
+            outColor = vec4(color, 1.0);
+          }
+        `;
+
+        const pointVS = `#version 300 es
+          in vec2 a_pos;
+          in float a_size;
+          in vec4 a_color;
+          out vec4 v_color;
+          uniform vec2 u_resolution;
+
+          void main() {
+            vec2 clip = (a_pos / u_resolution) * 2.0 - 1.0;
+            gl_Position = vec4(clip * vec2(1.0, -1.0), 0.0, 1.0);
+            gl_PointSize = a_size;
+            v_color = a_color;
+          }
+        `;
+
+        const pointFS = `#version 300 es
+          precision mediump float;
+          in vec4 v_color;
+          out vec4 outColor;
+
+          void main() {
+            vec2 p = gl_PointCoord - 0.5;
+            float d = length(p) * 2.0;
+            float alpha = (1.0 - smoothstep(0.0, 1.0, d)) * v_color.a;
+            outColor = vec4(v_color.rgb * alpha, alpha);
+          }
+        `;
+
+        const lineVS = `#version 300 es
+          in vec2 a_pos;
+          in vec4 a_color;
+          out vec4 v_color;
+          uniform vec2 u_resolution;
+
+          void main() {
+            vec2 clip = (a_pos / u_resolution) * 2.0 - 1.0;
+            gl_Position = vec4(clip * vec2(1.0, -1.0), 0.0, 1.0);
+            v_color = a_color;
+          }
+        `;
+
+        const lineFS = `#version 300 es
+          precision mediump float;
+          in vec4 v_color;
+          out vec4 outColor;
+
+          void main() {
+            outColor = v_color;
+          }
+        `;
+
+        glState.bgProgram = linkProgram(gl, bgVS, bgFS);
+        glState.pointProgram = linkProgram(gl, pointVS, pointFS);
+        glState.lineProgram = linkProgram(gl, lineVS, lineFS);
+
+        if (!glState.bgProgram || !glState.pointProgram || !glState.lineProgram) {
+          renderState.mode = 'canvas2d';
+          fallback.ctx2d = canvas.getContext('2d');
+          return;
+        }
+
+        glState.bgAttrib = {
+          pos: gl.getAttribLocation(glState.bgProgram, 'a_pos')
+        };
+
+        glState.bgUniforms = {
+          time: gl.getUniformLocation(glState.bgProgram, 'u_time'),
+          energy: gl.getUniformLocation(glState.bgProgram, 'u_energy'),
+          resolution: gl.getUniformLocation(glState.bgProgram, 'u_resolution')
+        };
+
+        glState.bgBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.bgBuffer);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array([
+            -1, -1,
+             1, -1,
+            -1,  1,
+             1,  1
+          ]),
+          gl.STATIC_DRAW
+        );
+
+        glState.pointAttrib = {
+          pos: gl.getAttribLocation(glState.pointProgram, 'a_pos'),
+          size: gl.getAttribLocation(glState.pointProgram, 'a_size'),
+          color: gl.getAttribLocation(glState.pointProgram, 'a_color')
+        };
+
+        glState.pointUniforms = {
+          resolution: gl.getUniformLocation(glState.pointProgram, 'u_resolution')
+        };
+
+        glState.lineAttrib = {
+          pos: gl.getAttribLocation(glState.lineProgram, 'a_pos'),
+          color: gl.getAttribLocation(glState.lineProgram, 'a_color')
+        };
+
+        glState.lineUniforms = {
+          resolution: gl.getUniformLocation(glState.lineProgram, 'u_resolution')
+        };
+
+        glState.pointPosBuffer = gl.createBuffer();
+        glState.pointSizeBuffer = gl.createBuffer();
+        glState.pointColorBuffer = gl.createBuffer();
+        glState.linePosBuffer = gl.createBuffer();
+        glState.lineColorBuffer = gl.createBuffer();
+
+        gl.disable(gl.DEPTH_TEST);
+      }
+
+      function drawWebGL(timeMs, energy) {
+        const gl = glState.gl;
+        if (!gl) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+
+        gl.viewport(0, 0, w, h);
+
+        gl.disable(gl.BLEND);
+        gl.useProgram(glState.bgProgram);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.bgBuffer);
+        gl.enableVertexAttribArray(glState.bgAttrib.pos);
+        gl.vertexAttribPointer(glState.bgAttrib.pos, 2, gl.FLOAT, false, 0, 0);
+
+        gl.uniform1f(glState.bgUniforms.time, timeMs * 0.001);
+        gl.uniform1f(glState.bgUniforms.energy, energy);
+        gl.uniform2f(glState.bgUniforms.resolution, w, h);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+        const pulseMap = renderState.pulseMap || new Float32Array(creature.nodes.length);
+        const dissolveFactor = (timeMs < creature.dissolveUntil)
+          ? clamp((creature.dissolveUntil - timeMs) / 400, 0, 1)
+          : 1;
+
+        const lineVertexCount = creature.constraints.length * 2;
+        const linePos = new Float32Array(lineVertexCount * 2);
+        const lineColor = new Float32Array(lineVertexCount * 4);
+
+        let lv = 0;
+        let lc = 0;
+
+        for (let i = 0; i < creature.constraints.length; i += 1) {
+          const c = creature.constraints[i];
+          const a = creature.nodes[c.a];
+          const b = creature.nodes[c.b];
+          if (!a || !b) continue;
+
+          const pa = pulseMap[c.a] || 0;
+          const pb = pulseMap[c.b] || 0;
+          const pulse = Math.max(pa, pb);
+
+          const ar = lerp(a.r, 1.0, clamp(pulse * 0.75, 0, 1));
+          const ag = lerp(a.g, 1.0, clamp(pulse * 0.75, 0, 1));
+          const ab = lerp(a.b, 1.0, clamp(pulse * 0.75, 0, 1));
+
+          const br = lerp(b.r, 1.0, clamp(pulse * 0.75, 0, 1));
+          const bg = lerp(b.g, 1.0, clamp(pulse * 0.75, 0, 1));
+          const bb = lerp(b.b, 1.0, clamp(pulse * 0.75, 0, 1));
+
+          const alpha = (0.09 + pulse * 0.38) * dissolveFactor;
+
+          linePos[lv++] = a.x;
+          linePos[lv++] = a.y;
+          linePos[lv++] = b.x;
+          linePos[lv++] = b.y;
+
+          lineColor[lc++] = ar;
+          lineColor[lc++] = ag;
+          lineColor[lc++] = ab;
+          lineColor[lc++] = alpha;
+
+          lineColor[lc++] = br;
+          lineColor[lc++] = bg;
+          lineColor[lc++] = bb;
+          lineColor[lc++] = alpha;
+        }
+
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+
+        gl.useProgram(glState.lineProgram);
+        gl.uniform2f(glState.lineUniforms.resolution, w, h);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.linePosBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, linePos, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(glState.lineAttrib.pos);
+        gl.vertexAttribPointer(glState.lineAttrib.pos, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.lineColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, lineColor, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(glState.lineAttrib.color);
+        gl.vertexAttribPointer(glState.lineAttrib.color, 4, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.LINES, 0, lineVertexCount);
+
+        drawPointPass(gl, pulseMap, dissolveFactor, false);
+        drawPointPass(gl, pulseMap, dissolveFactor, true);
+
+        gl.disable(gl.BLEND);
+      }
+
+      function drawPointPass(gl, pulseMap, dissolveFactor, corePass) {
+        const count = creature.nodes.length;
+        const posData = new Float32Array(count * 2);
+        const sizeData = new Float32Array(count);
+        const colorData = new Float32Array(count * 4);
+
+        for (let i = 0; i < count; i += 1) {
+          const node = creature.nodes[i];
+          const pulse = pulseMap[i] || 0;
+          const pulseMix = clamp(pulse * 0.9, 0, 1);
+
+          const brightR = lerp(node.r, 1.0, pulseMix);
+          const brightG = lerp(node.g, 1.0, pulseMix);
+          const brightB = lerp(node.b, 1.0, pulseMix);
+
+          const size = corePass
+            ? (node.radius * 1.25 + 3 + pulse * 2.4)
+            : (node.radius * 4.4 + 10 + pulse * 12.5);
+
+          const alpha = corePass
+            ? (0.34 + pulse * 0.42) * dissolveFactor
+            : (0.1 + pulse * 0.26) * dissolveFactor;
+
+          const pIndex = i * 2;
+          const cIndex = i * 4;
+
+          posData[pIndex] = node.x;
+          posData[pIndex + 1] = node.y;
+          sizeData[i] = size;
+
+          colorData[cIndex] = brightR;
+          colorData[cIndex + 1] = brightG;
+          colorData[cIndex + 2] = brightB;
+          colorData[cIndex + 3] = alpha;
+        }
+
+        gl.useProgram(glState.pointProgram);
+        gl.uniform2f(glState.pointUniforms.resolution, canvas.width, canvas.height);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.pointPosBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, posData, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(glState.pointAttrib.pos);
+        gl.vertexAttribPointer(glState.pointAttrib.pos, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.pointSizeBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, sizeData, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(glState.pointAttrib.size);
+        gl.vertexAttribPointer(glState.pointAttrib.size, 1, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, glState.pointColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, colorData, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(glState.pointAttrib.color);
+        gl.vertexAttribPointer(glState.pointAttrib.color, 4, gl.FLOAT, false, 0, 0);
+
+        gl.drawArrays(gl.POINTS, 0, count);
+      }
+
+      function drawFallback2D(timeMs, energy) {
+        const ctx = fallback.ctx2d;
+        if (!ctx) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+
+        const base = 8 + Math.floor(energy * 45);
+        ctx.fillStyle = `rgb(${base}, ${base}, ${14 + Math.floor(energy * 28)})`;
+        ctx.fillRect(0, 0, w, h);
+
+        const gradient = ctx.createRadialGradient(w * 0.5, h * 0.3, 0, w * 0.5, h * 0.3, w * 0.7);
+        gradient.addColorStop(0, `rgba(0, 125, 200, ${0.08 + energy * 0.18})`);
+        gradient.addColorStop(1, 'rgba(8, 6, 26, 0)');
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+
+        const pulseMap = renderState.pulseMap || new Float32Array(creature.nodes.length);
+        const dissolveFactor = (timeMs < creature.dissolveUntil)
+          ? clamp((creature.dissolveUntil - timeMs) / 400, 0, 1)
+          : 1;
+
+        ctx.lineWidth = 1.4;
+        for (let i = 0; i < creature.constraints.length; i += 1) {
+          const c = creature.constraints[i];
+          const a = creature.nodes[c.a];
+          const b = creature.nodes[c.b];
+          if (!a || !b) continue;
+
+          const pulse = clamp(Math.max(pulseMap[c.a] || 0, pulseMap[c.b] || 0), 0, 1.2);
+          const alpha = (0.14 + pulse * 0.36) * dissolveFactor;
+
+          ctx.strokeStyle = `rgba(${Math.round((a.r + b.r) * 125)}, ${Math.round((a.g + b.g) * 125)}, ${Math.round((a.b + b.b) * 125)}, ${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+
+        for (let i = 0; i < creature.nodes.length; i += 1) {
+          const n = creature.nodes[i];
+          const pulse = clamp(pulseMap[i] || 0, 0, 1.3);
+
+          const r = Math.round(lerp(n.r * 255, 255, pulse * 0.8));
+          const g = Math.round(lerp(n.g * 255, 255, pulse * 0.8));
+          const b = Math.round(lerp(n.b * 255, 255, pulse * 0.8));
+
+          const radius = n.radius + 2 + pulse * 5;
+
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${(0.16 + pulse * 0.2) * dissolveFactor})`;
+          ctx.arc(n.x, n.y, radius * 2.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${(0.64 + pulse * 0.25) * dissolveFactor})`;
+          ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function updatePhysicsAndRender(timeMs) {
+        resizeCanvas();
+
+        const deltaMs = clamp(timeMs - renderState.lastFrameMs, 8, 64);
+        renderState.lastFrameMs = timeMs;
+
+        applyIdleAndIntegrate(deltaMs);
+        solveConstraints(deltaMs);
+        updatePulseMap(timeMs);
+
+        const energy = sampleEnergy();
+
+        if (renderState.mode === 'webgl') {
+          drawWebGL(timeMs, energy);
+        } else {
+          drawFallback2D(timeMs, energy);
+        }
+
+        requestAnimationFrame(updatePhysicsAndRender);
+      }
+
+      function onPointerDown(event) {
+        pointer.active = true;
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+        ensureAudio();
+      }
+
+      function onPointerMove(event) {
+        pointer.x = event.clientX;
+        pointer.y = event.clientY;
+      }
+
+      function onPointerUp() {
+        pointer.active = false;
+      }
+
+      function attachGlobalEvents() {
+        playBtn.addEventListener('click', () => {
+          togglePlay();
+        });
+
+        randomBtn.addEventListener('click', () => {
+          randomizeCreature();
+        });
+
+        clearBtn.addEventListener('click', () => {
+          clearPattern();
+        });
+
+        bpmInput.addEventListener('input', () => {
+          seq.bpm = Number(bpmInput.value);
+          bpmOut.textContent = String(seq.bpm);
+        });
+
+        swingInput.addEventListener('input', () => {
+          seq.swing = Number(swingInput.value);
+          swingOut.textContent = `${seq.swing}%`;
+        });
+
+        window.addEventListener('keydown', (event) => {
+          const tag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
+          const isInput = tag === 'input' || tag === 'textarea';
+
+          if (event.code === 'Space') {
+            event.preventDefault();
+            togglePlay();
+          } else if (!isInput && (event.key === 'r' || event.key === 'R')) {
+            event.preventDefault();
+            randomizeCreature();
+          } else if (!isInput && (event.key === 'c' || event.key === 'C')) {
+            event.preventDefault();
+            clearPattern();
+          }
+        });
+
+        window.addEventListener('resize', () => {
+          resizeCanvas(true);
+        });
+
+        canvas.addEventListener('pointerdown', onPointerDown);
+        canvas.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        window.addEventListener('pointercancel', onPointerUp);
+
+        window.addEventListener('pointerdown', () => {
+          ensureAudio();
+        }, { once: true });
+      }
+
+      function initialize() {
+        buildStepsHeader();
+        buildSequencerGrid();
+
+        resizeCanvas(true);
+        initRenderer();
+        generateCreature(Math.random());
+        attachGlobalEvents();
+
+        renderState.lastFrameMs = performance.now();
+        requestAnimationFrame(updatePhysicsAndRender);
+      }
+
+      initialize();
+    })();
+  </script>
+</body>
+</html>

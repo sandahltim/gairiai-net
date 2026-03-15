@@ -392,7 +392,7 @@ export default function BehaviorBuddyPage() {
 
         <div className="mt-4 rounded-2xl border border-zinc-200/20 bg-black/20 px-3 py-3 text-sm text-zinc-100 space-y-1">
           <p>👕 Tap Outfit on any student card to cycle real visual looks (classic, special, winter).</p>
-          <p className="text-xs text-zinc-300">SVG pilot is live for Tilly, Leo, Bibi, and Olive. Remaining buddies still use the approved PNG set for now.</p>
+          <p className="text-xs text-zinc-300">All 10 buddies now use approved Pixar-style 3D character art across the board.</p>
         </div>
       </div>
 
