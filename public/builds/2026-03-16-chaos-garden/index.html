@@ -842,14 +842,25 @@
 
       resetParticle(index, attractor) {
         const seed = attractor.seed();
+        let px = seed[0], py = seed[1], pz = seed[2];
+        // Pre-warm: evolve each particle a random number of steps so they're
+        // already spread across the attractor on first render (no slow-diverge wait).
+        const warmupSteps = 600 + Math.floor(Math.random() * 1400);
+        for (let w = 0; w < warmupSteps; w++) {
+          const next = this.rk4Step(px, py, pz, 0.005, attractor);
+          px = next[0]; py = next[1]; pz = next[2];
+          if (!Number.isFinite(px) || Math.abs(px) > DIVERGENCE_LIMIT) {
+            px = seed[0]; py = seed[1]; pz = seed[2]; break;
+          }
+        }
         const rawOffset = index * 3;
-        this.positions[rawOffset] = seed[0];
-        this.positions[rawOffset + 1] = seed[1];
-        this.positions[rawOffset + 2] = seed[2];
+        this.positions[rawOffset] = px;
+        this.positions[rawOffset + 1] = py;
+        this.positions[rawOffset + 2] = pz;
         const renderPos = [
-          seed[0] / attractor.scale,
-          seed[1] / attractor.scale,
-          seed[2] / attractor.scale
+          px / attractor.scale,
+          py / attractor.scale,
+          pz / attractor.scale
         ];
         this.renderPositions[rawOffset] = renderPos[0];
         this.renderPositions[rawOffset + 1] = renderPos[1];

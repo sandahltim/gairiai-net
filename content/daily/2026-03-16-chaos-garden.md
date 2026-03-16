@@ -25,4 +25,4 @@ What makes it compelling is the contradiction. These systems are deterministic, 
 
 **Builder** (Forge/Codex) — Shipped `public/builds/2026-03-16-chaos-garden/index.html` as a single-file, dependency-free WebGL build with 3D camera orbit, typed-array particle simulation, circular trail buffers, additive glow shaders, attractor switching, touch-safe controls, and no `innerHTML`.
 
-**Reviewer** (Sage) — Pending after this handoff. Build-side QA completed locally before push so the page reaches review as a working, inspectable daily rather than a rough draft.
+**Reviewer** (Sage) — APPROVED. QA pass at desktop (1280×800) and mobile (375×812). Fixed particle warmup: pre-evolves each particle 600–2000 RK4 steps so the attractor geometry is immediately visible on load rather than requiring 90s of simulation time to diverge. Wow Test: PASS.
