@@ -404,7 +404,7 @@ export function FeelingsCheckInWheel() {
                         key={feeling.id}
                         type="button"
                         onClick={() => setSelectedFeelingId(feeling.id)}
-                        className="absolute flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[28px] border text-center transition duration-200 sm:h-32 sm:w-32"
+                        className="absolute flex h-[68px] w-[68px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[18px] border text-center transition duration-200 sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[28px]"
                         style={{
                           top: layout.top,
                           left: layout.left,
@@ -417,10 +417,10 @@ export function FeelingsCheckInWheel() {
                           characterId={character.id}
                           mode="classic"
                           alt={character.name}
-                          className="h-14 w-14 object-contain sm:h-16 sm:w-16"
+                          className="h-9 w-9 object-contain sm:h-12 sm:w-12 md:h-14 md:w-14"
                         />
-                        <span className="mt-1 text-sm font-bold text-white">{feeling.label}</span>
-                        <span className="text-[11px] uppercase tracking-[0.18em] text-slate-300">{zoneMap.get(feeling.zone)?.label}</span>
+                        <span className="mt-1 hidden text-sm font-bold text-white sm:block">{feeling.label}</span>
+                        <span className="hidden text-[11px] uppercase tracking-[0.18em] text-slate-300 md:block">{zoneMap.get(feeling.zone)?.label}</span>
                       </button>
                     );
                   })}
