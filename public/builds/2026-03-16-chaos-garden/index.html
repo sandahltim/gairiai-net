@@ -1,0 +1,1435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Chaos Garden</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --panel: rgba(5, 5, 8, 0.82);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text: #e4e4ed;
+      --muted: #7f8394;
+      --soft: #353847;
+      --mono: "SFMono-Regular", "Cascadia Code", "Menlo", monospace;
+      --sans: "Inter", "Segoe UI", sans-serif;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --ui-height: 164px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      overscroll-behavior: none;
+      font-family: var(--sans);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 20% 20%, rgba(0, 255, 255, 0.06), transparent 24%),
+        radial-gradient(circle at 82% 12%, rgba(255, 34, 68, 0.08), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(191, 0, 255, 0.06), transparent 35%),
+        var(--bg);
+      touch-action: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border-radius: 0;
+      appearance: none;
+      background: transparent;
+      border: 1px solid #333;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-family: var(--mono);
+      font-size: 11px;
+      min-height: 44px;
+      transition: border-color 180ms ease, color 180ms ease, background 180ms ease, transform 180ms ease;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, 0.88);
+      outline-offset: 3px;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    #scene,
+    #fallbackScene {
+      position: absolute;
+      inset: 0 0 var(--ui-height);
+      width: 100%;
+      height: calc(100% - var(--ui-height));
+      display: block;
+      background:
+        radial-gradient(circle at center, rgba(255, 255, 255, 0.02), transparent 48%),
+        #050508;
+      touch-action: none;
+    }
+
+    #fallbackScene {
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    #vignette,
+    #grain,
+    #aurora {
+      position: absolute;
+      inset: 0 0 var(--ui-height);
+      pointer-events: none;
+    }
+
+    #vignette {
+      background:
+        radial-gradient(circle at center, transparent 45%, rgba(0, 0, 0, 0.26) 88%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.12), transparent 24%, transparent 78%, rgba(0, 0, 0, 0.28));
+      opacity: 0.95;
+    }
+
+    #grain {
+      opacity: 0.06;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+      background-size: 3px 3px, 5px 5px;
+      mix-blend-mode: screen;
+    }
+
+    #aurora {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(0, 255, 255, 0.06), transparent 24%),
+        radial-gradient(circle at 72% 22%, rgba(255, 0, 170, 0.06), transparent 20%),
+        radial-gradient(circle at 50% 60%, rgba(0, 204, 255, 0.04), transparent 26%);
+      filter: blur(36px);
+      opacity: 0.9;
+    }
+
+    #titleOverlay {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      z-index: 5;
+      display: grid;
+      gap: 6px;
+      pointer-events: none;
+      user-select: none;
+      text-shadow: 0 0 18px rgba(0, 0, 0, 0.8);
+    }
+
+    #titleMain {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0.42em;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+
+    #titleSub {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: #00ffff;
+      white-space: nowrap;
+    }
+
+    #titleMeta {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #4f5365;
+      white-space: nowrap;
+    }
+
+    #hud {
+      position: absolute;
+      top: 18px;
+      right: 16px;
+      z-index: 5;
+      display: grid;
+      justify-items: end;
+      gap: 6px;
+      pointer-events: none;
+      user-select: none;
+      font-family: var(--mono);
+    }
+
+    .hudLine {
+      min-width: 104px;
+      padding: 6px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(5, 5, 8, 0.48);
+      backdrop-filter: blur(10px);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      color: #666b80;
+      text-align: right;
+    }
+
+    .hudLine strong {
+      color: #dfe6ff;
+      font-weight: 600;
+    }
+
+    #controlStrip {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 6;
+      display: grid;
+      gap: 14px;
+      padding: 12px 14px calc(12px + var(--safe-bottom));
+      background: var(--panel);
+      border-top: 1px solid var(--panel-border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 -24px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    .controlRow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .controlLabel {
+      width: 100%;
+      color: #4d5262;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 0.16em;
+    }
+
+    .buttonRow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .pillButton {
+      min-width: 88px;
+      min-height: 44px;
+      padding: 0 12px;
+      color: #555;
+      background: transparent;
+    }
+
+    .countButton {
+      min-width: 62px;
+      padding: 0 12px;
+    }
+
+    .activeButton {
+      color: var(--accent, #fff);
+      border-width: 1.5px;
+      border-color: var(--accent, #fff);
+      background: color-mix(in srgb, var(--accent, #fff) 12%, transparent);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    }
+
+    .spacer {
+      flex: 1 1 auto;
+    }
+
+    .resetButton {
+      min-width: 120px;
+      padding: 0 14px;
+      color: #cfd4e8;
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .sliderWrap {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      width: 100%;
+      align-items: center;
+    }
+
+    .sliderMeta {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    #speedValue {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      color: #00ffff;
+      min-width: 50px;
+      text-align: right;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+      appearance: none;
+      background: transparent;
+      height: 28px;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 2px;
+      background: #222;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 0;
+      margin-top: -7px;
+      background: #555;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #888;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 2px;
+      border: 0;
+      background: #222;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 0;
+      background: #555;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    @media (min-width: 720px) {
+      :root {
+        --ui-height: 118px;
+      }
+
+      #titleOverlay {
+        top: 20px;
+        left: 24px;
+      }
+
+      #controlStrip {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      .controlRow {
+        flex-wrap: nowrap;
+      }
+
+      .controlLabel {
+        width: auto;
+        min-width: 104px;
+      }
+
+      .buttonRow {
+        width: auto;
+      }
+
+      .sliderWrap {
+        max-width: 340px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene" aria-label="3D strange attractor renderer"></canvas>
+    <canvas id="fallbackScene" aria-hidden="true"></canvas>
+    <div id="aurora"></div>
+    <div id="grain"></div>
+    <div id="vignette"></div>
+    <div id="titleOverlay" aria-hidden="true">
+      <div id="titleMain">CHAOS GARDEN</div>
+      <div id="titleSub">LORENZ ATTRACTOR</div>
+      <div id="titleMeta">5000 PARTICLES · RK4</div>
+    </div>
+    <div id="hud" aria-hidden="true">
+      <div class="hudLine"><strong id="fpsReadout">60 FPS</strong></div>
+      <div class="hudLine" id="modeReadout">AUTO ORBIT</div>
+    </div>
+    <div id="controlStrip">
+      <div class="controlRow">
+        <div class="controlLabel">ATTRACTOR FIELD</div>
+        <div class="buttonRow" id="attractorButtons"></div>
+      </div>
+      <div class="controlRow">
+        <div class="controlLabel">CHAOS SPEED</div>
+        <div class="sliderWrap">
+          <div class="sliderMeta">
+            <input id="speedSlider" type="range" min="0.1" max="3.0" step="0.1" value="1.0" aria-label="Chaos speed">
+          </div>
+          <div id="speedValue">1.0X</div>
+        </div>
+        <div class="spacer"></div>
+        <div class="buttonRow" id="countButtons"></div>
+        <button id="resetButton" class="resetButton" type="button" aria-label="Reset particles">&#8634; RESET</button>
+      </div>
+    </div>
+  </div>
+  <script type="module">
+    const canvas = document.getElementById("scene");
+    const fallbackCanvas = document.getElementById("fallbackScene");
+    const fallbackCtx = fallbackCanvas.getContext("2d");
+    const attractorButtonsRoot = document.getElementById("attractorButtons");
+    const countButtonsRoot = document.getElementById("countButtons");
+    const speedSlider = document.getElementById("speedSlider");
+    const speedValue = document.getElementById("speedValue");
+    const resetButton = document.getElementById("resetButton");
+    const titleSub = document.getElementById("titleSub");
+    const titleMeta = document.getElementById("titleMeta");
+    const fpsReadout = document.getElementById("fpsReadout");
+    const modeReadout = document.getElementById("modeReadout");
+
+    const query = new URLSearchParams(window.location.search);
+    const qaMode = query.get("qa") === "1";
+
+    const gl = canvas.getContext("webgl", {
+      antialias: true,
+      alpha: false,
+      premultipliedAlpha: false
+    });
+
+    const TAU = Math.PI * 2;
+    const BASE_TRAIL_LENGTH = 80;
+    const MIN_TRAIL_LENGTH = 40;
+    const DIVERGENCE_LIMIT = 100;
+    let useFallbackRenderer = !gl || /HeadlessChrome/i.test(navigator.userAgent) || qaMode;
+    const ATTRACTORS = [
+      {
+        id: "lorenz",
+        label: "LORENZ",
+        title: "LORENZ ATTRACTOR",
+        particleHex: "#00FFFF",
+        tailHex: "#FF00AA",
+        particleColor: [0, 255, 255],
+        tailColor: [255, 0, 170],
+        orbitRadius: 8.2,
+        scale: 30,
+        basinJitter: 0.01,
+        seed() {
+          return [0.1, 0, (Math.random() - 0.5) * 0.02];
+        },
+        derivative(x, y, z) {
+          const sigma = 10;
+          const rho = 28;
+          const beta = 8 / 3;
+          return [
+            sigma * (y - x),
+            x * (rho - z) - y,
+            x * y - beta * z
+          ];
+        }
+      },
+      {
+        id: "thomas",
+        label: "THOMAS",
+        title: "THOMAS ATTRACTOR",
+        particleHex: "#FFD700",
+        tailHex: "#FF4500",
+        particleColor: [255, 215, 0],
+        tailColor: [255, 69, 0],
+        orbitRadius: 7.4,
+        scale: 5,
+        basinJitter: 0.01,
+        seed() {
+          return [0.1, 0, (Math.random() - 0.5) * 0.02];
+        },
+        derivative(x, y, z) {
+          const b = 0.208186;
+          return [
+            Math.sin(y) - b * x,
+            Math.sin(z) - b * y,
+            Math.sin(x) - b * z
+          ];
+        }
+      },
+      {
+        id: "rossler",
+        label: "ROSSLER",
+        title: "ROSSLER ATTRACTOR",
+        particleHex: "#BF00FF",
+        tailHex: "#0066FF",
+        particleColor: [191, 0, 255],
+        tailColor: [0, 102, 255],
+        orbitRadius: 8.6,
+        scale: 20,
+        basinJitter: 0.05,
+        seed() {
+          return [-5.75, -1.6, 0.02 + (Math.random() - 0.5) * 0.1];
+        },
+        derivative(x, y, z) {
+          const a = 0.2;
+          const b = 0.2;
+          const c = 5.7;
+          return [
+            -y - z,
+            x + a * y,
+            b + z * (x - c)
+          ];
+        }
+      },
+      {
+        id: "halvorsen",
+        label: "HALVORSEN",
+        title: "HALVORSEN ATTRACTOR",
+        particleHex: "#00FF88",
+        tailHex: "#00CCFF",
+        particleColor: [0, 255, 136],
+        tailColor: [0, 204, 255],
+        orbitRadius: 7.2,
+        scale: 5,
+        basinJitter: 0.01,
+        seed() {
+          return [
+            -1.48 + (Math.random() - 0.5) * 0.02,
+            -1.51 + (Math.random() - 0.5) * 0.02,
+            2.04 + (Math.random() - 0.5) * 0.02
+          ];
+        },
+        derivative(x, y, z) {
+          const a = 1.4;
+          return [
+            -a * x - 4 * y - 4 * z - y * y,
+            -a * y - 4 * z - 4 * x - z * z,
+            -a * z - 4 * x - 4 * y - x * x
+          ];
+        }
+      },
+      {
+        id: "sprott",
+        label: "SPROTT",
+        title: "SPROTT B",
+        particleHex: "#FF2244",
+        tailHex: "#FFAA00",
+        particleColor: [255, 34, 68],
+        tailColor: [255, 170, 0],
+        orbitRadius: 6.8,
+        scale: 3,
+        basinJitter: 0.01,
+        seed() {
+          return [
+            0.63 + (Math.random() - 0.5) * 0.02,
+            0.47 + (Math.random() - 0.5) * 0.02,
+            -0.54 + (Math.random() - 0.5) * 0.02
+          ];
+        },
+        derivative(x, y, z) {
+          return [
+            y * z,
+            x - y,
+            1 - x * y
+          ];
+        }
+      }
+    ];
+
+    const PARTICLE_COUNTS = [1000, 5000, 10000];
+
+    const state = {
+      activeAttractorIndex: 0,
+      requestedAttractorIndex: 0,
+      particleCount: qaMode ? 1000 : 5000,
+      speed: 1,
+      trailLength: BASE_TRAIL_LENGTH,
+      autoRotateAngle: 0,
+      userYaw: 0,
+      userPitch: -0.28,
+      dragYaw: 0,
+      dragPitch: 0,
+      dragging: false,
+      pointerId: null,
+      lastPointerX: 0,
+      lastPointerY: 0,
+      lastUserInteraction: performance.now(),
+      orbitRadius: ATTRACTORS[0].orbitRadius,
+      targetOrbitRadius: ATTRACTORS[0].orbitRadius,
+      fade: 1,
+      transition: null,
+      fpsAverage: 60,
+      fpsStableSeconds: 0,
+      renderWidth: 1,
+      renderHeight: 1,
+      dpr: 1
+    };
+
+    function hexToRgb(hex) {
+      const value = hex.replace("#", "");
+      return [
+        parseInt(value.slice(0, 2), 16),
+        parseInt(value.slice(2, 4), 16),
+        parseInt(value.slice(4, 6), 16)
+      ];
+    }
+
+    function mixColorByte(out, offset, from, to, t, alpha) {
+      out[offset] = Math.round(from[0] + (to[0] - from[0]) * t);
+      out[offset + 1] = Math.round(from[1] + (to[1] - from[1]) * t);
+      out[offset + 2] = Math.round(from[2] + (to[2] - from[2]) * t);
+      out[offset + 3] = alpha;
+    }
+
+    function mat4Identity(out) {
+      out[0] = 1; out[1] = 0; out[2] = 0; out[3] = 0;
+      out[4] = 0; out[5] = 1; out[6] = 0; out[7] = 0;
+      out[8] = 0; out[9] = 0; out[10] = 1; out[11] = 0;
+      out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+      return out;
+    }
+
+    function mat4Perspective(out, fov, aspect, near, far) {
+      const f = 1 / Math.tan(fov / 2);
+      const nf = 1 / (near - far);
+      out[0] = f / aspect;
+      out[1] = 0;
+      out[2] = 0;
+      out[3] = 0;
+      out[4] = 0;
+      out[5] = f;
+      out[6] = 0;
+      out[7] = 0;
+      out[8] = 0;
+      out[9] = 0;
+      out[10] = (far + near) * nf;
+      out[11] = -1;
+      out[12] = 0;
+      out[13] = 0;
+      out[14] = 2 * far * near * nf;
+      out[15] = 0;
+      return out;
+    }
+
+    function mat4LookAt(out, eye, center, up) {
+      let x0;
+      let x1;
+      let x2;
+      let y0;
+      let y1;
+      let y2;
+      let z0 = eye[0] - center[0];
+      let z1 = eye[1] - center[1];
+      let z2 = eye[2] - center[2];
+      let len = Math.hypot(z0, z1, z2);
+      if (len === 0) {
+        z2 = 1;
+      } else {
+        z0 /= len;
+        z1 /= len;
+        z2 /= len;
+      }
+      x0 = up[1] * z2 - up[2] * z1;
+      x1 = up[2] * z0 - up[0] * z2;
+      x2 = up[0] * z1 - up[1] * z0;
+      len = Math.hypot(x0, x1, x2);
+      if (len !== 0) {
+        x0 /= len;
+        x1 /= len;
+        x2 /= len;
+      }
+      y0 = z1 * x2 - z2 * x1;
+      y1 = z2 * x0 - z0 * x2;
+      y2 = z0 * x1 - z1 * x0;
+      out[0] = x0;
+      out[1] = y0;
+      out[2] = z0;
+      out[3] = 0;
+      out[4] = x1;
+      out[5] = y1;
+      out[6] = z1;
+      out[7] = 0;
+      out[8] = x2;
+      out[9] = y2;
+      out[10] = z2;
+      out[11] = 0;
+      out[12] = -(x0 * eye[0] + x1 * eye[1] + x2 * eye[2]);
+      out[13] = -(y0 * eye[0] + y1 * eye[1] + y2 * eye[2]);
+      out[14] = -(z0 * eye[0] + z1 * eye[1] + z2 * eye[2]);
+      out[15] = 1;
+      return out;
+    }
+
+    function createShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(shader);
+        gl.deleteShader(shader);
+        throw new Error(log || "Shader compile failed");
+      }
+      return shader;
+    }
+
+    function createProgram(vertexSource, fragmentSource) {
+      const program = gl.createProgram();
+      const vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
+      const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(program);
+        gl.deleteProgram(program);
+        throw new Error(log || "Program link failed");
+      }
+      return program;
+    }
+
+    const lineProgram = gl ? createProgram(
+      `
+        attribute vec3 aPosition;
+        attribute vec4 aColor;
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform float uFade;
+        varying vec4 vColor;
+        void main() {
+          vec4 viewPosition = uView * vec4(aPosition, 1.0);
+          gl_Position = uProjection * viewPosition;
+          vColor = vec4(aColor.rgb, aColor.a * uFade);
+        }
+      `,
+      `
+        precision mediump float;
+        varying vec4 vColor;
+        void main() {
+          gl_FragColor = vColor;
+        }
+      `
+    ) : null;
+
+    const pointProgram = gl ? createProgram(
+      `
+        attribute vec3 aPosition;
+        attribute vec4 aColor;
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform float uPointScale;
+        uniform float uFade;
+        varying vec4 vColor;
+        void main() {
+          vec4 viewPosition = uView * vec4(aPosition, 1.0);
+          gl_Position = uProjection * viewPosition;
+          float size = max(1.75, uPointScale / max(0.35, -viewPosition.z));
+          gl_PointSize = size;
+          vColor = vec4(aColor.rgb, aColor.a * uFade);
+        }
+      `,
+      `
+        precision mediump float;
+        varying vec4 vColor;
+        void main() {
+          vec2 coord = gl_PointCoord * 2.0 - 1.0;
+          float dist = dot(coord, coord);
+          if (dist > 1.0) {
+            discard;
+          }
+          float glow = pow(1.0 - dist, 2.8);
+          gl_FragColor = vec4(vColor.rgb * (0.55 + glow * 1.55), vColor.a * glow);
+        }
+      `
+    ) : null;
+
+    const lineLocations = gl ? {
+      position: gl.getAttribLocation(lineProgram, "aPosition"),
+      color: gl.getAttribLocation(lineProgram, "aColor"),
+      projection: gl.getUniformLocation(lineProgram, "uProjection"),
+      view: gl.getUniformLocation(lineProgram, "uView"),
+      fade: gl.getUniformLocation(lineProgram, "uFade")
+    } : null;
+
+    const pointLocations = gl ? {
+      position: gl.getAttribLocation(pointProgram, "aPosition"),
+      color: gl.getAttribLocation(pointProgram, "aColor"),
+      projection: gl.getUniformLocation(pointProgram, "uProjection"),
+      view: gl.getUniformLocation(pointProgram, "uView"),
+      pointScale: gl.getUniformLocation(pointProgram, "uPointScale"),
+      fade: gl.getUniformLocation(pointProgram, "uFade")
+    } : null;
+
+    if (gl) {
+      gl.clearColor(0.02, 0.02, 0.03, 1);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      gl.disable(gl.DEPTH_TEST);
+    }
+
+    class ParticleSystem {
+      constructor() {
+        this.count = 0;
+        this.trailLength = BASE_TRAIL_LENGTH;
+        this.positions = new Float32Array(0);
+        this.renderPositions = new Float32Array(0);
+        this.trails = new Float32Array(0);
+        this.trailHead = new Int32Array(0);
+        this.lineVertices = new Float32Array(0);
+        this.lineColors = new Uint8Array(0);
+        this.pointVertices = new Float32Array(0);
+        this.pointColors = new Uint8Array(0);
+        this.activeHeadColor = [255, 255, 255];
+        this.activeTailColor = [255, 255, 255];
+        this.lineVertexCount = 0;
+        this.pointVertexCount = 0;
+        this.linePositionBuffer = gl.createBuffer();
+        this.lineColorBuffer = gl.createBuffer();
+        this.pointPositionBuffer = gl.createBuffer();
+        this.pointColorBuffer = gl.createBuffer();
+      }
+
+      setCount(count) {
+        this.count = count;
+        this.positions = new Float32Array(count * 3);
+        this.renderPositions = new Float32Array(count * 3);
+        this.trails = new Float32Array(count * BASE_TRAIL_LENGTH * 3);
+        this.trailHead = new Int32Array(count);
+        this.pointVertices = new Float32Array(count * 3);
+        this.pointColors = new Uint8Array(count * 4);
+        const segmentCount = count * (BASE_TRAIL_LENGTH - 1) * 2;
+        this.lineVertices = new Float32Array(segmentCount * 3);
+        this.lineColors = new Uint8Array(segmentCount * 4);
+        this.lineVertexCount = count * (this.trailLength - 1) * 2;
+        this.pointVertexCount = count;
+      }
+
+      fillTrailForParticle(index, position) {
+        const base = index * BASE_TRAIL_LENGTH * 3;
+        for (let t = 0; t < BASE_TRAIL_LENGTH; t += 1) {
+          const offset = base + t * 3;
+          this.trails[offset] = position[0];
+          this.trails[offset + 1] = position[1];
+          this.trails[offset + 2] = position[2];
+        }
+        this.trailHead[index] = 0;
+      }
+
+      resetParticle(index, attractor) {
+        const seed = attractor.seed();
+        const rawOffset = index * 3;
+        this.positions[rawOffset] = seed[0];
+        this.positions[rawOffset + 1] = seed[1];
+        this.positions[rawOffset + 2] = seed[2];
+        const renderPos = [
+          seed[0] / attractor.scale,
+          seed[1] / attractor.scale,
+          seed[2] / attractor.scale
+        ];
+        this.renderPositions[rawOffset] = renderPos[0];
+        this.renderPositions[rawOffset + 1] = renderPos[1];
+        this.renderPositions[rawOffset + 2] = renderPos[2];
+        this.fillTrailForParticle(index, renderPos);
+      }
+
+      reset(attractor) {
+        for (let i = 0; i < this.count; i += 1) {
+          this.resetParticle(i, attractor);
+        }
+      }
+
+      updatePalette(attractor) {
+        const head = attractor.particleColor;
+        const tail = attractor.tailColor;
+        this.activeHeadColor = head;
+        this.activeTailColor = tail;
+        for (let i = 0; i < this.count; i += 1) {
+          const pointOffset = i * 4;
+          this.pointColors[pointOffset] = head[0];
+          this.pointColors[pointOffset + 1] = head[1];
+          this.pointColors[pointOffset + 2] = head[2];
+          this.pointColors[pointOffset + 3] = 255;
+        }
+      }
+
+      rk4Step(x, y, z, dt, attractor) {
+        const k1 = attractor.derivative(x, y, z);
+        const k2 = attractor.derivative(
+          x + k1[0] * dt * 0.5,
+          y + k1[1] * dt * 0.5,
+          z + k1[2] * dt * 0.5
+        );
+        const k3 = attractor.derivative(
+          x + k2[0] * dt * 0.5,
+          y + k2[1] * dt * 0.5,
+          z + k2[2] * dt * 0.5
+        );
+        const k4 = attractor.derivative(
+          x + k3[0] * dt,
+          y + k3[1] * dt,
+          z + k3[2] * dt
+        );
+        return [
+          x + (dt / 6) * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]),
+          y + (dt / 6) * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]),
+          z + (dt / 6) * (k1[2] + 2 * k2[2] + 2 * k3[2] + k4[2])
+        ];
+      }
+
+      update(attractor, dt) {
+        for (let i = 0; i < this.count; i += 1) {
+          const rawOffset = i * 3;
+          let x = this.positions[rawOffset];
+          let y = this.positions[rawOffset + 1];
+          let z = this.positions[rawOffset + 2];
+          const next = this.rk4Step(x, y, z, dt, attractor);
+          x = next[0];
+          y = next[1];
+          z = next[2];
+          const invalid = !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) ||
+            Math.abs(x) > DIVERGENCE_LIMIT || Math.abs(y) > DIVERGENCE_LIMIT || Math.abs(z) > DIVERGENCE_LIMIT;
+          if (invalid) {
+            this.resetParticle(i, attractor);
+            continue;
+          }
+          this.positions[rawOffset] = x;
+          this.positions[rawOffset + 1] = y;
+          this.positions[rawOffset + 2] = z;
+          const renderX = x / attractor.scale;
+          const renderY = y / attractor.scale;
+          const renderZ = z / attractor.scale;
+          this.renderPositions[rawOffset] = renderX;
+          this.renderPositions[rawOffset + 1] = renderY;
+          this.renderPositions[rawOffset + 2] = renderZ;
+          const head = this.trailHead[i];
+          const trailOffset = (i * BASE_TRAIL_LENGTH + head) * 3;
+          this.trails[trailOffset] = renderX;
+          this.trails[trailOffset + 1] = renderY;
+          this.trails[trailOffset + 2] = renderZ;
+          this.trailHead[i] = (head + 1) % BASE_TRAIL_LENGTH;
+        }
+      }
+
+      rebuildGeometry(trailLength) {
+        this.trailLength = trailLength;
+        const segmentsPerParticle = trailLength - 1;
+        this.lineVertexCount = this.count * segmentsPerParticle * 2;
+        this.pointVertexCount = this.count;
+        let lineVertexWrite = 0;
+        let lineColorWrite = 0;
+        for (let i = 0; i < this.count; i += 1) {
+          const pointOffset = i * 3;
+          this.pointVertices[pointOffset] = this.renderPositions[pointOffset];
+          this.pointVertices[pointOffset + 1] = this.renderPositions[pointOffset + 1];
+          this.pointVertices[pointOffset + 2] = this.renderPositions[pointOffset + 2];
+          const trailBase = i * BASE_TRAIL_LENGTH * 3;
+          const head = this.trailHead[i];
+          const oldest = (head - trailLength + BASE_TRAIL_LENGTH) % BASE_TRAIL_LENGTH;
+          for (let step = 0; step < segmentsPerParticle; step += 1) {
+            const fromIndex = (oldest + step) % BASE_TRAIL_LENGTH;
+            const toIndex = (fromIndex + 1) % BASE_TRAIL_LENGTH;
+            const sourceA = trailBase + fromIndex * 3;
+            const sourceB = trailBase + toIndex * 3;
+            this.lineVertices[lineVertexWrite] = this.trails[sourceA];
+            this.lineVertices[lineVertexWrite + 1] = this.trails[sourceA + 1];
+            this.lineVertices[lineVertexWrite + 2] = this.trails[sourceA + 2];
+            this.lineVertices[lineVertexWrite + 3] = this.trails[sourceB];
+            this.lineVertices[lineVertexWrite + 4] = this.trails[sourceB + 1];
+            this.lineVertices[lineVertexWrite + 5] = this.trails[sourceB + 2];
+            const t0 = step / segmentsPerParticle;
+            const t1 = (step + 1) / segmentsPerParticle;
+            mixColorByte(this.lineColors, lineColorWrite, this.activeTailColor, this.activeHeadColor, t0, Math.round(t0 * 255));
+            mixColorByte(this.lineColors, lineColorWrite + 4, this.activeTailColor, this.activeHeadColor, t1, Math.round(t1 * 255));
+            lineVertexWrite += 6;
+            lineColorWrite += 8;
+          }
+        }
+      }
+
+      upload() {
+        if (useFallbackRenderer || !gl) {
+          return;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.linePositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.lineVertices, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.lineColors, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointPositionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.pointVertices, gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.pointColorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, this.pointColors, gl.STATIC_DRAW);
+      }
+    }
+
+    const particles = new ParticleSystem();
+    particles.setCount(state.particleCount);
+    particles.reset(ATTRACTORS[state.activeAttractorIndex]);
+    particles.updatePalette(ATTRACTORS[state.activeAttractorIndex]);
+    particles.rebuildGeometry(state.trailLength);
+    particles.upload();
+
+    const projectionMatrix = new Float32Array(16);
+    const viewMatrix = new Float32Array(16);
+    const eye = [0, 0, 0];
+    const up = [0, 1, 0];
+    const center = [0, 0, 0];
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width * dpr));
+      const height = Math.max(1, Math.round(rect.height * dpr));
+      state.dpr = dpr;
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      if (fallbackCanvas.width !== width || fallbackCanvas.height !== height) {
+        fallbackCanvas.width = width;
+        fallbackCanvas.height = height;
+      }
+      state.renderWidth = width;
+      state.renderHeight = height;
+      if (gl) {
+        gl.viewport(0, 0, width, height);
+      }
+      mat4Perspective(projectionMatrix, Math.PI / 3, width / height, 0.1, 1000);
+    }
+
+    function activateFallbackRenderer() {
+      useFallbackRenderer = true;
+      fallbackCanvas.style.opacity = "1";
+      canvas.style.opacity = "0";
+      modeReadout.textContent = "FALLBACK RENDER";
+    }
+
+    if (useFallbackRenderer) {
+      activateFallbackRenderer();
+    }
+
+    canvas.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault();
+      activateFallbackRenderer();
+    });
+
+    const stripObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) {
+        document.documentElement.style.setProperty("--ui-height", `${Math.ceil(entry.contentRect.height)}px`);
+        resizeCanvas();
+      }
+    });
+    stripObserver.observe(document.getElementById("controlStrip"));
+
+    function setActiveStyles(buttons, activeValue, colorHex) {
+      for (const button of buttons) {
+        const isActive = button.dataset.value === String(activeValue);
+        button.classList.toggle("activeButton", isActive);
+        button.style.setProperty("--accent", colorHex);
+      }
+    }
+
+    const attractorButtons = [];
+    for (const attractor of ATTRACTORS) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "pillButton";
+      button.textContent = attractor.label;
+      button.dataset.value = attractor.id;
+      button.setAttribute("aria-label", `Switch to ${attractor.title}`);
+      button.addEventListener("click", () => requestAttractorSwitch(ATTRACTORS.findIndex((entry) => entry.id === attractor.id)));
+      attractorButtons.push(button);
+      attractorButtonsRoot.appendChild(button);
+    }
+
+    const countButtons = [];
+    for (const count of PARTICLE_COUNTS) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "countButton";
+      button.textContent = `${count / 1000}K`;
+      button.dataset.value = String(count);
+      button.setAttribute("aria-label", `Switch to ${count} particles`);
+      button.addEventListener("click", () => setParticleCount(count));
+      countButtons.push(button);
+      countButtonsRoot.appendChild(button);
+    }
+
+    function updateUiForAttractor(attractor) {
+      titleSub.textContent = attractor.title;
+      titleSub.style.color = attractor.particleHex;
+      speedValue.style.color = attractor.particleHex;
+      titleMeta.textContent = `${state.particleCount} PARTICLES · RK4`;
+      setActiveStyles(attractorButtons, attractor.id, attractor.particleHex);
+      setActiveStyles(countButtons, state.particleCount, attractor.particleHex);
+    }
+
+    function requestAttractorSwitch(index) {
+      if (index === state.activeAttractorIndex || state.transition) {
+        return;
+      }
+      state.requestedAttractorIndex = index;
+      state.transition = {
+        phase: "out",
+        frame: 0,
+        total: 20
+      };
+    }
+
+    function setParticleCount(count) {
+      if (count === state.particleCount) {
+        return;
+      }
+      state.particleCount = count;
+      particles.setCount(count);
+      const attractor = ATTRACTORS[state.activeAttractorIndex];
+      particles.reset(attractor);
+      particles.updatePalette(attractor);
+      particles.rebuildGeometry(state.trailLength);
+      particles.upload();
+      updateUiForAttractor(attractor);
+    }
+
+    function resetCurrentAttractor() {
+      const attractor = ATTRACTORS[state.activeAttractorIndex];
+      particles.reset(attractor);
+      particles.rebuildGeometry(state.trailLength);
+      particles.upload();
+      state.lastUserInteraction = performance.now();
+    }
+
+    speedSlider.addEventListener("input", () => {
+      state.speed = Number(speedSlider.value);
+      speedValue.textContent = `${state.speed.toFixed(1)}X`;
+      state.lastUserInteraction = performance.now();
+    });
+
+    resetButton.addEventListener("click", resetCurrentAttractor);
+
+    function updateTransition() {
+      if (!state.transition) {
+        return;
+      }
+      state.transition.frame += 1;
+      const progress = Math.min(state.transition.frame / state.transition.total, 1);
+      if (state.transition.phase === "out") {
+        state.fade = 1 - progress;
+        if (progress >= 1) {
+          state.activeAttractorIndex = state.requestedAttractorIndex;
+          const attractor = ATTRACTORS[state.activeAttractorIndex];
+          particles.reset(attractor);
+          particles.updatePalette(attractor);
+          particles.rebuildGeometry(state.trailLength);
+          particles.upload();
+          state.targetOrbitRadius = attractor.orbitRadius;
+          updateUiForAttractor(attractor);
+          state.transition = {
+            phase: "in",
+            frame: 0,
+            total: 20
+          };
+          state.fade = 0;
+        }
+      } else {
+        state.fade = progress;
+        if (progress >= 1) {
+          state.fade = 1;
+          state.transition = null;
+        }
+      }
+    }
+
+    function beginDrag(event) {
+      state.dragging = true;
+      state.pointerId = event.pointerId;
+      state.lastPointerX = event.clientX;
+      state.lastPointerY = event.clientY;
+      state.lastUserInteraction = performance.now();
+      modeReadout.textContent = "MANUAL ORBIT";
+      canvas.setPointerCapture(event.pointerId);
+    }
+
+    function updateDrag(event) {
+      if (!state.dragging || event.pointerId !== state.pointerId) {
+        return;
+      }
+      const dx = event.clientX - state.lastPointerX;
+      const dy = event.clientY - state.lastPointerY;
+      state.lastPointerX = event.clientX;
+      state.lastPointerY = event.clientY;
+      state.dragYaw += dx * 0.0065;
+      state.dragPitch += dy * 0.0045;
+      state.dragPitch = Math.max(-1.15, Math.min(1.15, state.dragPitch));
+      state.lastUserInteraction = performance.now();
+    }
+
+    function endDrag(event) {
+      if (!state.dragging || event.pointerId !== state.pointerId) {
+        return;
+      }
+      state.dragging = false;
+      state.pointerId = null;
+      canvas.releasePointerCapture(event.pointerId);
+      state.lastUserInteraction = performance.now();
+    }
+
+    canvas.addEventListener("pointerdown", beginDrag);
+    canvas.addEventListener("pointermove", updateDrag);
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("pointerleave", (event) => {
+      if (state.dragging) {
+        endDrag(event);
+      }
+    });
+
+    function updateCamera(deltaSeconds) {
+      const now = performance.now();
+      if (!state.dragging && now - state.lastUserInteraction > 3000) {
+        state.autoRotateAngle += deltaSeconds * 0.18;
+        modeReadout.textContent = "AUTO ORBIT";
+      } else if (!state.dragging) {
+        modeReadout.textContent = "PAUSED ORBIT";
+      }
+      state.userYaw += (state.dragYaw - state.userYaw) * Math.min(1, deltaSeconds * 8);
+      state.userPitch += (state.dragPitch - state.userPitch) * Math.min(1, deltaSeconds * 8);
+      state.orbitRadius += (state.targetOrbitRadius - state.orbitRadius) * Math.min(1, deltaSeconds * 3.5);
+      const yaw = state.autoRotateAngle + state.userYaw;
+      const pitch = state.userPitch;
+      const radius = state.orbitRadius;
+      eye[0] = radius * Math.sin(yaw) * Math.cos(pitch);
+      eye[1] = radius * Math.sin(pitch) * 0.9;
+      eye[2] = radius * Math.cos(yaw) * Math.cos(pitch);
+      mat4LookAt(viewMatrix, eye, center, up);
+    }
+
+    function drawLines() {
+      if (!gl) {
+        return;
+      }
+      gl.useProgram(lineProgram);
+      gl.uniformMatrix4fv(lineLocations.projection, false, projectionMatrix);
+      gl.uniformMatrix4fv(lineLocations.view, false, viewMatrix);
+      gl.uniform1f(lineLocations.fade, state.fade * 0.75);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.linePositionBuffer);
+      gl.vertexAttribPointer(lineLocations.position, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(lineLocations.position);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.lineColorBuffer);
+      gl.vertexAttribPointer(lineLocations.color, 4, gl.UNSIGNED_BYTE, true, 0, 0);
+      gl.enableVertexAttribArray(lineLocations.color);
+      gl.drawArrays(gl.LINES, 0, particles.lineVertexCount);
+    }
+
+    function drawPoints() {
+      if (!gl) {
+        return;
+      }
+      gl.useProgram(pointProgram);
+      gl.uniformMatrix4fv(pointLocations.projection, false, projectionMatrix);
+      gl.uniformMatrix4fv(pointLocations.view, false, viewMatrix);
+      gl.uniform1f(pointLocations.pointScale, state.renderHeight * 0.0045);
+      gl.uniform1f(pointLocations.fade, state.fade);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.pointPositionBuffer);
+      gl.vertexAttribPointer(pointLocations.position, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(pointLocations.position);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.pointColorBuffer);
+      gl.vertexAttribPointer(pointLocations.color, 4, gl.UNSIGNED_BYTE, true, 0, 0);
+      gl.enableVertexAttribArray(pointLocations.color);
+      gl.drawArrays(gl.POINTS, 0, particles.pointVertexCount);
+    }
+
+    function uploadDynamicGeometry() {
+      if (useFallbackRenderer || !gl) {
+        return;
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.linePositionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, particles.lineVertices, gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, particles.pointPositionBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, particles.pointVertices, gl.DYNAMIC_DRAW);
+    }
+
+    function projectPoint(x, y, z) {
+      const relX = x - eye[0];
+      const relY = y - eye[1];
+      const relZ = z - eye[2];
+      const forwardLength = Math.hypot(-eye[0], -eye[1], -eye[2]) || 1;
+      const forwardX = -eye[0] / forwardLength;
+      const forwardY = -eye[1] / forwardLength;
+      const forwardZ = -eye[2] / forwardLength;
+      const rightX = forwardZ;
+      const rightY = 0;
+      const rightZ = -forwardX;
+      const rightLength = Math.hypot(rightX, rightY, rightZ) || 1;
+      const normRightX = rightX / rightLength;
+      const normRightY = rightY / rightLength;
+      const normRightZ = rightZ / rightLength;
+      const upX = normRightY * forwardZ - normRightZ * forwardY;
+      const upY = normRightZ * forwardX - normRightX * forwardZ;
+      const upZ = normRightX * forwardY - normRightY * forwardX;
+      const cameraX = relX * normRightX + relY * normRightY + relZ * normRightZ;
+      const cameraY = relX * upX + relY * upY + relZ * upZ;
+      const cameraZ = relX * forwardX + relY * forwardY + relZ * forwardZ;
+      if (cameraZ <= 0.1) {
+        return null;
+      }
+      const f = 1 / Math.tan(Math.PI / 6);
+      const nx = (cameraX * f) / (cameraZ * (state.renderWidth / state.renderHeight));
+      const ny = (cameraY * f) / cameraZ;
+      return {
+        x: (nx * 0.5 + 0.5) * state.renderWidth,
+        y: (1 - (ny * 0.5 + 0.5)) * state.renderHeight,
+        depth: cameraZ
+      };
+    }
+
+    function drawFallback() {
+      const width = state.renderWidth;
+      const height = state.renderHeight;
+      const attractor = ATTRACTORS[state.activeAttractorIndex];
+      const headColor = attractor.particleColor;
+      const tailColor = attractor.tailColor;
+      const stride = state.particleCount >= 10000 ? 4 : state.particleCount >= 5000 ? 2 : 1;
+      const zoom = 2.15;
+      fallbackCtx.setTransform(1, 0, 0, 1, 0, 0);
+      fallbackCtx.clearRect(0, 0, width, height);
+      fallbackCtx.globalCompositeOperation = "source-over";
+      fallbackCtx.fillStyle = "rgba(5, 5, 8, 0.86)";
+      fallbackCtx.fillRect(0, 0, width, height);
+      fallbackCtx.globalCompositeOperation = "screen";
+      fallbackCtx.lineCap = "round";
+      for (let i = 0; i < state.particleCount; i += stride) {
+        const trailBase = i * BASE_TRAIL_LENGTH * 3;
+        const head = particles.trailHead[i];
+        const oldest = (head - state.trailLength + BASE_TRAIL_LENGTH) % BASE_TRAIL_LENGTH;
+        let previous = null;
+        for (let step = 0; step < state.trailLength; step += 1) {
+          const index = (oldest + step) % BASE_TRAIL_LENGTH;
+          const source = trailBase + index * 3;
+          const point = projectPoint(
+            particles.trails[source] * zoom,
+            particles.trails[source + 1] * zoom,
+            particles.trails[source + 2] * zoom
+          );
+          if (!point) {
+            previous = null;
+            continue;
+          }
+          if (previous) {
+            const t = step / state.trailLength;
+            const r = Math.round(tailColor[0] + (headColor[0] - tailColor[0]) * t);
+            const g = Math.round(tailColor[1] + (headColor[1] - tailColor[1]) * t);
+            const b = Math.round(tailColor[2] + (headColor[2] - tailColor[2]) * t);
+            fallbackCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.24 + t * 0.6 * state.fade})`;
+            fallbackCtx.lineWidth = 1.1 + t * 1.8;
+            fallbackCtx.beginPath();
+            fallbackCtx.moveTo(previous.x, previous.y);
+            fallbackCtx.lineTo(point.x, point.y);
+            fallbackCtx.stroke();
+          }
+          previous = point;
+        }
+        const rawOffset = i * 3;
+        const headPoint = projectPoint(
+          particles.renderPositions[rawOffset] * zoom,
+          particles.renderPositions[rawOffset + 1] * zoom,
+          particles.renderPositions[rawOffset + 2] * zoom
+        );
+        if (!headPoint) {
+          continue;
+        }
+        const radius = Math.max(1.8, 6.2 / Math.max(0.7, headPoint.depth * 0.22));
+        const glow = fallbackCtx.createRadialGradient(headPoint.x, headPoint.y, 0, headPoint.x, headPoint.y, radius * 6.6);
+        glow.addColorStop(0, `rgba(${headColor[0]}, ${headColor[1]}, ${headColor[2]}, ${1.0 * state.fade})`);
+        glow.addColorStop(0.18, `rgba(${headColor[0]}, ${headColor[1]}, ${headColor[2]}, ${0.52 * state.fade})`);
+        glow.addColorStop(1, `rgba(${tailColor[0]}, ${tailColor[1]}, ${tailColor[2]}, 0)`);
+        fallbackCtx.fillStyle = glow;
+        fallbackCtx.beginPath();
+        fallbackCtx.arc(headPoint.x, headPoint.y, radius * 6.6, 0, TAU);
+        fallbackCtx.fill();
+      }
+      fallbackCtx.globalCompositeOperation = "source-over";
+    }
+
+    function adaptTrailLength(deltaSeconds) {
+      if (state.fpsAverage < 40 && state.trailLength !== MIN_TRAIL_LENGTH) {
+        state.trailLength = MIN_TRAIL_LENGTH;
+        particles.rebuildGeometry(state.trailLength);
+        particles.upload();
+        state.fpsStableSeconds = 0;
+        return;
+      }
+      if (state.fpsAverage > 52 && state.trailLength !== BASE_TRAIL_LENGTH) {
+        state.fpsStableSeconds += deltaSeconds;
+        if (state.fpsStableSeconds > 2.5) {
+          state.trailLength = BASE_TRAIL_LENGTH;
+          particles.rebuildGeometry(state.trailLength);
+          particles.upload();
+          state.fpsStableSeconds = 0;
+        }
+      } else {
+        state.fpsStableSeconds = 0;
+      }
+    }
+
+    let previousTime = performance.now();
+
+    function frame(now) {
+      const deltaMs = Math.min(48, now - previousTime || 16.67);
+      previousTime = now;
+      const deltaSeconds = deltaMs / 1000;
+      state.fpsAverage += (((1000 / deltaMs) || 60) - state.fpsAverage) * 0.08;
+      fpsReadout.textContent = `${Math.round(state.fpsAverage)} FPS`;
+      adaptTrailLength(deltaSeconds);
+      updateTransition();
+      updateCamera(deltaSeconds);
+      const attractor = ATTRACTORS[state.activeAttractorIndex];
+      const simSteps = 2;
+      const dt = 0.005 * state.speed;
+      for (let step = 0; step < simSteps; step += 1) {
+        particles.update(attractor, dt);
+      }
+      particles.rebuildGeometry(state.trailLength);
+      uploadDynamicGeometry();
+      if (useFallbackRenderer) {
+        drawFallback();
+      } else if (gl) {
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        drawLines();
+        drawPoints();
+      }
+      requestAnimationFrame(frame);
+    }
+
+    updateUiForAttractor(ATTRACTORS[state.activeAttractorIndex]);
+    speedValue.textContent = `${state.speed.toFixed(1)}X`;
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
