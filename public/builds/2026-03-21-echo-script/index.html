@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Type a phrase and watch it explode into kinetic letters that drift, orbit, collide, and pulse to live audio.">
+  <title>Echo Script</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #06070b;
+      --panel: rgba(9, 11, 18, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text: #eef2ff;
+      --muted: rgba(238, 242, 255, 0.62);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --mono: "IBM Plex Mono", "SFMono-Regular", "Consolas", monospace;
+      --sans: "Space Grotesk", "Avenir Next", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(111, 76, 255, 0.1), transparent 20%),
+        radial-gradient(circle at 85% 10%, rgba(0, 202, 255, 0.08), transparent 18%),
+        radial-gradient(circle at 50% 100%, rgba(255, 128, 64, 0.08), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+      color: inherit;
+    }
+
+    button,
+    select,
+    input[type="text"] {
+      border: 1px solid var(--panel-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 16px;
+    }
+
+    button {
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    button:active {
+      transform: translateY(1px) scale(0.99);
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, 0.9);
+      outline-offset: 2px;
+    }
+
+    #canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .grain,
+    .vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .grain {
+      opacity: 0.06;
+      mix-blend-mode: screen;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.11) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+      background-size: 4px 4px, 6px 6px;
+    }
+
+    .vignette {
+      background:
+        radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.24) 66%, rgba(0, 0, 0, 0.6) 100%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.28), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.34));
+    }
+
+    .topline {
+      position: fixed;
+      top: calc(18px + var(--safe-top));
+      left: calc(20px + var(--safe-left));
+      z-index: 4;
+      pointer-events: none;
+      text-transform: uppercase;
+      letter-spacing: 0.36em;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    }
+
+    .topline small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      letter-spacing: 0.24em;
+      font-size: 9px;
+    }
+
+    .hud {
+      position: fixed;
+      left: calc(20px + var(--safe-left));
+      bottom: calc(18px + var(--safe-bottom));
+      z-index: 4;
+      display: grid;
+      gap: 6px;
+      pointer-events: none;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+      text-shadow: 0 4px 18px rgba(0, 0, 0, 0.75);
+    }
+
+    .panel {
+      position: fixed;
+      right: calc(20px + var(--safe-right));
+      top: calc(20px + var(--safe-top));
+      z-index: 5;
+      width: min(360px, calc(100vw - 40px - var(--safe-left) - var(--safe-right)));
+      max-height: calc(100dvh - 40px - var(--safe-top) - var(--safe-bottom));
+      overflow-y: auto;
+      padding: 18px;
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      background: var(--panel);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 18px 80px rgba(0, 0, 0, 0.4);
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+    }
+
+    .panel h1 {
+      margin: 0;
+      font-size: 1.9rem;
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+    }
+
+    .panel p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    label,
+    .label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    input[type="text"],
+    select,
+    button {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 14px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #ffffff;
+    }
+
+    .buttonRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #666;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.3);
+    }
+
+    .active .dot {
+      background: #8dfac2;
+      box-shadow: 0 0 18px rgba(141, 250, 194, 0.95);
+    }
+
+    .footer {
+      margin-top: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 820px) {
+      .panel {
+        top: auto;
+        bottom: calc(12px + var(--safe-bottom));
+        left: calc(12px + var(--safe-left));
+        right: calc(12px + var(--safe-right));
+        width: auto;
+        max-height: calc(100dvh - 112px - var(--safe-top) - var(--safe-bottom));
+        padding: 14px;
+      }
+
+      .panel h1 {
+        font-size: 1.55rem;
+      }
+
+      .topline,
+      .hud {
+        font-size: 9px;
+        left: calc(14px + var(--safe-left));
+      }
+
+      .topline {
+        top: calc(14px + var(--safe-top));
+      }
+
+      .hud {
+        bottom: calc(14px + var(--safe-bottom) + 264px);
+      }
+    }
+
+    @media (max-width: 520px) {
+      .panel {
+        left: calc(8px + var(--safe-left));
+        right: calc(8px + var(--safe-right));
+        bottom: calc(8px + var(--safe-bottom));
+        width: calc(100vw - 16px - var(--safe-left) - var(--safe-right));
+        max-width: none;
+        max-height: calc(100dvh - 84px - var(--safe-top) - var(--safe-bottom));
+        padding: 12px;
+        border-radius: 20px;
+      }
+
+      .panel h1 {
+        font-size: 1.35rem;
+      }
+
+      .split,
+      .buttonRow {
+        grid-template-columns: 1fr;
+      }
+
+      .panel p {
+        font-size: 0.88rem;
+      }
+
+      .footer {
+        font-size: 0.76rem;
+      }
+
+      .hud {
+        display: none;
+      }
+
+      .topline small {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+
+  <div class="topline">
+    Echo Script
+    <small>Type. Scatter. Pull. Pulse.</small>
+  </div>
+
+  <div class="hud">
+    <div id="hudPhrase">Phrase: HELLO</div>
+    <div id="hudStats">Letters: 5 · Palette: Neon</div>
+    <div id="hudAudio">Audio: Off</div>
+  </div>
+
+  <section class="panel">
+    <h1>Echo Script</h1>
+    <p>Turn a phrase into a reactive field of drifting letters. Hover to pull, click or tap to scatter, and enable the mic for amplitude-driven pulse.</p>
+
+    <div class="grid">
+      <div class="row">
+        <label for="textInput">Text</label>
+        <input id="textInput" type="text" maxlength="42" autocomplete="off" spellcheck="false" value="HELLO">
+      </div>
+
+      <div class="split">
+        <div class="row">
+          <label for="paletteSelect">Palette</label>
+          <select id="paletteSelect">
+            <option value="neon">Neon</option>
+            <option value="ember">Ember</option>
+            <option value="ocean">Ocean</option>
+            <option value="mono">Mono</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <span class="label">Audio</span>
+          <button id="audioButton" type="button">Enable Mic</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="fontSize">Font Size <span id="fontSizeValue">64 px</span></label>
+        <input id="fontSize" type="range" min="36" max="112" step="1" value="64">
+      </div>
+
+      <div class="buttonRow">
+        <button id="burstButton" type="button">Burst</button>
+        <button id="resetButton" type="button">Reset</button>
+      </div>
+
+      <div id="audioState" class="pill">
+        <span class="dot"></span>
+        <span>Mic Inactive</span>
+      </div>
+    </div>
+
+    <div class="footer">
+      Shared links preserve the phrase in the URL hash. Touch input pushes the type field on mobile.
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const textInput = document.getElementById('textInput');
+      const paletteSelect = document.getElementById('paletteSelect');
+      const fontSizeSlider = document.getElementById('fontSize');
+      const fontSizeValue = document.getElementById('fontSizeValue');
+      const audioButton = document.getElementById('audioButton');
+      const burstButton = document.getElementById('burstButton');
+      const resetButton = document.getElementById('resetButton');
+      const audioState = document.getElementById('audioState');
+      const hudPhrase = document.getElementById('hudPhrase');
+      const hudStats = document.getElementById('hudStats');
+      const hudAudio = document.getElementById('hudAudio');
+
+      const palettes = {
+        neon: {
+          name: 'Neon',
+          background: ['#05060b', '#110723', '#01253d'],
+          colors: ['#7cf6ff', '#8f7dff', '#ff61c7', '#ffd166'],
+          glow: 'rgba(124, 246, 255, 0.24)'
+        },
+        ember: {
+          name: 'Ember',
+          background: ['#140b08', '#31110d', '#52200f'],
+          colors: ['#ffde8a', '#ff9f43', '#ff5d3d', '#ffe8c2'],
+          glow: 'rgba(255, 140, 90, 0.22)'
+        },
+        ocean: {
+          name: 'Ocean',
+          background: ['#04121f', '#04283c', '#0a5066'],
+          colors: ['#9ff6ff', '#5dd6ff', '#7fffd4', '#c7f2ff'],
+          glow: 'rgba(93, 214, 255, 0.24)'
+        },
+        mono: {
+          name: 'Mono',
+          background: ['#0b0b0d', '#16181f', '#252833'],
+          colors: ['#f6f7fb', '#d8deec', '#a3adbf', '#ffffff'],
+          glow: 'rgba(246, 247, 251, 0.18)'
+        }
+      };
+
+      const state = {
+        width: 0,
+        height: 0,
+        dpr: Math.min(window.devicePixelRatio || 1, 2),
+        phrase: 'HELLO',
+        palette: 'neon',
+        fontSize: 64,
+        letters: [],
+        pointer: { x: 0, y: 0, active: false, influence: 180 },
+        audio: {
+          enabled: false,
+          amplitude: 0,
+          beatEnergy: 0,
+          context: null,
+          analyser: null,
+          stream: null,
+          data: null,
+          lastBeat: 0
+        },
+        lastTs: 0,
+        shockwaves: []
+      };
+
+      function resize() {
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        canvas.width = Math.round(state.width * state.dpr);
+        canvas.height = Math.round(state.height * state.dpr);
+        canvas.style.width = state.width + 'px';
+        canvas.style.height = state.height + 'px';
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        retargetLetters();
+      }
+
+      function sanitizePhrase(value) {
+        const trimmed = value.replace(/\s+/g, ' ').trim();
+        return (trimmed || 'HELLO').slice(0, 42);
+      }
+
+      function updateHash() {
+        const encoded = encodeURIComponent(state.phrase);
+        history.replaceState(null, '', '#' + encoded);
+      }
+
+      function phraseFromHash() {
+        if (!location.hash || location.hash.length < 2) return null;
+        try {
+          return sanitizePhrase(decodeURIComponent(location.hash.slice(1)));
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function currentPalette() {
+        return palettes[state.palette];
+      }
+
+      function createLetters(burstScale) {
+        const chars = Array.from(state.phrase.toUpperCase());
+        state.letters = [];
+        if (!chars.length) return;
+
+        const spacing = Math.min(state.fontSize * 0.68, 54);
+        const startX = state.width * 0.5 - ((chars.length - 1) * spacing) * 0.5;
+        const centerY = state.height * 0.5;
+        const palette = currentPalette();
+
+        for (let i = 0; i < chars.length; i += 1) {
+          const ch = chars[i];
+          const tx = startX + i * spacing;
+          const ty = centerY + Math.sin(i * 0.45) * Math.min(24, state.fontSize * 0.18);
+          const angle = Math.atan2(ty - centerY, tx - state.width * 0.5) + (Math.random() - 0.5) * 0.4;
+          const speed = burstScale * (2.1 + Math.random() * 2.6);
+          state.letters.push({
+            ch,
+            x: state.width * 0.5 + (Math.random() - 0.5) * 12,
+            y: centerY + (Math.random() - 0.5) * 12,
+            tx,
+            ty,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            orbitRadius: 14 + Math.random() * 58,
+            orbitAngle: Math.random() * Math.PI * 2,
+            orbitSpeed: (Math.random() * 0.7 + 0.15) * (Math.random() > 0.5 ? 1 : -1),
+            seed: Math.random() * 1000,
+            color: palette.colors[i % palette.colors.length],
+            scale: 1
+          });
+        }
+
+        updateHud();
+      }
+
+      function retargetLetters() {
+        if (!state.letters.length) return;
+        const spacing = Math.min(state.fontSize * 0.68, 54);
+        const startX = state.width * 0.5 - ((state.letters.length - 1) * spacing) * 0.5;
+        const centerY = state.height * 0.5;
+        for (let i = 0; i < state.letters.length; i += 1) {
+          state.letters[i].tx = startX + i * spacing;
+          state.letters[i].ty = centerY + Math.sin(i * 0.45) * Math.min(24, state.fontSize * 0.18);
+        }
+      }
+
+      function burst(force) {
+        const cx = state.pointer.active ? state.pointer.x : state.width * 0.5;
+        const cy = state.pointer.active ? state.pointer.y : state.height * 0.5;
+        for (const letter of state.letters) {
+          const dx = letter.x - cx;
+          const dy = letter.y - cy;
+          const dist = Math.max(20, Math.hypot(dx, dy));
+          const strength = force / dist;
+          letter.vx += dx * strength;
+          letter.vy += dy * strength;
+        }
+        state.shockwaves.push({ x: cx, y: cy, life: 0, maxLife: 0.65, radius: 12 });
+      }
+
+      function setPhrase(nextPhrase, burstScale) {
+        state.phrase = sanitizePhrase(nextPhrase);
+        textInput.value = state.phrase;
+        createLetters(burstScale);
+        updateHash();
+        updateHud();
+      }
+
+      function applyPalette(nextPalette) {
+        state.palette = nextPalette;
+        const palette = currentPalette();
+        state.letters.forEach((letter, index) => {
+          letter.color = palette.colors[index % palette.colors.length];
+        });
+        updateHud();
+      }
+
+      function updateHud() {
+        hudPhrase.textContent = 'Phrase: ' + state.phrase;
+        hudStats.textContent = 'Letters: ' + state.letters.length + ' · Palette: ' + currentPalette().name;
+        hudAudio.textContent = 'Audio: ' + (state.audio.enabled ? 'Live' : 'Off');
+        fontSizeValue.textContent = state.fontSize + ' px';
+      }
+
+      async function toggleAudio() {
+        if (state.audio.enabled) {
+          stopAudio();
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          const context = new AudioCtx();
+          const analyser = context.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.82;
+          const source = context.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          state.audio.context = context;
+          state.audio.analyser = analyser;
+          state.audio.stream = stream;
+          state.audio.data = new Uint8Array(analyser.frequencyBinCount);
+          state.audio.enabled = true;
+          audioButton.textContent = 'Disable Mic';
+          audioState.classList.add('active');
+          audioState.lastElementChild.textContent = 'Mic Active';
+          updateHud();
+        } catch (error) {
+          audioState.lastElementChild.textContent = 'Mic Blocked';
+        }
+      }
+
+      function stopAudio() {
+        if (state.audio.stream) {
+          state.audio.stream.getTracks().forEach((track) => track.stop());
+        }
+        if (state.audio.context) {
+          state.audio.context.close();
+        }
+        state.audio.context = null;
+        state.audio.analyser = null;
+        state.audio.stream = null;
+        state.audio.data = null;
+        state.audio.enabled = false;
+        state.audio.amplitude = 0;
+        state.audio.beatEnergy = 0;
+        audioButton.textContent = 'Enable Mic';
+        audioState.classList.remove('active');
+        audioState.lastElementChild.textContent = 'Mic Inactive';
+        updateHud();
+      }
+
+      function sampleAudio(now) {
+        if (!state.audio.enabled || !state.audio.analyser || !state.audio.data) return;
+        state.audio.analyser.getByteFrequencyData(state.audio.data);
+        let sum = 0;
+        let low = 0;
+        for (let i = 0; i < state.audio.data.length; i += 1) {
+          const value = state.audio.data[i] / 255;
+          sum += value;
+          if (i < 18) low += value;
+        }
+        const amplitude = sum / state.audio.data.length;
+        const lowBand = low / 18;
+        state.audio.amplitude += (amplitude - state.audio.amplitude) * 0.18;
+        state.audio.beatEnergy += (lowBand - state.audio.beatEnergy) * 0.25;
+
+        const beatThreshold = 0.33 + state.audio.amplitude * 0.9;
+        if (lowBand > beatThreshold && now - state.audio.lastBeat > 280) {
+          state.audio.lastBeat = now;
+          burst(220);
+        }
+      }
+
+      function update(dt, now) {
+        sampleAudio(now);
+
+        const amplitude = state.audio.enabled ? state.audio.amplitude : 0;
+        const targetStrength = 0.008 + amplitude * 0.06;
+        const driftStrength = 0.35 + amplitude * 2.2;
+        const repulsionDistance = Math.max(24, state.fontSize * 0.72);
+
+        for (let i = 0; i < state.letters.length; i += 1) {
+          const letter = state.letters[i];
+          letter.orbitAngle += letter.orbitSpeed * dt * (0.7 + amplitude * 1.8);
+          const orbitX = Math.cos(letter.orbitAngle + letter.seed) * letter.orbitRadius;
+          const orbitY = Math.sin(letter.orbitAngle * 1.17 + letter.seed) * letter.orbitRadius * 0.52;
+          const driftX = Math.cos(now * 0.00035 + letter.seed) * driftStrength;
+          const driftY = Math.sin(now * 0.00045 + letter.seed * 1.3) * driftStrength;
+          const ax = (letter.tx + orbitX + driftX - letter.x) * targetStrength;
+          const ay = (letter.ty + orbitY + driftY - letter.y) * targetStrength;
+          letter.vx += ax;
+          letter.vy += ay;
+
+          if (state.pointer.active) {
+            const dx = state.pointer.x - letter.x;
+            const dy = state.pointer.y - letter.y;
+            const dist = Math.max(18, Math.hypot(dx, dy));
+            if (dist < state.pointer.influence) {
+              const pull = (1 - dist / state.pointer.influence) * (0.18 + amplitude * 0.65);
+              letter.vx += dx * pull * dt * 3;
+              letter.vy += dy * pull * dt * 3;
+            }
+          }
+
+          letter.scale += ((1 + amplitude * 0.85) - letter.scale) * 0.16;
+        }
+
+        for (let i = 0; i < state.letters.length; i += 1) {
+          const a = state.letters[i];
+          for (let j = i + 1; j < state.letters.length; j += 1) {
+            const b = state.letters[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.max(1, Math.hypot(dx, dy));
+            if (dist < repulsionDistance) {
+              const force = (1 - dist / repulsionDistance) * 0.24;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              a.vx -= nx * force;
+              a.vy -= ny * force;
+              b.vx += nx * force;
+              b.vy += ny * force;
+            }
+          }
+        }
+
+        for (const letter of state.letters) {
+          letter.vx *= 0.93;
+          letter.vy *= 0.93;
+          letter.x += letter.vx * dt * 60;
+          letter.y += letter.vy * dt * 60;
+
+          const margin = state.fontSize * 0.8;
+          if (letter.x < -margin) letter.x = state.width + margin;
+          if (letter.x > state.width + margin) letter.x = -margin;
+          if (letter.y < -margin) letter.y = state.height + margin;
+          if (letter.y > state.height + margin) letter.y = -margin;
+        }
+
+        state.shockwaves = state.shockwaves.filter((wave) => {
+          wave.life += dt;
+          wave.radius += dt * 420;
+          return wave.life < wave.maxLife;
+        });
+      }
+
+      function drawBackground() {
+        const palette = currentPalette();
+        const gradient = ctx.createLinearGradient(0, 0, state.width, state.height);
+        gradient.addColorStop(0, palette.background[0]);
+        gradient.addColorStop(0.5, palette.background[1]);
+        gradient.addColorStop(1, palette.background[2]);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        const bloom = ctx.createRadialGradient(
+          state.pointer.active ? state.pointer.x : state.width * 0.5,
+          state.pointer.active ? state.pointer.y : state.height * 0.42,
+          0,
+          state.width * 0.5,
+          state.height * 0.5,
+          Math.max(state.width, state.height) * 0.72
+        );
+        bloom.addColorStop(0, palette.glow);
+        bloom.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = bloom;
+        ctx.fillRect(0, 0, state.width, state.height);
+      }
+
+      function drawShockwaves() {
+        for (const wave of state.shockwaves) {
+          const alpha = 1 - wave.life / wave.maxLife;
+          ctx.strokeStyle = 'rgba(255,255,255,' + (alpha * 0.18).toFixed(3) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      function drawLetters() {
+        const amplitude = state.audio.enabled ? state.audio.amplitude : 0;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '700 ' + state.fontSize + 'px ' + getComputedStyle(document.documentElement).getPropertyValue('--sans');
+
+        for (const letter of state.letters) {
+          ctx.save();
+          ctx.translate(letter.x, letter.y);
+          ctx.scale(letter.scale, letter.scale);
+          ctx.shadowBlur = 24 + amplitude * 42;
+          ctx.shadowColor = letter.color;
+          ctx.fillStyle = letter.color;
+          ctx.globalAlpha = 0.95;
+          ctx.fillText(letter.ch, 0, 0);
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+          ctx.strokeText(letter.ch, 0, 0);
+          ctx.restore();
+        }
+      }
+
+      function render(now) {
+        if (!state.lastTs) state.lastTs = now;
+        const dt = Math.min(0.035, (now - state.lastTs) / 1000);
+        state.lastTs = now;
+
+        update(dt, now);
+        drawBackground();
+        drawShockwaves();
+        drawLetters();
+
+        requestAnimationFrame(render);
+      }
+
+      function updatePointer(clientX, clientY, active) {
+        state.pointer.x = clientX;
+        state.pointer.y = clientY;
+        state.pointer.active = active;
+      }
+
+      textInput.addEventListener('input', (event) => {
+        setPhrase(event.target.value, 3.3);
+      });
+
+      paletteSelect.addEventListener('change', (event) => {
+        applyPalette(event.target.value);
+      });
+
+      fontSizeSlider.addEventListener('input', (event) => {
+        state.fontSize = Number(event.target.value);
+        retargetLetters();
+        updateHud();
+      });
+
+      audioButton.addEventListener('click', toggleAudio);
+      burstButton.addEventListener('click', () => burst(180));
+      resetButton.addEventListener('click', () => setPhrase(state.phrase, 3.4));
+
+      window.addEventListener('resize', resize);
+      window.addEventListener('hashchange', () => {
+        const next = phraseFromHash();
+        if (next) setPhrase(next, 3);
+      });
+
+      canvas.addEventListener('pointerdown', (event) => {
+        updatePointer(event.clientX, event.clientY, true);
+        burst(200);
+      });
+
+      canvas.addEventListener('pointermove', (event) => {
+        updatePointer(event.clientX, event.clientY, true);
+      });
+
+      canvas.addEventListener('pointerup', () => {
+        state.pointer.active = false;
+      });
+
+      canvas.addEventListener('pointerleave', () => {
+        state.pointer.active = false;
+      });
+
+      const initialPhrase = phraseFromHash() || 'HELLO';
+      const initialPalette = paletteSelect.value;
+      resize();
+      applyPalette(initialPalette);
+      setPhrase(initialPhrase, 3.2);
+      updateHud();
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
