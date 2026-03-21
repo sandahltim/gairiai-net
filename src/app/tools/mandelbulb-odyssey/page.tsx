@@ -28,10 +28,10 @@ export default function MandelbulbOdysseyToolPage() {
           <span className="text-xs font-medium text-cyan-400">Interactive Tool</span>
           <span className="text-xs text-zinc-700">Mar 21, 2026</span>
         </div>
-        <div className="flex items-start gap-4">
-          <span className="text-5xl">🌀</span>
+        <div className="flex items-start gap-4 max-sm:flex-col max-sm:gap-3">
+          <span className="text-5xl max-sm:text-4xl">🌀</span>
           <div>
-            <h1 className="text-3xl font-black">Mandelbulb Odyssey</h1>
+            <h1 className="text-3xl font-black leading-tight sm:text-4xl">Mandelbulb Odyssey</h1>
             <p className="text-zinc-500 mt-2">
               Navigate a real-time 3D fractal universe powered by GPU distance estimation, orbit-trap
               coloring, and touch-safe flight controls.
