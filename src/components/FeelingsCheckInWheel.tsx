@@ -314,13 +314,13 @@ export function FeelingsCheckInWheel() {
 
       <main className="feelings-print-shell min-h-screen bg-[#07111f] text-slate-100">
         <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8">
-          <div className="feelings-no-print rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur sm:p-6">
+          <div className="feelings-no-print overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-[0_24px_80px_rgba(2,6,23,0.45)] backdrop-blur sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-200/80">
+              <div className="min-w-0 max-w-3xl">
+                <p className="break-words pr-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-200/80 sm:text-xs sm:tracking-[0.35em]">
                   Little Learners Studio · gairiai.net
                 </p>
-                <h1 className="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">
+                <h1 className="mt-3 max-w-[12ch] text-3xl font-black tracking-tight text-white sm:max-w-none sm:text-5xl">
                   Zoo Crew Feelings Check-In Wheel
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
@@ -328,11 +328,11 @@ export function FeelingsCheckInWheel() {
                   Teachers see the whole class at a glance without logins, accounts, or stored data.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <button
                   type="button"
                   onClick={handleShare}
-                  className="inline-flex items-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/60 hover:bg-cyan-300/15"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-cyan-300/35 bg-cyan-400/10 px-4 py-2 text-sm font-semibold text-cyan-50 transition hover:border-cyan-200/60 hover:bg-cyan-300/15 sm:w-auto"
                 >
                   <Share2 className="h-4 w-4" />
                   Share with a teacher friend
@@ -340,7 +340,7 @@ export function FeelingsCheckInWheel() {
                 <button
                   type="button"
                   onClick={handleCopyTeacherCue}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10 sm:w-auto"
                 >
                   <Copy className="h-4 w-4" />
                   Copy teacher cue
@@ -348,7 +348,7 @@ export function FeelingsCheckInWheel() {
                 <button
                   type="button"
                   onClick={handlePrint}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10 sm:w-auto"
                 >
                   <Printer className="h-4 w-4" />
                   Print this view
@@ -356,7 +356,7 @@ export function FeelingsCheckInWheel() {
                 <button
                   type="button"
                   onClick={resetBoard}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-white/25 hover:bg-white/10 sm:w-auto"
                 >
                   <RotateCcw className="h-4 w-4" />
                   Reset demo class
