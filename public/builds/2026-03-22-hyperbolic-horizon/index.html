@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hyperbolic Horizon</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --disk-rim: #0d0d1a;
+      --panel-bg: rgba(10, 10, 18, 0.92);
+      --panel-border: rgba(80, 130, 220, 0.2);
+      --text: #8899bb;
+      --text-bright: #ccd8f0;
+      --accent: #5588ff;
+      --accent-soft: rgba(85, 136, 255, 0.18);
+      --warning: rgba(255, 210, 60, 0.88);
+      --radius: 12px;
+      --tile-stroke: rgba(120, 190, 255, 0.12);
+      --tile-hover: rgba(255, 210, 60, 0.35);
+      --tile-hover-stroke: rgba(255, 210, 60, 0.8);
+      --escher-a: hsl(240, 60%, 20%);
+      --escher-b: hsl(40, 70%, 45%);
+      --mono-track: rgba(255, 255, 255, 0.06);
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #0a0a0f;
+      color: var(--text-bright);
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 48%, rgba(38, 70, 180, 0.16), transparent 42%),
+        radial-gradient(circle at 18% 16%, rgba(50, 90, 255, 0.09), transparent 24%),
+        radial-gradient(circle at 82% 12%, rgba(12, 140, 255, 0.07), transparent 18%),
+        var(--bg);
+    }
+
+    #app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    #view {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #view.dragging {
+      cursor: grabbing;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .top-copy {
+      position: absolute;
+      left: 20px;
+      top: 20px;
+      max-width: min(52vw, 520px);
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(6, 8, 18, 0.7), rgba(6, 8, 18, 0.2));
+      border: 1px solid rgba(110, 150, 255, 0.12);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+
+    .kicker {
+      margin: 0 0 6px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(24px, 3.8vw, 48px);
+      line-height: 0.94;
+      letter-spacing: -0.04em;
+      font-weight: 650;
+    }
+
+    .lede {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: rgba(204, 216, 240, 0.72);
+    }
+
+    .canvas-chip {
+      position: absolute;
+      right: 18px;
+      bottom: 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: rgba(6, 10, 20, 0.78);
+      border: 1px solid rgba(123, 178, 255, 0.15);
+      color: rgba(204, 216, 240, 0.7);
+      font: 11px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      backdrop-filter: blur(10px);
+    }
+
+    .stage-toast {
+      position: absolute;
+      right: 18px;
+      bottom: 56px;
+      min-width: 180px;
+      max-width: 260px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(7, 10, 21, 0.94);
+      border: 1px solid rgba(255, 210, 60, 0.24);
+      color: rgba(255, 244, 206, 0.92);
+      font-size: 12px;
+      line-height: 1.35;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 180ms ease, transform 180ms ease;
+    }
+
+    .stage-toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .small-screen {
+      position: absolute;
+      inset: 24px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-radius: 24px;
+      background: rgba(10, 10, 18, 0.9);
+      border: 1px solid rgba(110, 150, 255, 0.14);
+      color: rgba(204, 216, 240, 0.9);
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      pointer-events: none;
+    }
+
+    .small-screen strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+      color: var(--text-bright);
+    }
+
+    aside {
+      position: relative;
+      height: 100vh;
+      background: var(--panel-bg);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(18px);
+      padding: 18px 16px;
+      overflow-y: auto;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    }
+
+    aside::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 120px;
+      background: linear-gradient(180deg, rgba(70, 120, 255, 0.08), transparent);
+      pointer-events: none;
+    }
+
+    .panel-group + .panel-group {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .panel-title {
+      margin: 0;
+      font: 11px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+    }
+
+    .panel-subtitle {
+      margin: 4px 0 0;
+      font-size: 11px;
+      line-height: 1.45;
+      color: rgba(136, 153, 187, 0.88);
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button,
+    input[type="range"] {
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .tile-button,
+    .mode-button,
+    .action-button,
+    .toggle-button {
+      width: 100%;
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.72);
+      padding: 10px 10px;
+      font-size: 12px;
+      line-height: 1.2;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .tile-button:hover,
+    .mode-button:hover,
+    .action-button:hover,
+    .toggle-button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(120, 190, 255, 0.4);
+    }
+
+    .tile-button.active,
+    .mode-button.active {
+      background: rgba(0, 224, 133, 0.12);
+      color: #8cf2cc;
+      border-color: #00e085;
+      box-shadow: 0 0 0 1px rgba(0, 224, 133, 0.14), 0 8px 30px rgba(0, 224, 133, 0.08);
+    }
+
+    .toggle-button.active {
+      background: rgba(85, 136, 255, 0.18);
+      color: #d5e0ff;
+      border-color: rgba(85, 136, 255, 0.65);
+      box-shadow: 0 0 0 1px rgba(85, 136, 255, 0.16), 0 12px 32px rgba(85, 136, 255, 0.12);
+    }
+
+    .button-label {
+      display: block;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .button-note {
+      display: block;
+      margin-top: 2px;
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.48);
+      font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+    }
+
+    .slider-row {
+      margin-top: 12px;
+    }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+      font: 11px/1.2 "IBM Plex Mono", "SFMono-Regular", monospace;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .slider-value {
+      color: #00e085;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 24px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 999px;
+      background: #1a2b40;
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 4px;
+      border-radius: 999px;
+      background: #1a2b40;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: #00e085;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(0, 224, 133, 0.16);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #00e085;
+      border: 0;
+      box-shadow: 0 0 0 4px rgba(0, 224, 133, 0.16);
+    }
+
+    .action-stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .info-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      font: 11px/1.35 "IBM Plex Mono", "SFMono-Regular", monospace;
+      color: rgba(204, 216, 240, 0.8);
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .info-key {
+      color: rgba(136, 153, 187, 0.72);
+    }
+
+    .help-list {
+      margin-top: 12px;
+      display: grid;
+      gap: 6px;
+      font: 11px/1.4 "IBM Plex Mono", "SFMono-Regular", monospace;
+      color: rgba(136, 153, 187, 0.85);
+    }
+
+    .divider {
+      height: 1px;
+      margin: 14px 0;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent);
+    }
+
+    @media (max-width: 767px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+      }
+
+      .top-copy {
+        left: 12px;
+        top: 12px;
+        right: 12px;
+        max-width: none;
+        padding: 12px 14px;
+      }
+
+      .lede {
+        font-size: 12px;
+      }
+
+      aside {
+        height: auto;
+        min-height: 132px;
+        max-height: 40vh;
+        border-left: 0;
+        border-top: 1px solid var(--panel-border);
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 12px 12px 16px;
+        display: flex;
+        gap: 14px;
+      }
+
+      aside::before {
+        height: 100%;
+        width: 90px;
+        background: linear-gradient(90deg, rgba(70, 120, 255, 0.08), transparent);
+      }
+
+      .panel-group {
+        min-width: 152px;
+        flex: 0 0 auto;
+      }
+
+      .panel-group + .panel-group {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .grid2 {
+        gap: 6px;
+      }
+
+      .canvas-chip {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <section class="stage">
+      <canvas id="view" aria-label="Hyperbolic tessellation explorer"></canvas>
+      <div class="overlay" aria-hidden="true">
+        <section class="top-copy">
+          <p class="kicker">Mathematical Visualization</p>
+          <h1>Hyperbolic Horizon</h1>
+          <p class="lede">Infinite non-Euclidean tessellations compress toward a glowing boundary. Drag through the Poincare disk and watch impossible geometry keep unfolding without ever reaching the edge.</p>
+        </section>
+        <div class="canvas-chip">
+          <span id="chipPreset">preset {3,7}</span>
+          <span id="chipDepth">depth 10</span>
+          <span id="chipMode">depth color</span>
+        </div>
+        <div id="toast" class="stage-toast" role="status" aria-live="polite"></div>
+        <div id="smallScreen" class="small-screen">
+          <div>
+            <strong>Screen too small</strong>
+            <span>Use desktop for the full hyperbolic horizon experience.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside aria-label="Hyperbolic Horizon controls">
+      <section class="panel-group">
+        <p class="panel-title">Hyperbolic Horizon</p>
+        <p class="panel-subtitle">Non-Euclidean space compressed into a single luminous disk.</p>
+      </section>
+
+      <section class="panel-group">
+        <p class="panel-title">Tiling</p>
+        <div class="grid2" id="presetGrid">
+          <button class="tile-button" data-preset="triangle" aria-label="Switch to triangle tiling">
+            <span class="button-label">▲ {3,7}</span>
+            <span class="button-note">dense lace</span>
+          </button>
+          <button class="tile-button" data-preset="square" aria-label="Switch to square tiling">
+            <span class="button-label">■ {4,5}</span>
+            <span class="button-note">Escher grid</span>
+          </button>
+          <button class="tile-button" data-preset="pentagon" aria-label="Switch to pentagon tiling">
+            <span class="button-label">⬟ {5,4}</span>
+            <span class="button-note">open chamber</span>
+          </button>
+          <button class="tile-button" data-preset="heptagon" aria-label="Switch to heptagon tiling">
+            <span class="button-label">✦ {7,3}</span>
+            <span class="button-note">wide horizon</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-group">
+        <p class="panel-title">Color</p>
+        <div class="grid2" id="modeGrid">
+          <button class="mode-button" data-mode="depth" aria-label="Depth-based color mode">
+            <span class="button-label">Depth</span>
+            <span class="button-note">violet to amber</span>
+          </button>
+          <button class="mode-button" data-mode="escher" aria-label="Escher checkerboard mode">
+            <span class="button-label">Escher</span>
+            <span class="button-note">indigo gold</span>
+          </button>
+          <button class="mode-button" data-mode="mono" aria-label="Monochrome mode">
+            <span class="button-label">Mono</span>
+            <span class="button-note">shadow study</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-group">
+        <p class="panel-title">Settings</p>
+        <div class="slider-row">
+          <div class="slider-head">
+            <span>DEPTH LIMIT</span>
+            <span class="slider-value" id="depthValue">10</span>
+          </div>
+          <input id="depthSlider" aria-label="Depth limit" type="range" min="4" max="14" step="1" value="10">
+        </div>
+      </section>
+
+      <section class="panel-group">
+        <div class="action-stack">
+          <button id="driftButton" class="toggle-button" aria-pressed="false">
+            <span class="button-label">▶ Auto Drift</span>
+            <span class="button-note">slow orbit through the disk</span>
+          </button>
+          <button id="resetButton" class="action-button" aria-label="Reset the view transform">
+            <span class="button-label">↺ Reset View</span>
+            <span class="button-note">return to the origin tile</span>
+          </button>
+          <button id="shotButton" class="action-button" aria-label="Download a screenshot of the disk">
+            <span class="button-label">📷 Screenshot</span>
+            <span class="button-note">export the current horizon</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-group">
+        <p class="panel-title">Info</p>
+        <div class="info-list">
+          <div class="info-row"><span class="info-key">tiles rendered</span><span id="tilesRendered">0</span></div>
+          <div class="info-row"><span class="info-key">hover</span><span id="hoverDepth">-</span></div>
+          <div class="info-row"><span class="info-key">center</span><span id="hoverCenter">-</span></div>
+          <div class="info-row"><span class="info-key">selected</span><span id="selectedInfo">-</span></div>
+        </div>
+        <div class="divider"></div>
+        <div class="help-list">
+          <span>DRAG navigate</span>
+          <span>SCROLL adjust depth</span>
+          <span>PINCH mobile depth</span>
+          <span>HOVER highlight tile</span>
+          <span>CLICK lock tile info</span>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("view");
+      const stage = canvas.parentElement;
+      const ctx = canvas.getContext("2d");
+      const toastEl = document.getElementById("toast");
+      const smallScreenEl = document.getElementById("smallScreen");
+      const chipPreset = document.getElementById("chipPreset");
+      const chipDepth = document.getElementById("chipDepth");
+      const chipMode = document.getElementById("chipMode");
+      const depthSlider = document.getElementById("depthSlider");
+      const depthValue = document.getElementById("depthValue");
+      const driftButton = document.getElementById("driftButton");
+      const resetButton = document.getElementById("resetButton");
+      const shotButton = document.getElementById("shotButton");
+      const tilesRenderedEl = document.getElementById("tilesRendered");
+      const hoverDepthEl = document.getElementById("hoverDepth");
+      const hoverCenterEl = document.getElementById("hoverCenter");
+      const selectedInfoEl = document.getElementById("selectedInfo");
+
+      const C = {
+        add: ([ar, ai], [br, bi]) => [ar + br, ai + bi],
+        sub: ([ar, ai], [br, bi]) => [ar - br, ai - bi],
+        mul: ([ar, ai], [br, bi]) => [ar * br - ai * bi, ar * bi + ai * br],
+        div: ([ar, ai], [br, bi]) => {
+          const d = br * br + bi * bi;
+          return [(ar * br + ai * bi) / d, (ai * br - ar * bi) / d];
+        },
+        conj: ([r, i]) => [r, -i],
+        abs2: ([r, i]) => r * r + i * i,
+        abs: ([r, i]) => Math.hypot(r, i),
+        neg: ([r, i]) => [-r, -i],
+        scale: ([r, i], s) => [r * s, i * s],
+        dot: ([ar, ai], [br, bi]) => ar * br + ai * bi,
+        norm: ([r, i]) => {
+          const m = Math.hypot(r, i) || 1;
+          return [r / m, i / m];
+        }
+      };
+
+      const IDENTITY = { a: [1, 0], b: [0, 0] };
+      const TWO_PI = Math.PI * 2;
+      const TILE_CAP = 3000;
+      const MAX_POINTERS = 4;
+      const HUES = [260, 240, 220, 200, 175, 150, 100, 60, 40];
+      const SATS = [85, 80, 78, 75, 72, 68, 65, 75, 85];
+      const LIGHTS = [18, 22, 26, 28, 28, 26, 28, 38, 55];
+      const PRESETS = {
+        triangle: { id: "triangle", label: "{3,7}", name: "Triangle", p: 3, q: 7, defaultDepth: 10 },
+        square: { id: "square", label: "{4,5}", name: "Square", p: 4, q: 5, defaultDepth: 8 },
+        pentagon: { id: "pentagon", label: "{5,4}", name: "Pentagon", p: 5, q: 4, defaultDepth: 8 },
+        heptagon: { id: "heptagon", label: "{7,3}", name: "Heptagon", p: 7, q: 3, defaultDepth: 7 }
+      };
+
+      const state = {
+        currentPreset: PRESETS.triangle,
+        colorMode: "depth",
+        maxDepth: 10,
+        viewTransform: { a: [1, 0], b: [0, 0] },
+        autoDrift: false,
+        driftPhase: 0,
+        hoveredTile: null,
+        selectedTile: null,
+        tiles: [],
+        cacheKey: "",
+        cacheDirty: true,
+        dimensions: {
+          width: 0,
+          height: 0,
+          pixelRatio: 1,
+          centerX: 0,
+          centerY: 0,
+          diskRadius: 0
+        },
+        pointer: { x: -9999, y: -9999, inside: false },
+        activePointers: new Map(),
+        dragPointerId: null,
+        lastDragDisk: null,
+        lastPinchDistance: 0,
+        lastPinchStep: 0,
+        toastUntil: 0,
+        toastText: "",
+        pulseKey: "",
+        pulseUntil: 0,
+        lastFrame: 0,
+        frameCount: 0,
+        frameSlowCount: 0,
+        screenTooSmall: false
+      };
+
+      const presetButtons = Array.from(document.querySelectorAll("[data-preset]"));
+      const modeButtons = Array.from(document.querySelectorAll("[data-mode]"));
+
+      function modAngle(a) {
+        const value = a % TWO_PI;
+        return value < 0 ? value + TWO_PI : value;
+      }
+
+      function round4(n) {
+        return Math.round(n * 10000) / 10000;
+      }
+
+      function transformKey(m) {
+        return [
+          round4(m.a[0]), round4(m.a[1]),
+          round4(m.b[0]), round4(m.b[1])
+        ].join(",");
+      }
+
+      function mobiusApply(m, z) {
+        const num = C.add(C.mul(m.a, z), m.b);
+        const den = C.add(C.mul(C.conj(m.b), z), C.conj(m.a));
+        return C.div(num, den);
+      }
+
+      function mobiusCompose(m1, m2) {
+        return {
+          a: C.add(C.mul(m1.a, m2.a), C.mul(m1.b, C.conj(m2.b))),
+          b: C.add(C.mul(m1.a, m2.b), C.mul(m1.b, C.conj(m2.a)))
+        };
+      }
+
+      function mobiusToOrigin(p) {
+        const scale = Math.max(1e-6, Math.sqrt(1 - C.abs2(p)));
+        return {
+          a: [1 / scale, 0],
+          b: [-p[0] / scale, -p[1] / scale]
+        };
+      }
+
+      function mobiusFromOrigin(p) {
+        const scale = Math.max(1e-6, Math.sqrt(1 - C.abs2(p)));
+        return {
+          a: [1 / scale, 0],
+          b: [p[0] / scale, p[1] / scale]
+        };
+      }
+
+      function createTranslation(startDisk, endDisk) {
+        return mobiusCompose(mobiusFromOrigin(endDisk), mobiusToOrigin(startDisk));
+      }
+
+      function applyDrag(startDisk, endDisk) {
+        const delta = createTranslation(startDisk, endDisk);
+        state.viewTransform = mobiusCompose(delta, state.viewTransform);
+        state.cacheDirty = true;
+      }
+
+      function polygonRadius(p, q) {
+        const hyperbolicCircumradius = Math.acosh(Math.cos(Math.PI / q) / Math.sin(Math.PI / p));
+        return Math.tanh(hyperbolicCircumradius * 0.5);
+      }
+
+      function centralPolygonVertices(p, q) {
+        const radius = polygonRadius(p, q);
+        const offset = -Math.PI / 2 + Math.PI / p;
+        const vertices = [];
+        for (let i = 0; i < p; i += 1) {
+          const angle = offset + i * TWO_PI / p;
+          vertices.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+        }
+        return vertices;
+      }
+
+      function geodesicThrough(A, B) {
+        const [ax, ay] = A;
+        const [bx, by] = B;
+        const cross = ax * by - ay * bx;
+        if (Math.abs(cross) < 1e-7) {
+          const axis = C.norm(B);
+          return { type: "line", axis };
+        }
+
+        const a2 = ax * ax + ay * ay;
+        const b2 = bx * bx + by * by;
+        const denom = 2 * cross;
+        const cxValue = (ay * (b2 + 1) - by * (a2 + 1)) / denom;
+        const cyValue = (bx * (a2 + 1) - ax * (b2 + 1)) / denom;
+        const center = [cxValue, cyValue];
+        const radius = Math.hypot(ax - cxValue, ay - cyValue);
+        return { type: "circle", center, radius };
+      }
+
+      function reflectAcrossGeodesic(point, geodesic) {
+        if (geodesic.type === "line") {
+          const axis = geodesic.axis;
+          const proj = C.dot(point, axis);
+          const reflected = [2 * proj * axis[0] - point[0], 2 * proj * axis[1] - point[1]];
+          return reflected;
+        }
+
+        const diff = C.sub(point, geodesic.center);
+        const dist2 = Math.max(1e-9, C.abs2(diff));
+        const scale = (geodesic.radius * geodesic.radius) / dist2;
+        const offset = C.scale(diff, scale);
+        return C.add(geodesic.center, offset);
+      }
+
+      function reflectPolygon(verts, edgeIndex) {
+        const A = verts[edgeIndex];
+        const B = verts[(edgeIndex + 1) % verts.length];
+        const geodesic = geodesicThrough(A, B);
+        return verts.map((vertex) => reflectAcrossGeodesic(vertex, geodesic));
+      }
+
+      function polygonCenter(verts) {
+        let x = 0;
+        let y = 0;
+        for (const [vx, vy] of verts) {
+          x += vx;
+          y += vy;
+        }
+        return [x / verts.length, y / verts.length];
+      }
+
+      function polygonPixelArea(verts) {
+        const { diskRadius } = state.dimensions;
+        let area = 0;
+        for (let i = 0; i < verts.length; i += 1) {
+          const [ax, ay] = verts[i];
+          const [bx, by] = verts[(i + 1) % verts.length];
+          area += ax * by - ay * bx;
+        }
+        return Math.abs(area) * 0.5 * diskRadius * diskRadius;
+      }
+
+      function polygonVisibility(verts) {
+        let maxAbs = 0;
+        for (const v of verts) {
+          maxAbs = Math.max(maxAbs, C.abs(v));
+        }
+        return maxAbs;
+      }
+
+      function centerKey(center) {
+        return `${round4(center[0])}:${round4(center[1])}`;
+      }
+
+      function diskToCanvas([re, im]) {
+        const { centerX, centerY, diskRadius } = state.dimensions;
+        return [centerX + re * diskRadius, centerY + im * diskRadius];
+      }
+
+      function chooseArcDirection(geodesic, A, B) {
+        const start = Math.atan2(A[1] - geodesic.center[1], A[0] - geodesic.center[0]);
+        const end = Math.atan2(B[1] - geodesic.center[1], B[0] - geodesic.center[0]);
+
+        const ccwDelta = modAngle(end - start);
+        const ccwMid = start + ccwDelta * 0.5;
+        const ccwPoint = [
+          geodesic.center[0] + geodesic.radius * Math.cos(ccwMid),
+          geodesic.center[1] + geodesic.radius * Math.sin(ccwMid)
+        ];
+        const ccwInterior = C.abs(ccwPoint) < 1;
+        return { start, end, ccw: ccwInterior };
+      }
+
+      function appendGeodesic(path, A, B) {
+        const geodesic = geodesicThrough(A, B);
+        if (geodesic.type === "line") {
+          const [bx, by] = diskToCanvas(B);
+          path.lineTo(bx, by);
+          return;
+        }
+
+        const { start, end, ccw } = chooseArcDirection(geodesic, A, B);
+        const steps = 12;
+        if (ccw) {
+          const delta = modAngle(end - start);
+          for (let i = 1; i <= steps; i += 1) {
+            const angle = start + delta * (i / steps);
+            const point = [
+              geodesic.center[0] + geodesic.radius * Math.cos(angle),
+              geodesic.center[1] + geodesic.radius * Math.sin(angle)
+            ];
+            const [px, py] = diskToCanvas(point);
+            path.lineTo(px, py);
+          }
+          return;
+        }
+
+        const delta = modAngle(start - end);
+        for (let i = 1; i <= steps; i += 1) {
+          const angle = start - delta * (i / steps);
+          const point = [
+            geodesic.center[0] + geodesic.radius * Math.cos(angle),
+            geodesic.center[1] + geodesic.radius * Math.sin(angle)
+          ];
+          const [px, py] = diskToCanvas(point);
+          path.lineTo(px, py);
+        }
+      }
+
+      function createTilePath(verts) {
+        const path = new Path2D();
+        const [x0, y0] = diskToCanvas(verts[0]);
+        path.moveTo(x0, y0);
+        for (let i = 0; i < verts.length; i += 1) {
+          appendGeodesic(path, verts[i], verts[(i + 1) % verts.length]);
+        }
+        path.closePath();
+        return path;
+      }
+
+      function depthToColor(depth, parity) {
+        if (state.colorMode === "escher") {
+          return parity ? "hsl(40, 70%, 45%)" : "hsl(240, 60%, 20%)";
+        }
+        if (state.colorMode === "mono") {
+          const lightness = Math.max(8, 30 - depth * 2);
+          return `hsl(230, 40%, ${lightness}%)`;
+        }
+        const index = Math.min(depth, HUES.length - 1);
+        return `hsl(${HUES[index]}, ${SATS[index]}%, ${LIGHTS[index]}%)`;
+      }
+
+      function showToast(text) {
+        state.toastText = text;
+        state.toastUntil = performance.now() + 2000;
+        toastEl.textContent = text;
+        toastEl.classList.add("visible");
+      }
+
+      function updateToast(now) {
+        if (state.toastUntil > now) {
+          if (!toastEl.classList.contains("visible")) {
+            toastEl.classList.add("visible");
+          }
+          return;
+        }
+        toastEl.classList.remove("visible");
+      }
+
+      function formatCoord(value) {
+        return `${value >= 0 ? "+" : ""}${value.toFixed(3)}`;
+      }
+
+      function updateInfoPanel() {
+        tilesRenderedEl.textContent = state.tiles.length.toLocaleString();
+        chipPreset.textContent = `preset ${state.currentPreset.label}`;
+        chipDepth.textContent = `depth ${state.maxDepth}`;
+        chipMode.textContent = state.colorMode === "depth" ? "depth color" : state.colorMode;
+        depthValue.textContent = String(state.maxDepth);
+
+        if (state.hoveredTile) {
+          hoverDepthEl.textContent = `d${state.hoveredTile.depth}`;
+          hoverCenterEl.textContent = `${formatCoord(state.hoveredTile.center[0])}, ${formatCoord(state.hoveredTile.center[1])}`;
+        } else {
+          hoverDepthEl.textContent = "-";
+          hoverCenterEl.textContent = "-";
+        }
+
+        if (state.selectedTile) {
+          selectedInfoEl.textContent = `${state.selectedTile.preset} d${state.selectedTile.depth}`;
+        } else {
+          selectedInfoEl.textContent = "-";
+        }
+
+        for (const button of presetButtons) {
+          const isActive = button.dataset.preset === state.currentPreset.id;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        }
+
+        for (const button of modeButtons) {
+          const isActive = button.dataset.mode === state.colorMode;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        }
+
+        driftButton.classList.toggle("active", state.autoDrift);
+        driftButton.setAttribute("aria-pressed", String(state.autoDrift));
+      }
+
+      function buildTiles() {
+        const { p, q } = state.currentPreset;
+        const transformedCentral = centralPolygonVertices(p, q).map((vertex) => mobiusApply(state.viewTransform, vertex));
+        const queue = [{ verts: transformedCentral, depth: 0, skipEdge: -1, parity: 0 }];
+        const seen = new Set();
+        const tiles = [];
+
+        while (queue.length > 0 && tiles.length < TILE_CAP) {
+          const item = queue.shift();
+          const center = polygonCenter(item.verts);
+          const centerRadius = C.abs(center);
+          if (centerRadius > 0.995) {
+            continue;
+          }
+
+          const visibility = polygonVisibility(item.verts);
+          if (visibility > 0.9995) {
+            continue;
+          }
+
+          const key = centerKey(center);
+          if (seen.has(key)) {
+            continue;
+          }
+          seen.add(key);
+
+          const pixelArea = polygonPixelArea(item.verts);
+          if (pixelArea < 1) {
+            continue;
+          }
+
+          const tile = {
+            key,
+            verts: item.verts,
+            depth: item.depth,
+            center,
+            parity: item.parity,
+            path: createTilePath(item.verts),
+            preset: state.currentPreset.label
+          };
+          tiles.push(tile);
+
+          if (item.depth >= state.maxDepth) {
+            continue;
+          }
+
+          for (let edge = 0; edge < p; edge += 1) {
+            if (edge === item.skipEdge) {
+              continue;
+            }
+            const reflected = reflectPolygon(item.verts, edge);
+            queue.push({
+              verts: reflected,
+              depth: item.depth + 1,
+              skipEdge: edge,
+              parity: item.parity ^ 1
+            });
+          }
+        }
+
+        tiles.sort((a, b) => b.depth - a.depth);
+        state.tiles = tiles;
+        state.cacheDirty = false;
+        state.cacheKey = `${state.currentPreset.id}|${state.maxDepth}|${transformKey(state.viewTransform)}|${state.dimensions.width}|${state.dimensions.height}`;
+      }
+
+      function drawBoundaryGlow() {
+        const { centerX, centerY, diskRadius } = state.dimensions;
+        const gradient = ctx.createRadialGradient(centerX, centerY, diskRadius * 0.82, centerX, centerY, diskRadius);
+        gradient.addColorStop(0.0, "rgba(20, 40, 120, 0.00)");
+        gradient.addColorStop(0.5, "rgba(30, 80, 200, 0.12)");
+        gradient.addColorStop(0.8, "rgba(80, 160, 255, 0.30)");
+        gradient.addColorStop(1.0, "rgba(180, 220, 255, 0.55)");
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, diskRadius, 0, TWO_PI);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, diskRadius, 0, TWO_PI);
+        ctx.strokeStyle = "rgba(140, 200, 255, 0.7)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      function drawDiskBackground() {
+        const { centerX, centerY, diskRadius } = state.dimensions;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, diskRadius, 0, TWO_PI);
+        ctx.fillStyle = "#0d0d1a";
+        ctx.fill();
+      }
+
+      function pointInsideDisk(x, y) {
+        const { centerX, centerY, diskRadius } = state.dimensions;
+        return Math.hypot(x - centerX, y - centerY) <= diskRadius;
+      }
+
+      function localPoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top
+        };
+      }
+
+      function pixelToDisk(x, y) {
+        const { centerX, centerY, diskRadius } = state.dimensions;
+        const z = [(x - centerX) / diskRadius, (y - centerY) / diskRadius];
+        const mag = C.abs(z);
+        if (mag >= 0.99) {
+          return C.scale(z, 0.99 / mag);
+        }
+        return z;
+      }
+
+      function updateHoveredTile() {
+        if (!state.pointer.inside || state.screenTooSmall) {
+          state.hoveredTile = null;
+          return;
+        }
+
+        let found = null;
+        for (let i = state.tiles.length - 1; i >= 0; i -= 1) {
+          const tile = state.tiles[i];
+          if (ctx.isPointInPath(tile.path, state.pointer.x, state.pointer.y)) {
+            found = tile;
+            break;
+          }
+        }
+        state.hoveredTile = found;
+      }
+
+      function pulseFactor(tileKey, now) {
+        if (tileKey !== state.pulseKey || now >= state.pulseUntil) {
+          return 0;
+        }
+        const t = 1 - (state.pulseUntil - now) / 720;
+        return Math.sin(Math.min(1, t) * Math.PI);
+      }
+
+      function drawTiles(now) {
+        const clip = new Path2D();
+        clip.arc(state.dimensions.centerX, state.dimensions.centerY, state.dimensions.diskRadius, 0, TWO_PI);
+
+        ctx.save();
+        ctx.clip(clip);
+        for (const tile of state.tiles) {
+          const pulse = pulseFactor(tile.key, now);
+          const fill = depthToColor(tile.depth, tile.parity);
+          const isHover = state.hoveredTile && state.hoveredTile.key === tile.key;
+          ctx.fillStyle = isHover
+            ? "rgba(255, 210, 60, 0.35)"
+            : fill;
+          ctx.fill(tile.path);
+
+          const strokeAlpha = isHover ? 0.8 : 0.12 + pulse * 0.42;
+          ctx.strokeStyle = isHover
+            ? "rgba(255, 210, 60, 0.8)"
+            : `rgba(120, 190, 255, ${strokeAlpha.toFixed(3)})`;
+          ctx.lineWidth = isHover ? 1.4 : 0.85 + pulse * 0.6;
+          ctx.stroke(tile.path);
+        }
+        ctx.restore();
+      }
+
+      function maybeAutoThrottle(deltaMs) {
+        if (state.frameCount < 30) {
+          return;
+        }
+        if (deltaMs > 28) {
+          state.frameSlowCount += 1;
+          if (state.frameSlowCount >= 3 && state.maxDepth > 4) {
+            state.maxDepth -= 1;
+            depthSlider.value = String(state.maxDepth);
+            state.frameSlowCount = 0;
+            state.cacheDirty = true;
+            showToast(`Depth throttled to ${state.maxDepth}`);
+          }
+          return;
+        }
+        state.frameSlowCount = 0;
+      }
+
+      function render(now) {
+        const delta = state.lastFrame ? now - state.lastFrame : 16;
+        state.lastFrame = now;
+        state.frameCount += 1;
+        maybeAutoThrottle(delta);
+        updateToast(now);
+
+        if (state.autoDrift && !state.screenTooSmall) {
+          state.driftPhase += delta * 0.00008;
+          const driftPoint = [
+            Math.cos(state.driftPhase) * 0.014,
+            Math.sin(state.driftPhase * 1.27) * 0.014
+          ];
+          applyDrag([0, 0], driftPoint);
+        }
+
+        if (state.cacheDirty) {
+          buildTiles();
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0a0a0f";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (!state.screenTooSmall) {
+          drawDiskBackground();
+          updateHoveredTile();
+          drawTiles(now);
+          drawBoundaryGlow();
+        } else {
+          state.hoveredTile = null;
+        }
+
+        updateInfoPanel();
+        requestAnimationFrame(render);
+      }
+
+      function resize() {
+        const rect = stage.getBoundingClientRect();
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.max(1, Math.floor(rect.width * pixelRatio));
+        canvas.height = Math.max(1, Math.floor(rect.height * pixelRatio));
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+        state.dimensions.width = rect.width;
+        state.dimensions.height = rect.height;
+        state.dimensions.pixelRatio = pixelRatio;
+        state.dimensions.centerX = rect.width * 0.5;
+        state.dimensions.centerY = rect.height * 0.5;
+        state.dimensions.diskRadius = Math.min(rect.width, rect.height) * 0.46;
+        state.screenTooSmall = state.dimensions.diskRadius * 2 < 300;
+        smallScreenEl.style.display = state.screenTooSmall ? "flex" : "none";
+        state.cacheDirty = true;
+      }
+
+      function setPreset(id) {
+        const preset = PRESETS[id];
+        if (!preset) {
+          return;
+        }
+        state.currentPreset = preset;
+        state.viewTransform = { a: [1, 0], b: [0, 0] };
+        state.selectedTile = null;
+        state.maxDepth = preset.defaultDepth;
+        depthSlider.value = String(state.maxDepth);
+        state.cacheDirty = true;
+      }
+
+      function setColorMode(mode) {
+        state.colorMode = mode;
+      }
+
+      function clampDepth(value) {
+        return Math.max(4, Math.min(14, value));
+      }
+
+      function adjustDepth(nextDepth) {
+        const value = clampDepth(nextDepth);
+        if (value === state.maxDepth) {
+          return;
+        }
+        state.maxDepth = value;
+        depthSlider.value = String(value);
+        state.cacheDirty = true;
+      }
+
+      function handleWheel(event) {
+        const point = localPoint(event);
+        if (!pointInsideDisk(point.x, point.y)) {
+          return;
+        }
+        event.preventDefault();
+        adjustDepth(state.maxDepth - Math.sign(event.deltaY));
+      }
+
+      function rememberPointer(event) {
+        if (state.activePointers.size >= MAX_POINTERS && !state.activePointers.has(event.pointerId)) {
+          return;
+        }
+        state.activePointers.set(event.pointerId, { x: event.offsetX, y: event.offsetY });
+      }
+
+      function handlePointerDown(event) {
+        const point = localPoint(event);
+        if (!pointInsideDisk(point.x, point.y) || state.screenTooSmall) {
+          return;
+        }
+        canvas.classList.add("dragging");
+        canvas.setPointerCapture(event.pointerId);
+        rememberPointer({ pointerId: event.pointerId, offsetX: point.x, offsetY: point.y });
+        if (state.activePointers.size === 1) {
+          state.dragPointerId = event.pointerId;
+          state.lastDragDisk = pixelToDisk(point.x, point.y);
+        }
+      }
+
+      function handlePointerMove(event) {
+        const point = localPoint(event);
+        state.pointer.x = point.x;
+        state.pointer.y = point.y;
+        state.pointer.inside = pointInsideDisk(point.x, point.y);
+        rememberPointer({ pointerId: event.pointerId, offsetX: point.x, offsetY: point.y });
+
+        if (state.activePointers.size >= 2) {
+          const points = Array.from(state.activePointers.values()).slice(0, 2);
+          const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+          if (state.lastPinchDistance > 0) {
+            const diff = distance - state.lastPinchDistance;
+            if (Math.abs(diff) > 18) {
+              adjustDepth(state.maxDepth + Math.sign(diff));
+              state.lastPinchDistance = distance;
+              state.lastPinchStep = performance.now();
+              return;
+            }
+          }
+          state.lastPinchDistance = distance;
+        }
+
+        if (state.dragPointerId === event.pointerId && state.lastDragDisk) {
+          const nextDisk = pixelToDisk(point.x, point.y);
+          applyDrag(state.lastDragDisk, nextDisk);
+          state.lastDragDisk = nextDisk;
+        }
+      }
+
+      function releasePointer(pointerId) {
+        state.activePointers.delete(pointerId);
+        if (state.activePointers.size < 2) {
+          state.lastPinchDistance = 0;
+        }
+        if (state.dragPointerId === pointerId) {
+          state.dragPointerId = null;
+          state.lastDragDisk = null;
+        }
+        if (state.activePointers.size === 0) {
+          canvas.classList.remove("dragging");
+        }
+      }
+
+      function handlePointerUp(event) {
+        releasePointer(event.pointerId);
+      }
+
+      function handlePointerLeave() {
+        state.pointer.inside = false;
+      }
+
+      function handleClick(event) {
+        const point = localPoint(event);
+        if (!pointInsideDisk(point.x, point.y)) {
+          return;
+        }
+        let found = null;
+        for (let i = state.tiles.length - 1; i >= 0; i -= 1) {
+          const tile = state.tiles[i];
+          if (ctx.isPointInPath(tile.path, point.x, point.y)) {
+            found = tile;
+            break;
+          }
+        }
+        if (!found) {
+          state.selectedTile = null;
+          return;
+        }
+        state.selectedTile = found;
+        state.pulseKey = found.key;
+        state.pulseUntil = performance.now() + 720;
+      }
+
+      function handleScreenshot() {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            showToast("Screenshot failed");
+            return;
+          }
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `hyperbolic-horizon-${Date.now()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showToast("Screenshot saved");
+        }, "image/png");
+      }
+
+      function bindUI() {
+        window.addEventListener("resize", resize);
+        canvas.addEventListener("wheel", handleWheel, { passive: false });
+        canvas.addEventListener("pointerdown", handlePointerDown);
+        canvas.addEventListener("pointermove", handlePointerMove);
+        canvas.addEventListener("pointerup", handlePointerUp);
+        canvas.addEventListener("pointercancel", handlePointerUp);
+        canvas.addEventListener("pointerleave", handlePointerLeave);
+        canvas.addEventListener("click", handleClick);
+        canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+        for (const button of presetButtons) {
+          button.addEventListener("click", () => setPreset(button.dataset.preset));
+        }
+
+        for (const button of modeButtons) {
+          button.addEventListener("click", () => setColorMode(button.dataset.mode));
+        }
+
+        depthSlider.addEventListener("input", () => adjustDepth(Number(depthSlider.value)));
+        driftButton.addEventListener("click", () => {
+          state.autoDrift = !state.autoDrift;
+        });
+        resetButton.addEventListener("click", () => {
+          state.viewTransform = { a: [1, 0], b: [0, 0] };
+          state.selectedTile = null;
+          state.cacheDirty = true;
+        });
+        shotButton.addEventListener("click", handleScreenshot);
+      }
+
+      resize();
+      bindUI();
+      updateInfoPanel();
+      requestAnimationFrame(render);
+    })();
+  </script>
+</body>
+</html>
