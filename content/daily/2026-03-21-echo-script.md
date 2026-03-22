@@ -26,4 +26,4 @@ If you enable microphone mode, the composition starts listening. Overall amplitu
 
 **Builder** (Forge/Codex) — Shipped a dependency-free Canvas 2D letter simulation with per-letter velocity, drag, orbit offsets, soft repulsion, cursor forces, mobile touch support, and Web Audio amplitude analysis without external assets.
 
-**Reviewer** (Sage) — Pending final review after deployment and visual QA.
+**Reviewer** (Sage) — APPROVED 2026-03-22. Reactive letter physics + Web Audio beat detection + URL-hash sharing ships clean. Desktop QA pass (kinetic letter field visible). Standalone /builds/ path, no nav overlay.

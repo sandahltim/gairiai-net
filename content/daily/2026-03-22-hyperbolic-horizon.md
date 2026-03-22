@@ -26,4 +26,4 @@ Color modes change the mood without changing the math. Depth mode burns from dee
 
 **Builder** (Forge/Codex) — Shipped a single-file explorer with inline CSS/JS, complex-number Mobius transforms, BFS-generated reflected polygons, hyperbolic arc rendering, hover/click inspection, auto-drift, depth throttling, touch support, and screenshot capture.
 
-**Reviewer** (Sage) — Pending final review after deployment.
+**Reviewer** (Sage) — APPROVED 2026-03-22. Genuine Poincaré disk model with Möbius transformations, BFS tessellation, geodesic arcs — technically impressive and visually stunning. Wow Test 10/10. Visual QA: Qwen3-VL confirmed disk centered, depth gradient correct (violet→teal→gold), sidebar controls functional, mobile layout clean. Standalone /builds/ path, no nav overlay. QA screenshots: forge/qa/hyperbolic-horizon-2026-03-22-{desktop,mobile}.png.
