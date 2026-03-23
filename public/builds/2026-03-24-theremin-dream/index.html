@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Theremin Dream</title>
+    <style>
+      :root {
+        --bg-0: #07111f;
+        --bg-1: #120f28;
+        --panel: rgba(10, 16, 28, 0.82);
+        --panel-border: rgba(166, 215, 255, 0.18);
+        --text: #eef4ff;
+        --muted: rgba(224, 236, 255, 0.74);
+        --accent: #7fe7ff;
+        --accent-2: #ffb35c;
+        --danger: #ff6f7a;
+        --shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 18% 18%, rgba(105, 208, 255, 0.16), transparent 26%),
+          radial-gradient(circle at 80% 22%, rgba(255, 179, 92, 0.16), transparent 22%),
+          linear-gradient(160deg, var(--bg-0), var(--bg-1));
+        color: var(--text);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button,
+      select,
+      input[type="range"] {
+        cursor: pointer;
+      }
+
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+      }
+
+      .hud {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        pointer-events: none;
+      }
+
+      .hero {
+        align-self: start;
+        justify-self: start;
+        margin: 24px;
+        max-width: min(540px, calc(100vw - 360px));
+        padding: 20px 22px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        background: linear-gradient(180deg, rgba(14, 20, 34, 0.68), rgba(14, 20, 34, 0.42));
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .eyebrow,
+      .stat-label {
+        text-transform: uppercase;
+        letter-spacing: 0.24em;
+        font-size: 10px;
+        color: var(--accent);
+      }
+
+      h1 {
+        margin: 8px 0 0;
+        font-size: clamp(2.6rem, 7vw, 5.8rem);
+        line-height: 0.94;
+        letter-spacing: 0.05em;
+      }
+
+      .hero p {
+        margin: 12px 0 0;
+        max-width: 44ch;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 15px;
+      }
+
+      .stats {
+        position: absolute;
+        left: 24px;
+        right: 340px;
+        bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      .stat {
+        min-width: 140px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(10, 16, 28, 0.6);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .stat strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 1.05rem;
+        color: var(--text);
+      }
+
+      .panel {
+        pointer-events: auto;
+        align-self: stretch;
+        justify-self: end;
+        width: 300px;
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: var(--panel);
+        border-left: 1px solid var(--panel-border);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .panel h2 {
+        margin: 0;
+        font-size: 1.6rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .panel p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .section {
+        padding: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .row + .row,
+      .field + .field {
+        margin-top: 12px;
+      }
+
+      .toggle {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        padding: 10px 16px;
+        min-width: 92px;
+      }
+
+      .toggle.active {
+        background: linear-gradient(135deg, rgba(127, 231, 255, 0.24), rgba(255, 179, 92, 0.24));
+        border-color: rgba(127, 231, 255, 0.3);
+      }
+
+      .field label,
+      .field span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      select,
+      input[type="range"] {
+        width: 100%;
+      }
+
+      select {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+      }
+
+      input[type="range"] {
+        accent-color: var(--accent);
+      }
+
+      .note-display {
+        display: grid;
+        gap: 6px;
+      }
+
+      .note-display strong {
+        font-size: 1.8rem;
+        letter-spacing: 0.08em;
+      }
+
+      .note-display span {
+        color: var(--muted);
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgba(4, 8, 14, 0.44);
+        backdrop-filter: blur(8px);
+        transition: opacity 220ms ease;
+      }
+
+      .overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .overlay-card {
+        max-width: 520px;
+        padding: 26px 28px;
+        border-radius: 26px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(180deg, rgba(14, 20, 34, 0.9), rgba(10, 16, 28, 0.82));
+        box-shadow: var(--shadow);
+        text-align: center;
+      }
+
+      .overlay-card h3 {
+        margin: 10px 0 0;
+        font-size: clamp(2rem, 6vw, 3.8rem);
+        line-height: 0.94;
+      }
+
+      .overlay-card p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .overlay-card button {
+        margin-top: 18px;
+        padding: 12px 20px;
+        border-radius: 999px;
+        border: 1px solid rgba(127, 231, 255, 0.34);
+        background: linear-gradient(135deg, rgba(127, 231, 255, 0.18), rgba(255, 179, 92, 0.18));
+        color: var(--text);
+      }
+
+      @media (max-width: 900px) {
+        .hud {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr auto;
+        }
+
+        .hero {
+          margin: 18px 18px 0;
+          max-width: none;
+        }
+
+        .panel {
+          align-self: end;
+          justify-self: stretch;
+          width: auto;
+          max-height: min(44vh, 360px);
+          border-left: 0;
+          border-top: 1px solid var(--panel-border);
+          border-radius: 24px 24px 0 0;
+          overflow: auto;
+        }
+
+        .stats {
+          left: 18px;
+          right: 18px;
+          bottom: min(45vh, 380px);
+        }
+      }
+
+      @media (max-width: 640px) {
+        .hero {
+          padding: 16px 18px;
+        }
+
+        .stats {
+          gap: 8px;
+        }
+
+        .stat {
+          min-width: calc(50% - 4px);
+        }
+
+        .panel {
+          padding: 18px 16px 20px;
+        }
+
+        h1 {
+          font-size: clamp(2.2rem, 12vw, 4rem);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="visualizer"></canvas>
+      <div class="hud">
+        <section class="hero">
+          <div class="eyebrow">Browser Instrument</div>
+          <h1>Theremin Dream</h1>
+          <p>
+            Move across the screen to sculpt pitch and volume in mid-air. Vertical motion
+            climbs through musical scales, horizontal motion breathes the signal in and out,
+            and the ribbon below turns every phrase into light.
+          </p>
+        </section>
+        <aside class="panel">
+          <div>
+            <div class="eyebrow">Controls</div>
+            <h2>Play Air</h2>
+            <p>Turn the instrument on, then glide anywhere on the screen without clicking.</p>
+          </div>
+
+          <section class="section">
+            <div class="section-title">Instrument</div>
+            <div class="row">
+              <button id="power" class="toggle">Instrument Off</button>
+              <button id="vibratoToggle" class="toggle">Vibrato Off</button>
+            </div>
+            <div class="field">
+              <label for="waveform">Waveform</label>
+              <select id="waveform">
+                <option value="sine">Sine</option>
+                <option value="triangle" selected>Triangle</option>
+                <option value="sawtooth">Sawtooth</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scale">Scale</label>
+              <select id="scale">
+                <option value="pentatonic" selected>Pentatonic</option>
+                <option value="chromatic">Chromatic</option>
+                <option value="blues">Blues</option>
+                <option value="drone">Drone</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-title">Texture</div>
+            <div class="field">
+              <span>Vibrato Depth</span>
+              <input id="vibratoDepth" type="range" min="0" max="45" value="16" />
+            </div>
+            <div class="field">
+              <span>Reverb Amount</span>
+              <input id="reverbAmount" type="range" min="0" max="100" value="36" />
+            </div>
+          </section>
+
+          <section class="section note-display">
+            <div class="section-title">Current Note</div>
+            <strong id="noteName">A3</strong>
+            <span id="noteMeta">220 Hz</span>
+          </section>
+        </aside>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Pitch Lane</div>
+          <strong id="pitchLabel">Mid register</strong>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Volume</div>
+          <strong id="volumeLabel">0%</strong>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Pointer</div>
+          <strong id="pointerLabel">Center stage</strong>
+        </div>
+      </div>
+
+      <div id="overlay" class="overlay">
+        <div class="overlay-card">
+          <div class="eyebrow">Instruction</div>
+          <h3>Move your mouse to play.</h3>
+          <p>
+            The instrument starts silent. Turn it on, then move anywhere on the screen.
+            Up and down changes pitch, left and right changes volume. Touch drag works on
+            mobile.
+          </p>
+          <button id="dismissOverlay">Enter the field</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("visualizer");
+      const ctx = canvas.getContext("2d");
+      const overlay = document.getElementById("overlay");
+      const powerButton = document.getElementById("power");
+      const vibratoButton = document.getElementById("vibratoToggle");
+      const waveformSelect = document.getElementById("waveform");
+      const scaleSelect = document.getElementById("scale");
+      const vibratoDepthInput = document.getElementById("vibratoDepth");
+      const reverbAmountInput = document.getElementById("reverbAmount");
+      const noteNameEl = document.getElementById("noteName");
+      const noteMetaEl = document.getElementById("noteMeta");
+      const pitchLabelEl = document.getElementById("pitchLabel");
+      const volumeLabelEl = document.getElementById("volumeLabel");
+      const pointerLabelEl = document.getElementById("pointerLabel");
+      const dismissOverlay = document.getElementById("dismissOverlay");
+
+      const scales = {
+        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        pentatonic: [0, 2, 4, 7, 9],
+        blues: [0, 3, 5, 6, 7, 10],
+        drone: [0]
+      };
+
+      const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+      const state = {
+        pointerX: 0.6,
+        pointerY: 0.45,
+        smoothedX: 0.6,
+        smoothedY: 0.45,
+        audioEnabled: false,
+        vibratoEnabled: false,
+        overlayDismissed: false,
+        width: 0,
+        height: 0,
+        dpr: Math.min(2, window.devicePixelRatio || 1),
+        hue: 210,
+        particles: [],
+        waveData: new Uint8Array(2048)
+      };
+
+      let audio;
+
+      function resize() {
+        state.dpr = Math.min(2, window.devicePixelRatio || 1);
+        state.width = window.innerWidth;
+        state.height = window.innerHeight;
+        canvas.width = Math.floor(state.width * state.dpr);
+        canvas.height = Math.floor(state.height * state.dpr);
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      }
+
+      function createImpulseResponse(context, duration = 2.8, decay = 3.4) {
+        const length = Math.floor(context.sampleRate * duration);
+        const impulse = context.createBuffer(2, length, context.sampleRate);
+        for (let channel = 0; channel < 2; channel += 1) {
+          const data = impulse.getChannelData(channel);
+          for (let i = 0; i < length; i += 1) {
+            const t = i / length;
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+          }
+        }
+        return impulse;
+      }
+
+      async function ensureAudio() {
+        if (audio) {
+          if (audio.context.state === "suspended") {
+            await audio.context.resume();
+          }
+          return audio;
+        }
+
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = context.createOscillator();
+        oscillator.type = waveformSelect.value;
+        oscillator.frequency.value = 220;
+
+        const gain = context.createGain();
+        gain.gain.value = 0;
+
+        const dryGain = context.createGain();
+        dryGain.gain.value = 0.7;
+
+        const wetGain = context.createGain();
+        wetGain.gain.value = Number(reverbAmountInput.value) / 100 * 0.9;
+
+        const convolver = context.createConvolver();
+        convolver.buffer = createImpulseResponse(context);
+
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 2048;
+
+        const vibratoOsc = context.createOscillator();
+        vibratoOsc.frequency.value = 4.4;
+        const vibratoGain = context.createGain();
+        vibratoGain.gain.value = 0;
+
+        oscillator.connect(gain);
+        gain.connect(dryGain);
+        gain.connect(convolver);
+        convolver.connect(wetGain);
+        dryGain.connect(analyser);
+        wetGain.connect(analyser);
+        analyser.connect(context.destination);
+
+        vibratoOsc.connect(vibratoGain);
+        vibratoGain.connect(oscillator.frequency);
+
+        oscillator.start();
+        vibratoOsc.start();
+
+        audio = { context, oscillator, gain, dryGain, wetGain, convolver, analyser, vibratoOsc, vibratoGain };
+        state.waveData = new Uint8Array(analyser.frequencyBinCount);
+        return audio;
+      }
+
+      function midiToFrequency(midi) {
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function describeNote(midi, frequency) {
+        const rounded = Math.round(midi);
+        const note = noteNames[((rounded % 12) + 12) % 12];
+        const octave = Math.floor(rounded / 12) - 1;
+        noteNameEl.textContent = note + octave;
+        noteMetaEl.textContent = frequency.toFixed(1) + " Hz";
+      }
+
+      function getScaleMidi(normY) {
+        const scaleName = scaleSelect.value;
+        if (scaleName === "drone") {
+          return 57;
+        }
+        const intervals = scales[scaleName];
+        const totalSteps = 3 * intervals.length - 1;
+        const step = Math.max(0, Math.min(totalSteps, Math.round((1 - normY) * totalSteps)));
+        const octaveOffset = Math.floor(step / intervals.length);
+        const interval = intervals[step % intervals.length];
+        const midi = 45 + octaveOffset * 12 + interval;
+        return Math.min(81, midi);
+      }
+
+      function pointerText(x, y) {
+        const xBand = x < 0.33 ? "quiet edge" : x > 0.66 ? "loud edge" : "center field";
+        const yBand = y < 0.33 ? "high sky" : y > 0.66 ? "low horizon" : "mid air";
+        return xBand + " / " + yBand;
+      }
+
+      function updateLabels(midi, frequency, volume) {
+        describeNote(midi, frequency);
+        volumeLabelEl.textContent = Math.round(volume * 100) + "%";
+        pointerLabelEl.textContent = pointerText(state.pointerX, state.pointerY);
+        if (frequency < 180) pitchLabelEl.textContent = "Low register";
+        else if (frequency < 360) pitchLabelEl.textContent = "Mid register";
+        else if (frequency < 620) pitchLabelEl.textContent = "Bright register";
+        else pitchLabelEl.textContent = "High register";
+      }
+
+      function spawnParticles(jumpStrength) {
+        const count = Math.min(16, 4 + Math.floor(jumpStrength * 24));
+        for (let i = 0; i < count; i += 1) {
+          state.particles.push({
+            x: state.pointerX * state.width,
+            y: state.pointerY * state.height,
+            vx: (Math.random() - 0.5) * (60 + jumpStrength * 180),
+            vy: (Math.random() - 0.5) * (60 + jumpStrength * 180),
+            life: 0.8 + Math.random() * 0.5,
+            hue: state.hue + (Math.random() * 36 - 18)
+          });
+        }
+      }
+
+      function updateSound() {
+        const midi = getScaleMidi(state.smoothedY);
+        const frequency = midiToFrequency(midi);
+        const volume = Math.pow(Math.max(0, Math.min(1, state.smoothedX)), 1.5) * 0.8;
+        const now = audio.context.currentTime;
+
+        audio.oscillator.frequency.cancelScheduledValues(now);
+        audio.oscillator.frequency.linearRampToValueAtTime(frequency, now + 0.06);
+        audio.gain.gain.cancelScheduledValues(now);
+        audio.gain.gain.linearRampToValueAtTime(state.audioEnabled ? volume : 0, now + 0.08);
+        audio.wetGain.gain.linearRampToValueAtTime(Number(reverbAmountInput.value) / 100 * 0.9, now + 0.08);
+        audio.vibratoGain.gain.linearRampToValueAtTime(
+          state.vibratoEnabled ? Number(vibratoDepthInput.value) : 0,
+          now + 0.08
+        );
+
+        state.hue = 220 - Math.min(180, ((frequency - 110) / (880 - 110)) * 180);
+        updateLabels(midi, frequency, volume);
+      }
+
+      function drawBackground() {
+        const gradient = ctx.createLinearGradient(0, 0, 0, state.height);
+        gradient.addColorStop(0, "rgba(8, 16, 28, 0.22)");
+        gradient.addColorStop(1, "rgba(8, 10, 18, 0.72)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, state.width, state.height);
+
+        for (let i = 0; i < 36; i += 1) {
+          const y = (i / 35) * state.height;
+          ctx.strokeStyle = `rgba(255,255,255,${0.012 + (i % 3) * 0.004})`;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(state.width, y + Math.sin(i * 0.7 + performance.now() * 0.0002) * 10);
+          ctx.stroke();
+        }
+      }
+
+      function drawPitchLine() {
+        const y = state.smoothedY * state.height;
+        const gradient = ctx.createLinearGradient(0, y - 40, 0, y + 40);
+        gradient.addColorStop(0, "rgba(255,255,255,0)");
+        gradient.addColorStop(0.5, `hsla(${state.hue}, 90%, 72%, 0.78)`);
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(state.width, y);
+        ctx.stroke();
+      }
+
+      function drawWaveform() {
+        if (!audio) {
+          return;
+        }
+        audio.analyser.getByteTimeDomainData(state.waveData);
+        const amplitude = Math.max(0.15, state.smoothedX);
+        const centerY = state.height * 0.58;
+        const ribbonHeight = 160 + amplitude * 180;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        for (let layer = 0; layer < 3; layer += 1) {
+          const layerOffset = layer * 18;
+          ctx.beginPath();
+          for (let i = 0; i < state.waveData.length; i += 1) {
+            const x = (i / (state.waveData.length - 1)) * state.width;
+            const sample = (state.waveData[i] - 128) / 128;
+            const y =
+              centerY +
+              sample * (ribbonHeight / (3.4 + layer)) +
+              Math.sin(i * 0.018 + performance.now() * 0.0012 + layer) * (18 + layerOffset);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = `hsla(${state.hue + layer * 18}, 90%, ${70 - layer * 8}%, ${0.42 - layer * 0.08})`;
+          ctx.lineWidth = 20 - layer * 5;
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function drawPointerGlow() {
+        const x = state.smoothedX * state.width;
+        const y = state.smoothedY * state.height;
+        const radius = 70 + state.smoothedX * 90;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, `hsla(${state.hue}, 95%, 72%, 0.6)`);
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawParticles(dt) {
+        state.particles = state.particles.filter((particle) => {
+          particle.life -= dt;
+          particle.x += particle.vx * dt;
+          particle.y += particle.vy * dt;
+          particle.vx *= 0.986;
+          particle.vy *= 0.986;
+          if (particle.life <= 0) return false;
+          ctx.fillStyle = `hsla(${particle.hue}, 95%, 72%, ${particle.life * 0.7})`;
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, 2 + particle.life * 5, 0, Math.PI * 2);
+          ctx.fill();
+          return true;
+        });
+      }
+
+      function dismissIntro() {
+        if (state.overlayDismissed) return;
+        state.overlayDismissed = true;
+        overlay.classList.add("hidden");
+      }
+
+      function setPointer(clientX, clientY) {
+        const nextX = Math.max(0, Math.min(1, clientX / state.width));
+        const nextY = Math.max(0, Math.min(1, clientY / state.height));
+        const delta = Math.hypot(nextX - state.pointerX, nextY - state.pointerY);
+        state.pointerX = nextX;
+        state.pointerY = nextY;
+        if (delta > 0.08) {
+          spawnParticles(Math.min(1, delta * 3.6));
+        }
+        dismissIntro();
+      }
+
+      window.addEventListener("pointermove", (event) => setPointer(event.clientX, event.clientY), {
+        passive: true
+      });
+      window.addEventListener("pointerdown", (event) => {
+        setPointer(event.clientX, event.clientY);
+        dismissIntro();
+      });
+      dismissOverlay.addEventListener("click", dismissIntro);
+
+      powerButton.addEventListener("click", async () => {
+        await ensureAudio();
+        state.audioEnabled = !state.audioEnabled;
+        powerButton.classList.toggle("active", state.audioEnabled);
+        powerButton.textContent = state.audioEnabled ? "Instrument On" : "Instrument Off";
+        updateSound();
+      });
+
+      vibratoButton.addEventListener("click", async () => {
+        await ensureAudio();
+        state.vibratoEnabled = !state.vibratoEnabled;
+        vibratoButton.classList.toggle("active", state.vibratoEnabled);
+        vibratoButton.textContent = state.vibratoEnabled ? "Vibrato On" : "Vibrato Off";
+        updateSound();
+      });
+
+      waveformSelect.addEventListener("change", async () => {
+        await ensureAudio();
+        audio.oscillator.type = waveformSelect.value;
+      });
+
+      scaleSelect.addEventListener("change", async () => {
+        if (audio) updateSound();
+        else updateLabels(getScaleMidi(state.pointerY), midiToFrequency(getScaleMidi(state.pointerY)), 0);
+      });
+
+      vibratoDepthInput.addEventListener("input", () => {
+        if (audio) updateSound();
+      });
+
+      reverbAmountInput.addEventListener("input", () => {
+        if (audio) updateSound();
+      });
+
+      resize();
+      window.addEventListener("resize", resize);
+      updateLabels(getScaleMidi(state.pointerY), midiToFrequency(getScaleMidi(state.pointerY)), 0);
+
+      let lastFrame = performance.now();
+      function render(now) {
+        const dt = Math.min(0.03, (now - lastFrame) / 1000);
+        lastFrame = now;
+        state.smoothedX += (state.pointerX - state.smoothedX) * 0.08;
+        state.smoothedY += (state.pointerY - state.smoothedY) * 0.08;
+        if (audio) updateSound();
+
+        drawBackground();
+        drawWaveform();
+        drawPitchLine();
+        drawPointerGlow();
+        drawParticles(dt);
+        requestAnimationFrame(render);
+      }
+      requestAnimationFrame(render);
+    </script>
+  </body>
+</html>
