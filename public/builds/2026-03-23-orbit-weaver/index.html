@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbit Weaver</title>
+    <style>
+      :root {
+        --bg: #050810;
+        --mobile-strip-height: 74px;
+        --trail-star: rgb(255, 232, 160);
+        --trail-planet: rgb(106, 176, 255);
+        --trail-moon: rgb(160, 200, 160);
+        --trail-rogue: rgb(255, 107, 107);
+        --glow-star: rgba(255, 232, 160, 0.15);
+        --glow-planet: rgba(106, 176, 255, 0.12);
+        --panel-bg: rgba(5, 8, 16, 0.92);
+        --panel-border: rgba(100, 120, 180, 0.2);
+        --text-ui: #8899bb;
+        --text-bright: #c8d8ff;
+        --accent: #4488ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: radial-gradient(circle at top, #0c1430 0%, var(--bg) 55%);
+        color: var(--text-bright);
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      }
+
+      body {
+        display: block;
+      }
+
+      #app {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+      }
+
+      #viewport {
+        position: absolute;
+        inset: 0 320px 0 0;
+        background:
+          radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.08), transparent 18%),
+          radial-gradient(circle at 80% 25%, rgba(68, 136, 255, 0.08), transparent 18%),
+          linear-gradient(180deg, rgba(17, 28, 56, 0.45) 0%, rgba(5, 8, 16, 0.95) 100%);
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      #hud {
+        position: absolute;
+        left: 20px;
+        bottom: 18px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        max-width: min(60vw, 620px);
+        pointer-events: none;
+      }
+
+      .chip {
+        padding: 8px 12px;
+        border: 1px solid rgba(136, 153, 187, 0.18);
+        border-radius: 999px;
+        background: rgba(5, 8, 16, 0.55);
+        color: var(--text-ui);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        backdrop-filter: blur(8px);
+      }
+
+      #sidebar {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 20px 18px 18px;
+        border-left: 1px solid var(--panel-border);
+        background: var(--panel-bg);
+        backdrop-filter: blur(12px);
+        overflow: auto;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow,
+      .section-label,
+      .hint,
+      .description {
+        color: var(--text-ui);
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .description,
+      .hint,
+      label,
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+
+      .panel {
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 14px;
+        background: rgba(10, 14, 28, 0.82);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      .section-label {
+        margin: 0 0 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      #preset-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .preset-button,
+      .action-button,
+      .type-button {
+        border: 1px solid rgba(136, 153, 187, 0.2);
+        border-radius: 14px;
+        padding: 10px 12px;
+        color: var(--text-bright);
+        background: rgba(17, 24, 44, 0.92);
+        cursor: pointer;
+        transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+      }
+
+      .preset-button:hover,
+      .action-button:hover,
+      .type-button:hover,
+      .preset-button:focus-visible,
+      .action-button:focus-visible,
+      .type-button:focus-visible {
+        border-color: rgba(106, 176, 255, 0.65);
+        background: rgba(28, 42, 73, 0.95);
+        transform: translateY(-1px);
+        outline: none;
+      }
+
+      .preset-button.active,
+      .type-button.active {
+        border-color: rgba(106, 176, 255, 0.75);
+        background: linear-gradient(180deg, rgba(56, 88, 156, 0.95) 0%, rgba(26, 40, 75, 0.98) 100%);
+      }
+
+      .preset-name {
+        display: block;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .preset-desc {
+        display: block;
+        margin-top: 3px;
+        font-size: 12px;
+        color: var(--text-ui);
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+
+      .field:last-child {
+        margin-bottom: 0;
+      }
+
+      .field header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+      }
+
+      .type-row,
+      .action-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .type-row > button,
+      .action-row > button {
+        flex: 1 1 0;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      select {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(136, 153, 187, 0.2);
+        padding: 10px 12px;
+        color: var(--text-bright);
+        background: rgba(17, 24, 44, 0.92);
+      }
+
+      #flash {
+        min-height: 18px;
+        color: #ffb0a8;
+        font-size: 13px;
+      }
+
+      #mobileStrip {
+        display: none;
+      }
+
+      @media (max-width: 767px) {
+        html,
+        body {
+          height: 100dvh;
+          min-height: 100dvh;
+          overflow: hidden;
+        }
+
+        body {
+          position: fixed;
+          inset: 0;
+        }
+
+        #app {
+          position: fixed;
+          inset: 0;
+          display: block;
+          height: 100dvh;
+          min-height: 100dvh;
+        }
+
+        #viewport {
+          inset: 0 0 var(--mobile-strip-height) 0;
+        }
+
+        #sidebar {
+          position: absolute;
+          left: 0;
+          right: 0;
+          top: auto;
+          bottom: 0;
+          width: auto;
+          max-height: min(72dvh, 520px);
+          flex: initial;
+          border-left: 0;
+          border-top: 1px solid var(--panel-border);
+          padding: 0;
+          gap: 0;
+          transform: translateY(calc(100% - var(--mobile-strip-height)));
+          transition: transform 180ms ease;
+          z-index: 2;
+        }
+
+        #sidebar.expanded {
+          transform: translateY(0);
+        }
+
+        #mobileStrip {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 50px 50px 58px;
+          gap: 8px;
+          align-items: center;
+          padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+          min-height: var(--mobile-strip-height);
+          background: rgba(5, 8, 16, 0.96);
+          border-bottom: 1px solid var(--panel-border);
+        }
+
+        #mobilePreset {
+          min-width: 0;
+        }
+
+        #mobileDrawerButton,
+        #mobilePlayButton,
+        #mobileResetButton {
+          min-width: 0;
+          white-space: nowrap;
+          padding: 10px 6px;
+          font-size: 12px;
+          overflow: hidden;
+        }
+
+        #sidebarContent {
+          overflow: auto;
+          display: grid;
+          gap: 12px;
+          padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+        }
+
+        #hud {
+          left: 12px;
+          right: 12px;
+          bottom: 86px;
+          max-width: none;
+        }
+
+        h1 {
+          font-size: 22px;
+        }
+
+        .panel {
+          padding: 12px;
+        }
+
+        .description {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport">
+        <canvas id="sim" aria-label="Orbit Weaver simulation canvas"></canvas>
+        <div id="hud">
+          <div class="chip" id="hudPreset"></div>
+          <div class="chip" id="hudBodies"></div>
+          <div class="chip" id="hudClock"></div>
+        </div>
+      </div>
+      <aside id="sidebar">
+        <div id="mobileStrip">
+          <select id="mobilePreset" aria-label="Choose orbit preset"></select>
+          <button class="action-button" id="mobilePlayButton" type="button">Pause</button>
+          <button class="action-button" id="mobileResetButton" type="button">Reset</button>
+          <button class="action-button" id="mobileDrawerButton" type="button">More</button>
+        </div>
+        <div id="sidebarContent">
+          <div>
+            <div class="eyebrow">Orbit Weaver</div>
+            <h1>n-body gravity</h1>
+            <p class="description">
+              Watch binary stars hold formation, figure-8s thread past collapse, or build your
+              own unstable system by dragging launch vectors into the dark.
+            </p>
+          </div>
+
+          <section class="panel">
+            <p class="section-label">Preset</p>
+            <div id="preset-list"></div>
+          </section>
+
+          <section class="panel">
+            <p class="section-label">Sandbox</p>
+            <div class="field">
+              <header>
+                <span>Mass</span>
+                <span id="massValue">120</span>
+              </header>
+              <input id="massRange" type="range" min="10" max="2500" step="10" value="120" />
+            </div>
+            <div class="field">
+              <label class="hint" for="bodyType">Body type</label>
+              <select id="bodyType">
+                <option value="planet">Planet</option>
+                <option value="star">Star</option>
+                <option value="moon">Moon</option>
+                <option value="rogue">Rogue</option>
+              </select>
+            </div>
+            <div class="hint">Click or tap to place. Drag before release to set the launch vector.</div>
+          </section>
+
+          <section class="panel">
+            <p class="section-label">Simulation</p>
+            <div class="field">
+              <header>
+                <span>Speed</span>
+                <span id="speedValue">1.0x</span>
+              </header>
+              <input id="speedRange" type="range" min="0.2" max="2" step="0.05" value="1" />
+            </div>
+            <div class="field">
+              <header>
+                <span>Trails</span>
+                <span id="trailValue">400</span>
+              </header>
+              <input id="trailRange" type="range" min="80" max="500" step="20" value="400" />
+            </div>
+            <div class="action-row">
+              <button class="action-button" id="playButton" type="button">Pause</button>
+              <button class="action-button" id="resetButton" type="button">Reset</button>
+              <button class="action-button" id="captureButton" type="button">Capture</button>
+            </div>
+          </section>
+
+          <div id="flash" aria-live="polite"></div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      const G = 0.5;
+      const SOFTENING = 8;
+      const DT = 0.4;
+      const PREWARM_STEPS = 200;
+      const EJECTION_DISTANCE = 3;
+      const TYPE_META = {
+        star: { color: "#ffe8a0", trail: "255,232,160", glow: "rgba(255,232,160,0.15)" },
+        planet: { color: "#6ab0ff", trail: "106,176,255", glow: "rgba(106,176,255,0.12)" },
+        moon: { color: "#a0e0a0", trail: "160,200,160", glow: "rgba(160,200,160,0.12)" },
+        rogue: { color: "#ff6b6b", trail: "255,107,107", glow: "rgba(255,107,107,0.12)" },
+      };
+
+      const PRESETS = [
+        {
+          id: "binary",
+          name: "Binary Stars",
+          desc: "Two equal stars orbiting their common center of mass.",
+          bodies: [
+            { x: -150, y: 0, vx: 0, vy: 0.8, mass: 1000, type: "star" },
+            { x: 150, y: 0, vx: 0, vy: -0.8, mass: 1000, type: "rogue" },
+          ],
+        },
+        {
+          id: "chaos",
+          name: "Three-Body Chaos",
+          desc: "Three stars. No stable solution. Pure chaos.",
+          bodies: [
+            { x: 0, y: -180, vx: 0.7, vy: 0.4, mass: 1000, type: "star" },
+            { x: 160, y: 90, vx: -0.3, vy: -0.9, mass: 1000, type: "planet" },
+            { x: -160, y: 90, vx: -0.4, vy: 0.5, mass: 1000, type: "rogue" },
+          ],
+        },
+        {
+          id: "solar",
+          name: "Mini Solar System",
+          desc: "One star with three planets at increasing orbital distance.",
+          bodies: [
+            { x: 0, y: 0, vx: 0, vy: 0, mass: 8000, type: "star" },
+            { x: 120, y: 0, vx: 0, vy: 1.8, mass: 10, type: "planet" },
+            { x: 200, y: 0, vx: 0, vy: 1.4, mass: 30, type: "moon" },
+            { x: 300, y: 0, vx: 0, vy: 1.1, mass: 5, type: "rogue" },
+          ],
+        },
+        {
+          id: "figure8",
+          name: "Figure-8 Orbit",
+          desc: "Three matched bodies tracing the famous figure-8 choreography.",
+          bodies: [
+            { x: 195, y: 0, vx: 0.347, vy: 0.533, mass: 1000, type: "star" },
+            { x: -195, y: 0, vx: 0.347, vy: 0.533, mass: 1000, type: "planet" },
+            { x: 0, y: 0, vx: -0.694, vy: -1.066, mass: 1000, type: "rogue" },
+          ],
+        },
+        {
+          id: "sandbox",
+          name: "Sandbox",
+          desc: "Place your own bodies and drag to define their starting velocity.",
+          bodies: [],
+        },
+      ];
+
+      const canvas = document.getElementById("sim");
+      const ctx = canvas.getContext("2d");
+      const sidebar = document.getElementById("sidebar");
+      const presetList = document.getElementById("preset-list");
+      const mobilePreset = document.getElementById("mobilePreset");
+      const mobilePlayButton = document.getElementById("mobilePlayButton");
+      const mobileResetButton = document.getElementById("mobileResetButton");
+      const mobileDrawerButton = document.getElementById("mobileDrawerButton");
+      const massRange = document.getElementById("massRange");
+      const bodyType = document.getElementById("bodyType");
+      const speedRange = document.getElementById("speedRange");
+      const trailRange = document.getElementById("trailRange");
+      const playButton = document.getElementById("playButton");
+      const resetButton = document.getElementById("resetButton");
+      const captureButton = document.getElementById("captureButton");
+      const massValue = document.getElementById("massValue");
+      const speedValue = document.getElementById("speedValue");
+      const trailValue = document.getElementById("trailValue");
+      const flash = document.getElementById("flash");
+      const hudPreset = document.getElementById("hudPreset");
+      const hudBodies = document.getElementById("hudBodies");
+      const hudClock = document.getElementById("hudClock");
+
+      const state = {
+        width: 0,
+        height: 0,
+        centerX: 0,
+        centerY: 0,
+        bodies: [],
+        running: true,
+        presetId: "chaos",
+        elapsed: 0,
+        speed: Number(speedRange.value),
+        trailLimit: Number(trailRange.value),
+        drag: null,
+        flashes: [],
+      };
+
+      function isMobileLayout() {
+        return window.innerWidth <= 767;
+      }
+
+      function createBody(definition) {
+        const type = definition.type || "planet";
+        const meta = TYPE_META[type];
+        return {
+          x: definition.x,
+          y: definition.y,
+          vx: definition.vx,
+          vy: definition.vy,
+          ax: 0,
+          ay: 0,
+          mass: definition.mass,
+          type,
+          color: meta.color,
+          trailColor: meta.trail,
+          glow: meta.glow,
+          trail: [],
+        };
+      }
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        state.width = rect.width;
+        state.height = rect.height;
+        state.centerX = rect.width / 2;
+        state.centerY = rect.height / 2;
+        canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+        canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function radiusForMass(mass) {
+        return Math.max(3, Math.log(mass) * 2.5);
+      }
+
+      function computeAccelerations(bodies) {
+        for (const body of bodies) {
+          body.ax = 0;
+          body.ay = 0;
+        }
+        for (let i = 0; i < bodies.length; i += 1) {
+          for (let j = i + 1; j < bodies.length; j += 1) {
+            const a = bodies[i];
+            const b = bodies[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist2 = dx * dx + dy * dy;
+            const softened = Math.sqrt(dist2 + SOFTENING * SOFTENING);
+            const force = (G * a.mass * b.mass) / (softened * softened);
+            const fx = (force * dx) / softened;
+            const fy = (force * dy) / softened;
+            a.ax += fx / a.mass;
+            a.ay += fy / a.mass;
+            b.ax -= fx / b.mass;
+            b.ay -= fy / b.mass;
+          }
+        }
+      }
+
+      function pushTrail(body) {
+        body.trail.push({ x: body.x, y: body.y });
+        if (body.trail.length > state.trailLimit) {
+          body.trail.splice(0, body.trail.length - state.trailLimit);
+        }
+      }
+
+      function addFlash(x, y, text) {
+        state.flashes.push({ x, y, text, life: 1 });
+      }
+
+      function stepVerlet(dt) {
+        for (const body of state.bodies) {
+          body.vx += 0.5 * body.ax * dt;
+          body.vy += 0.5 * body.ay * dt;
+          body.x += body.vx * dt;
+          body.y += body.vy * dt;
+          pushTrail(body);
+        }
+        computeAccelerations(state.bodies);
+        for (const body of state.bodies) {
+          body.vx += 0.5 * body.ax * dt;
+          body.vy += 0.5 * body.ay * dt;
+        }
+      }
+
+      function removeEjectedBodies() {
+        const limit = Math.hypot(state.width, state.height) * EJECTION_DISTANCE;
+        state.bodies = state.bodies.filter((body) => {
+          const distance = Math.hypot(body.x, body.y);
+          if (distance <= limit) {
+            return true;
+          }
+          addFlash(body.x, body.y, "ejected!");
+          return false;
+        });
+      }
+
+      function updateHud() {
+        const preset = PRESETS.find((entry) => entry.id === state.presetId);
+        hudPreset.textContent = preset ? preset.name : "Orbit Weaver";
+        hudBodies.textContent = `${state.bodies.length} bodies`;
+        const seconds = Math.floor(state.elapsed / 60);
+        const deciseconds = Math.floor((state.elapsed % 60) / 6);
+        hudClock.textContent = `t+${String(seconds).padStart(2, "0")}.${deciseconds}s`;
+      }
+
+      function drawStars() {
+        const count = 110;
+        for (let i = 0; i < count; i += 1) {
+          const x = (Math.sin(i * 91.7) * 0.5 + 0.5) * state.width;
+          const y = (Math.cos(i * 57.3) * 0.5 + 0.5) * state.height;
+          const alpha = 0.18 + ((i % 7) / 7) * 0.22;
+          ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+          ctx.fillRect(x, y, 1.5, 1.5);
+        }
+      }
+
+      function drawTrails() {
+        for (const body of state.bodies) {
+          if (body.trail.length < 2) {
+            continue;
+          }
+          ctx.beginPath();
+          for (let i = 0; i < body.trail.length; i += 1) {
+            const point = body.trail[i];
+            const x = state.centerX + point.x;
+            const y = state.centerY + point.y;
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          const alpha = Math.min(0.62, 0.18 + body.trail.length / (state.trailLimit * 2));
+          ctx.strokeStyle = `rgba(${body.trailColor}, ${alpha})`;
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+        }
+      }
+
+      function drawBodies() {
+        for (const body of state.bodies) {
+          const x = state.centerX + body.x;
+          const y = state.centerY + body.y;
+          const radius = radiusForMass(body.mass);
+          const glowRadius = radius * 4;
+          const gradient = ctx.createRadialGradient(x, y, 0, x, y, glowRadius);
+          gradient.addColorStop(0, body.glow);
+          gradient.addColorStop(1, "rgba(0,0,0,0)");
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(x, y, glowRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = body.color;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function drawDragVector() {
+        if (!state.drag) {
+          return;
+        }
+        const originX = state.centerX + state.drag.startX;
+        const originY = state.centerY + state.drag.startY;
+        const pointerX = state.centerX + state.drag.currentX;
+        const pointerY = state.centerY + state.drag.currentY;
+        ctx.strokeStyle = "rgba(106,176,255,0.95)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(originX, originY);
+        ctx.lineTo(pointerX, pointerY);
+        ctx.stroke();
+
+        const angle = Math.atan2(pointerY - originY, pointerX - originX);
+        ctx.beginPath();
+        ctx.moveTo(pointerX, pointerY);
+        ctx.lineTo(pointerX - Math.cos(angle - 0.45) * 12, pointerY - Math.sin(angle - 0.45) * 12);
+        ctx.lineTo(pointerX - Math.cos(angle + 0.45) * 12, pointerY - Math.sin(angle + 0.45) * 12);
+        ctx.closePath();
+        ctx.fillStyle = "rgba(106,176,255,0.95)";
+        ctx.fill();
+      }
+
+      function drawFlashes() {
+        state.flashes = state.flashes.filter((flashItem) => flashItem.life > 0);
+        for (const flashItem of state.flashes) {
+          const x = state.centerX + flashItem.x;
+          const y = state.centerY + flashItem.y;
+          ctx.fillStyle = `rgba(255,176,168,${flashItem.life})`;
+          ctx.font = "700 18px Trebuchet MS";
+          ctx.fillText(flashItem.text, x, y);
+          flashItem.life -= 0.02;
+        }
+      }
+
+      function render() {
+        ctx.fillStyle = "#050810";
+        ctx.fillRect(0, 0, state.width, state.height);
+        drawStars();
+        drawTrails();
+        drawBodies();
+        drawDragVector();
+        drawFlashes();
+      }
+
+      function frame() {
+        if (state.running) {
+          const steps = Math.max(1, Math.round(state.speed * 2));
+          const dt = DT * (state.speed / steps);
+          for (let i = 0; i < steps; i += 1) {
+            stepVerlet(dt);
+            removeEjectedBodies();
+          }
+          state.elapsed += state.speed;
+        }
+        updateHud();
+        render();
+        requestAnimationFrame(frame);
+      }
+
+      function loadPreset(id) {
+        const preset = PRESETS.find((entry) => entry.id === id) || PRESETS[0];
+        state.presetId = preset.id;
+        state.elapsed = 0;
+        state.flashes = [];
+        state.drag = null;
+        state.bodies = preset.bodies.map(createBody);
+        computeAccelerations(state.bodies);
+        for (const body of state.bodies) {
+          pushTrail(body);
+        }
+        for (let i = 0; i < PREWARM_STEPS; i += 1) {
+          stepVerlet(DT);
+        }
+        updatePresetButtons();
+        mobilePreset.value = preset.id;
+        flash.textContent = preset.id === "sandbox" ? "Sandbox ready. Place a body and drag to launch." : preset.desc;
+      }
+
+      function updatePresetButtons() {
+        for (const button of presetList.querySelectorAll("button")) {
+          button.classList.toggle("active", button.dataset.presetId === state.presetId);
+        }
+      }
+
+      function buildPresetButtons() {
+        for (const preset of PRESETS) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "preset-button";
+          button.dataset.presetId = preset.id;
+          const name = document.createElement("span");
+          name.className = "preset-name";
+          name.textContent = preset.name;
+          const desc = document.createElement("span");
+          desc.className = "preset-desc";
+          desc.textContent = preset.desc;
+          button.appendChild(name);
+          button.appendChild(desc);
+          button.addEventListener("click", () => loadPreset(preset.id));
+          presetList.appendChild(button);
+
+          const option = document.createElement("option");
+          option.value = preset.id;
+          option.textContent = preset.name;
+          mobilePreset.appendChild(option);
+        }
+      }
+
+      function pointerToWorld(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: event.clientX - rect.left - state.centerX,
+          y: event.clientY - rect.top - state.centerY,
+        };
+      }
+
+      function beginDrag(event) {
+        if (state.presetId !== "sandbox") {
+          return;
+        }
+        const point = pointerToWorld(event);
+        state.drag = {
+          pointerId: event.pointerId,
+          startX: point.x,
+          startY: point.y,
+          currentX: point.x,
+          currentY: point.y,
+        };
+        canvas.setPointerCapture(event.pointerId);
+      }
+
+      function updateDrag(event) {
+        if (!state.drag || state.drag.pointerId !== event.pointerId) {
+          return;
+        }
+        const point = pointerToWorld(event);
+        state.drag.currentX = point.x;
+        state.drag.currentY = point.y;
+      }
+
+      function endDrag(event) {
+        if (!state.drag || state.drag.pointerId !== event.pointerId) {
+          return;
+        }
+        const velocityScale = 0.015;
+        const dx = state.drag.currentX - state.drag.startX;
+        const dy = state.drag.currentY - state.drag.startY;
+        const body = createBody({
+          x: state.drag.startX,
+          y: state.drag.startY,
+          vx: dx * velocityScale,
+          vy: dy * velocityScale,
+          mass: Number(massRange.value),
+          type: bodyType.value,
+        });
+        state.bodies.push(body);
+        computeAccelerations(state.bodies);
+        pushTrail(body);
+        flash.textContent = `${body.type} launched at ${body.mass} mass.`;
+        state.drag = null;
+      }
+
+      function setRunning(nextRunning) {
+        state.running = nextRunning;
+        const label = state.running ? "Pause" : "Play";
+        playButton.textContent = label;
+        mobilePlayButton.textContent = label;
+      }
+
+      function toggleSidebar() {
+        if (!isMobileLayout()) {
+          return;
+        }
+        const expanded = sidebar.classList.toggle("expanded");
+        mobileDrawerButton.textContent = expanded ? "Close" : "More";
+      }
+
+      function collapseSidebar() {
+        if (!isMobileLayout()) {
+          sidebar.classList.remove("expanded");
+          mobileDrawerButton.textContent = "More";
+          return;
+        }
+        sidebar.classList.remove("expanded");
+        mobileDrawerButton.textContent = "More";
+      }
+
+      function capture() {
+        const link = document.createElement("a");
+        link.download = "orbit-weaver.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        flash.textContent = "Capture saved.";
+      }
+
+      massRange.addEventListener("input", () => {
+        massValue.textContent = massRange.value;
+      });
+      speedRange.addEventListener("input", () => {
+        state.speed = Number(speedRange.value);
+        speedValue.textContent = `${state.speed.toFixed(2)}x`;
+      });
+      trailRange.addEventListener("input", () => {
+        state.trailLimit = Number(trailRange.value);
+        trailValue.textContent = trailRange.value;
+      });
+      playButton.addEventListener("click", () => {
+        setRunning(!state.running);
+      });
+      mobilePlayButton.addEventListener("click", () => {
+        setRunning(!state.running);
+      });
+      resetButton.addEventListener("click", () => loadPreset(state.presetId));
+      mobileResetButton.addEventListener("click", () => loadPreset(state.presetId));
+      captureButton.addEventListener("click", capture);
+      mobileDrawerButton.addEventListener("click", toggleSidebar);
+      mobilePreset.addEventListener("change", () => {
+        loadPreset(mobilePreset.value);
+        collapseSidebar();
+      });
+      canvas.addEventListener("pointerdown", beginDrag);
+      canvas.addEventListener("pointermove", updateDrag);
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", () => {
+        state.drag = null;
+      });
+      window.addEventListener("resize", () => {
+        resize();
+        collapseSidebar();
+        render();
+      });
+
+      buildPresetButtons();
+      resize();
+      loadPreset(state.presetId);
+      updateHud();
+      setRunning(true);
+      collapseSidebar();
+      render();
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
