@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BZ Reactor — Belousov-Zhabotinsky Chemical Oscillator</title>
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --void: #06040f;
+        --canvas-bg: #060410;
+        --panel-bg: rgba(8, 5, 18, 0.92);
+        --panel-border: rgba(110, 70, 200, 0.25);
+        --text-bright: #c4b8ff;
+        --text-ui: #8878cc;
+        --text-dim: #4a3d7a;
+        --accent: #7755dd;
+        --accent-glow: rgba(119, 85, 221, 0.4);
+        --btn-active-bg: rgba(119, 85, 221, 0.18);
+        --btn-active-border: rgba(140, 100, 255, 0.7);
+        --slider-track: rgba(119, 85, 221, 0.2);
+        --slider-thumb: #9966ff;
+        --stat-value: #d4c8ff;
+        --warning: #ffb55a;
+        --shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        --drawer-height: 56px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(88, 56, 175, 0.16), transparent 26%),
+          radial-gradient(circle at 78% 14%, rgba(26, 90, 180, 0.12), transparent 24%),
+          linear-gradient(180deg, #08070f 0%, var(--bg) 45%, #07070d 100%);
+        color: var(--text-bright);
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+        border: 0;
+      }
+
+      #app {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px;
+        background:
+          radial-gradient(circle at 32% 55%, rgba(0, 120, 255, 0.06), transparent 34%),
+          radial-gradient(circle at 68% 42%, rgba(245, 224, 0, 0.05), transparent 26%);
+      }
+
+      #stage {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at center, rgba(28, 20, 78, 0.1), transparent 50%),
+          var(--canvas-bg);
+      }
+
+      #simCanvas,
+      #cursorCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      #simCanvas {
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      #cursorCanvas {
+        pointer-events: none;
+      }
+
+      #errorOverlay,
+      #loadingOverlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        text-align: center;
+        z-index: 10;
+      }
+
+      #errorOverlay {
+        background: rgba(6, 4, 15, 0.92);
+        color: #f5d7ff;
+        font-size: 15px;
+        line-height: 1.5;
+        visibility: hidden;
+      }
+
+      #loadingOverlay {
+        background:
+          radial-gradient(circle at center, rgba(46, 26, 120, 0.3), rgba(6, 4, 15, 0.86));
+        color: rgba(212, 200, 255, 0.82);
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        transition: opacity 400ms ease;
+      }
+
+      .loading-pill {
+        padding: 12px 16px;
+        border: 1px solid rgba(153, 102, 255, 0.28);
+        border-radius: 999px;
+        background: rgba(8, 5, 18, 0.78);
+        box-shadow: 0 0 40px rgba(119, 85, 221, 0.16);
+      }
+
+      .hero {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        max-width: min(42vw, 520px);
+        padding: 18px 18px 14px;
+        border: 1px solid rgba(161, 130, 255, 0.1);
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(8, 5, 18, 0.8), rgba(8, 5, 18, 0.34));
+        backdrop-filter: blur(14px);
+        box-shadow: var(--shadow);
+        pointer-events: none;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        color: rgba(196, 184, 255, 0.74);
+        font-size: 10px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2.25rem, 6vw, 4.9rem);
+        line-height: 0.92;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .lede {
+        margin: 12px 0 0;
+        color: rgba(212, 200, 255, 0.78);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .meta-chip {
+        padding: 7px 10px;
+        border: 1px solid rgba(119, 85, 221, 0.2);
+        border-radius: 999px;
+        background: rgba(8, 5, 18, 0.45);
+        color: var(--text-ui);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      #bottomHud {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      #hintLine,
+      #statusStrip {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(8, 5, 18, 0.62);
+        border: 1px solid rgba(119, 85, 221, 0.14);
+        color: var(--text-dim);
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: lowercase;
+        backdrop-filter: blur(12px);
+      }
+
+      #statusStrip {
+        color: rgba(212, 200, 255, 0.64);
+      }
+
+      #panel {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 16px 14px;
+        gap: 8px;
+        overflow-y: auto;
+        background: var(--panel-bg);
+        border-left: 1px solid var(--panel-border);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+        opacity: 1;
+        transform: translateX(0);
+        backdrop-filter: blur(16px);
+      }
+
+      .panel-title {
+        margin: 0;
+        color: var(--text-bright);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        text-shadow: 0 0 18px rgba(153, 102, 255, 0.14);
+      }
+
+      .panel-sub {
+        margin: 0 0 6px;
+        color: rgba(196, 184, 255, 0.48);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .section-label {
+        margin-top: 10px;
+        color: var(--text-dim);
+        font-size: 9px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .preset-group {
+        display: grid;
+        gap: 6px;
+      }
+
+      .preset-btn,
+      .action-btn {
+        min-height: 40px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid rgba(119, 85, 221, 0.2);
+        border-radius: 10px;
+        background: transparent;
+        color: var(--text-ui);
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+        transition:
+          border-color 160ms ease,
+          background 160ms ease,
+          color 160ms ease,
+          box-shadow 160ms ease,
+          transform 160ms ease;
+      }
+
+      .preset-btn:hover,
+      .preset-btn:focus-visible,
+      .action-btn:hover,
+      .action-btn:focus-visible {
+        border-color: rgba(153, 102, 255, 0.52);
+        color: var(--text-bright);
+        outline: none;
+      }
+
+      .preset-btn:active,
+      .action-btn:active {
+        transform: translateY(1px);
+      }
+
+      .preset-btn.active {
+        background: var(--btn-active-bg);
+        border-color: var(--btn-active-border);
+        color: var(--text-bright);
+        box-shadow: 0 0 18px var(--accent-glow);
+      }
+
+      .param-row {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .param-row label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--text-ui);
+        font-size: 11px;
+        line-height: 1.4;
+      }
+
+      .param-value {
+        color: var(--stat-value);
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 16px;
+        background: transparent;
+      }
+
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 999px;
+        background: var(--slider-track);
+      }
+
+      input[type="range"]::-moz-range-track {
+        height: 6px;
+        border-radius: 999px;
+        background: var(--slider-track);
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        margin-top: -6px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--slider-thumb);
+        box-shadow: 0 0 14px rgba(153, 102, 255, 0.65);
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border: 0;
+        border-radius: 50%;
+        background: var(--slider-thumb);
+        box-shadow: 0 0 14px rgba(153, 102, 255, 0.65);
+      }
+
+      .stats {
+        display: grid;
+        gap: 6px;
+        margin-top: auto;
+        padding-top: 12px;
+        color: rgba(136, 120, 204, 0.8);
+        font-size: 10px;
+      }
+
+      .stat-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .stat-row strong {
+        color: var(--stat-value);
+        font-weight: 600;
+      }
+
+      #mobileHandle {
+        display: none;
+      }
+
+      #drawerActions {
+        display: none;
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 767px) {
+        body {
+          overflow: hidden;
+        }
+
+        #app {
+          display: block;
+        }
+
+        #stage {
+          height: 60vh;
+        }
+
+        .hero {
+          top: 12px;
+          left: 12px;
+          right: 12px;
+          max-width: none;
+          padding: 14px 14px 12px;
+        }
+
+        .eyebrow {
+          font-size: 9px;
+        }
+
+        h1 {
+          font-size: clamp(2rem, 12vw, 3.3rem);
+        }
+
+        .lede {
+          font-size: 12px;
+        }
+
+        #bottomHud {
+          left: 12px;
+          right: 12px;
+          bottom: 10px;
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        #hintLine,
+        #statusStrip {
+          font-size: 10px;
+          text-align: center;
+        }
+
+        #panel {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          min-height: 0;
+          max-height: min(62vh, 420px);
+          padding: 0;
+          gap: 0;
+          border-left: 0;
+          border-top: 1px solid var(--panel-border);
+          transform: translateY(calc(100% - var(--drawer-height)));
+          transition: transform 240ms ease;
+          background: linear-gradient(180deg, rgba(8, 5, 18, 0.98), rgba(8, 5, 18, 0.96));
+          overflow: hidden;
+          opacity: 1;
+        }
+
+        #panel.open {
+          transform: translateY(0);
+        }
+
+        #mobileHandle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          min-height: var(--drawer-height);
+          padding: 12px 14px;
+          background:
+            linear-gradient(180deg, rgba(12, 9, 28, 0.98), rgba(10, 8, 22, 0.98));
+          border-bottom: 1px solid rgba(119, 85, 221, 0.18);
+          cursor: pointer;
+        }
+
+        .handle-main {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          color: var(--text-bright);
+          font-size: 12px;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+        }
+
+        .handle-sub {
+          color: var(--text-dim);
+          font-size: 10px;
+        }
+
+        .handle-toggle {
+          color: var(--text-ui);
+          font-size: 18px;
+          line-height: 1;
+        }
+
+        #panelInner {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 12px 14px 16px;
+          overflow-y: auto;
+        }
+
+        #drawerActions {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+
+        #drawerActions .preset-btn,
+        #drawerActions .action-btn {
+          min-height: 44px;
+          padding: 6px 8px;
+          font-size: 10px;
+          text-align: center;
+        }
+
+        #desktopPresets,
+        #desktopActions {
+          display: none;
+        }
+
+        .section-label {
+          margin-top: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <main id="stage" aria-label="Chemical oscillator simulation stage">
+        <canvas id="simCanvas" aria-label="Belousov-Zhabotinsky reaction simulation"></canvas>
+        <canvas id="cursorCanvas" aria-hidden="true"></canvas>
+        <div id="loadingOverlay" role="status" aria-live="polite">
+          <div class="loading-pill">warming the reactor</div>
+        </div>
+        <div id="errorOverlay" role="alert"></div>
+        <section class="hero" aria-hidden="true">
+          <p class="eyebrow">belousov-zhabotinsky chemical oscillator</p>
+          <h1>BZ Reactor</h1>
+          <p class="lede">
+            A living chemical field in the browser: rotating spirals, target waves, and
+            collisions born from nonlinear chemistry. Drag through the reactor to stir new
+            nuclei into existence.
+          </p>
+          <div class="hero-meta">
+            <div class="meta-chip">webgl2</div>
+            <div class="meta-chip">oregonator</div>
+            <div class="meta-chip">512×512 float sim</div>
+          </div>
+        </section>
+        <div id="bottomHud">
+          <div id="hintLine">click · drag to seed chemical waves</div>
+          <div id="statusStrip">reactor idle</div>
+        </div>
+      </main>
+
+      <aside id="panel" aria-label="Reaction controls">
+        <button
+          id="mobileHandle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="panelInner"
+          aria-label="Toggle controls drawer"
+        >
+          <span>
+            <span class="handle-main">⚗ Controls</span>
+            <span class="handle-sub">presets, chemistry, capture</span>
+          </span>
+          <span class="handle-toggle" aria-hidden="true">+</span>
+        </button>
+
+        <div id="panelInner">
+          <h2 class="panel-title">BZ Reactor</h2>
+          <p class="panel-sub">Chemical Oscillator</p>
+
+          <div id="drawerActions" aria-label="Quick preset row">
+            <button class="preset-btn active" data-preset="spirals" type="button">Spirals</button>
+            <button class="preset-btn" data-preset="targets" type="button">Targets</button>
+            <button class="preset-btn" data-preset="chaos" type="button">Chaos</button>
+            <button class="preset-btn" data-preset="slow" type="button">Slow</button>
+            <button class="action-btn" id="mobileReset" type="button">Reset</button>
+          </div>
+
+          <div class="section-label">Preset</div>
+          <div class="preset-group" id="desktopPresets">
+            <button class="preset-btn active" data-preset="spirals" type="button">Spirals</button>
+            <button class="preset-btn" data-preset="targets" type="button">Target Waves</button>
+            <button class="preset-btn" data-preset="chaos" type="button">Chaos</button>
+            <button class="preset-btn" data-preset="slow" type="button">Slow Burn</button>
+          </div>
+
+          <div class="section-label">Parameters</div>
+
+          <div class="param-row">
+            <label for="slEpsilon">
+              <span>Timescale (ε)</span>
+              <span class="param-value" id="epVal">0.05</span>
+            </label>
+            <input
+              id="slEpsilon"
+              type="range"
+              min="0.02"
+              max="0.20"
+              step="0.005"
+              value="0.05"
+              aria-label="Timescale epsilon"
+            />
+          </div>
+
+          <div class="param-row">
+            <label for="slF">
+              <span>Coupling (f)</span>
+              <span class="param-value" id="fVal">1.4</span>
+            </label>
+            <input
+              id="slF"
+              type="range"
+              min="0.5"
+              max="3.0"
+              step="0.1"
+              value="1.4"
+              aria-label="Coupling factor"
+            />
+          </div>
+
+          <div class="param-row">
+            <label for="slSpeed">
+              <span>Speed</span>
+              <span class="param-value" id="speedVal">4×</span>
+            </label>
+            <input
+              id="slSpeed"
+              type="range"
+              min="1"
+              max="8"
+              step="1"
+              value="4"
+              aria-label="Simulation steps per frame"
+            />
+          </div>
+
+          <div class="param-row">
+            <label for="slBrush">
+              <span>Brush size</span>
+              <span class="param-value" id="brushVal">0.020</span>
+            </label>
+            <input
+              id="slBrush"
+              type="range"
+              min="0.010"
+              max="0.060"
+              step="0.005"
+              value="0.020"
+              aria-label="Brush radius"
+            />
+          </div>
+
+          <div class="section-label">Controls</div>
+          <div class="preset-group" id="desktopActions">
+            <button class="action-btn" id="btnReset" type="button">↺ Reset</button>
+            <button class="action-btn" id="btnShot" type="button">📷 Screenshot</button>
+          </div>
+
+          <div class="stats" id="stats">
+            <div class="stat-row"><span>Steps</span><strong id="stepsStat">0</strong></div>
+            <div class="stat-row"><span>Frame rate</span><strong id="fpsStat">0 fps</strong></div>
+            <div class="stat-row"><span>Pattern</span><strong id="patternStat">warming</strong></div>
+            <div class="stat-row"><span>Signal</span><strong id="signalStat">stable</strong></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const SIM_SIZE = 512;
+        const DT = 0.1;
+        const MIN_DESKTOP_STEPS = 4;
+        const DEFAULT_PAINT_U = 0.9;
+        const DEFAULT_PAINT_V = 0.05;
+        const perfNow = () => performance.now();
+
+        const elements = {
+          app: document.getElementById("app"),
+          stage: document.getElementById("stage"),
+          simCanvas: document.getElementById("simCanvas"),
+          cursorCanvas: document.getElementById("cursorCanvas"),
+          panel: document.getElementById("panel"),
+          panelInner: document.getElementById("panelInner"),
+          mobileHandle: document.getElementById("mobileHandle"),
+          loadingOverlay: document.getElementById("loadingOverlay"),
+          errorOverlay: document.getElementById("errorOverlay"),
+          hintLine: document.getElementById("hintLine"),
+          statusStrip: document.getElementById("statusStrip"),
+          slEpsilon: document.getElementById("slEpsilon"),
+          slF: document.getElementById("slF"),
+          slSpeed: document.getElementById("slSpeed"),
+          slBrush: document.getElementById("slBrush"),
+          epVal: document.getElementById("epVal"),
+          fVal: document.getElementById("fVal"),
+          speedVal: document.getElementById("speedVal"),
+          brushVal: document.getElementById("brushVal"),
+          btnReset: document.getElementById("btnReset"),
+          btnShot: document.getElementById("btnShot"),
+          mobileReset: document.getElementById("mobileReset"),
+          stepsStat: document.getElementById("stepsStat"),
+          fpsStat: document.getElementById("fpsStat"),
+          patternStat: document.getElementById("patternStat"),
+          signalStat: document.getElementById("signalStat"),
+        };
+
+        const presetDefinitions = {
+          spirals: {
+            key: "spirals",
+            label: "Spirals",
+            epsilon: 0.05,
+            mu: 0.01,
+            f: 1.4,
+            du: 1.0,
+            dv: 0.5,
+            steps: 4,
+            seedMode: "spirals",
+            signal: "classic rotation",
+          },
+          targets: {
+            key: "targets",
+            label: "Target Waves",
+            epsilon: 0.03,
+            mu: 0.006,
+            f: 0.8,
+            du: 0.8,
+            dv: 0.4,
+            steps: 4,
+            seedMode: "targets",
+            signal: "ring expansion",
+          },
+          chaos: {
+            key: "chaos",
+            label: "Chaos",
+            epsilon: 0.1,
+            mu: 0.02,
+            f: 2.2,
+            du: 1.2,
+            dv: 0.3,
+            steps: 6,
+            seedMode: "chaos",
+            signal: "turbulent fronts",
+          },
+          slow: {
+            key: "slow",
+            label: "Slow Burn",
+            epsilon: 0.15,
+            mu: 0.04,
+            f: 1.8,
+            du: 0.6,
+            dv: 0.2,
+            steps: 3,
+            seedMode: "slow",
+            signal: "lava pulses",
+          },
+        };
+
+        const state = {
+          gl: null,
+          cursorCtx: null,
+          ext: null,
+          programs: null,
+          vao: null,
+          framebuffers: [],
+          textures: [],
+          currentIndex: 0,
+          pointerId: null,
+          isPainting: false,
+          isHovering: false,
+          isMobile: window.matchMedia("(max-width: 767px)").matches,
+          drawerOpen: false,
+          pointerX: 0.5,
+          pointerY: 0.5,
+          brushRadius: Number.parseFloat(elements.slBrush.value),
+          epsilon: Number.parseFloat(elements.slEpsilon.value),
+          mu: presetDefinitions.spirals.mu,
+          coupling: Number.parseFloat(elements.slF.value),
+          du: presetDefinitions.spirals.du,
+          dv: presetDefinitions.spirals.dv,
+          stepsPerFrame: Number.parseInt(elements.slSpeed.value, 10),
+          activePreset: "spirals",
+          tick: 0,
+          lastFrameTime: perfNow(),
+          fpsAccum: 0,
+          fpsFrames: 0,
+          fps: 0,
+          lastStatusAt: perfNow(),
+          phasePulse: 0,
+          running: false,
+        };
+
+        const presetButtons = Array.from(document.querySelectorAll(".preset-btn"));
+
+        function setStatus(message) {
+          elements.statusStrip.textContent = message;
+        }
+
+        function showError(message, details) {
+          const lines = [message];
+          if (details) {
+            lines.push(details);
+          }
+          elements.errorOverlay.style.visibility = "visible";
+          elements.errorOverlay.textContent = lines.join(" ");
+          elements.loadingOverlay.style.opacity = "0";
+          elements.loadingOverlay.style.pointerEvents = "none";
+          setStatus("reactor offline");
+        }
+
+        function hideLoading() {
+          elements.loadingOverlay.style.opacity = "0";
+          window.setTimeout(() => {
+            elements.loadingOverlay.style.display = "none";
+          }, 420);
+        }
+
+        function clamp(value, min, max) {
+          return Math.max(min, Math.min(max, value));
+        }
+
+        function randomRange(min, max) {
+          return min + Math.random() * (max - min);
+        }
+
+        function createShader(gl, type, source) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const log = gl.getShaderInfoLog(shader) || "unknown shader error";
+            gl.deleteShader(shader);
+            throw new Error(log);
+          }
+          return shader;
+        }
+
+        function createProgram(gl, vertexSource, fragmentSource) {
+          const program = gl.createProgram();
+          const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
+          const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+          gl.attachShader(program, vertexShader);
+          gl.attachShader(program, fragmentShader);
+          gl.linkProgram(program);
+          gl.deleteShader(vertexShader);
+          gl.deleteShader(fragmentShader);
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            const log = gl.getProgramInfoLog(program) || "unknown link error";
+            gl.deleteProgram(program);
+            throw new Error(log);
+          }
+          return program;
+        }
+
+        function buildProgramBundle(gl, program, uniformNames) {
+          const locations = {};
+          for (const name of uniformNames) {
+            locations[name] = gl.getUniformLocation(program, name);
+          }
+          return {
+            program,
+            locations,
+          };
+        }
+
+        function createTexture(gl) {
+          const texture = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA32F,
+            SIM_SIZE,
+            SIM_SIZE,
+            0,
+            gl.RGBA,
+            gl.FLOAT,
+            null
+          );
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          return texture;
+        }
+
+        function createFramebuffer(gl, texture) {
+          const framebuffer = gl.createFramebuffer();
+          gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+          const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+          if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            throw new Error("float framebuffer incomplete");
+          }
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          return framebuffer;
+        }
+
+        function createQuad(gl) {
+          const vao = gl.createVertexArray();
+          const buffer = gl.createBuffer();
+          gl.bindVertexArray(vao);
+          gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array([
+              -1, -1,
+              1, -1,
+              -1, 1,
+              -1, 1,
+              1, -1,
+              1, 1,
+            ]),
+            gl.STATIC_DRAW
+          );
+          gl.enableVertexAttribArray(0);
+          gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+          gl.bindVertexArray(null);
+          gl.bindBuffer(gl.ARRAY_BUFFER, null);
+          return vao;
+        }
+
+        function buildInitialData(seedMode) {
+          const data = new Float32Array(SIM_SIZE * SIM_SIZE * 4);
+          for (let y = 0; y < SIM_SIZE; y += 1) {
+            for (let x = 0; x < SIM_SIZE; x += 1) {
+              const idx = (y * SIM_SIZE + x) * 4;
+              const base = Math.random() * 0.015;
+              data[idx] = base;
+              data[idx + 1] = Math.random() * 0.015;
+              data[idx + 2] = 0;
+              data[idx + 3] = 1;
+            }
+          }
+
+          const seedDisk = (cx, cy, radius, uValue, vValue) => {
+            for (let dy = -radius; dy <= radius; dy += 1) {
+              for (let dx = -radius; dx <= radius; dx += 1) {
+                if (dx * dx + dy * dy > radius * radius) {
+                  continue;
+                }
+                const px = (cx + dx + SIM_SIZE) % SIM_SIZE;
+                const py = (cy + dy + SIM_SIZE) % SIM_SIZE;
+                const idx = (py * SIM_SIZE + px) * 4;
+                data[idx] = clamp(uValue + Math.random() * 0.04, 0, 1);
+                data[idx + 1] = clamp(vValue + Math.random() * 0.03, 0, 1);
+              }
+            }
+          };
+
+          const seedRing = (cx, cy, radius, width, uValue, vValue) => {
+            const inner = Math.max(0, radius - width);
+            for (let dy = -radius; dy <= radius; dy += 1) {
+              for (let dx = -radius; dx <= radius; dx += 1) {
+                const distSq = dx * dx + dy * dy;
+                if (distSq > radius * radius || distSq < inner * inner) {
+                  continue;
+                }
+                const px = (cx + dx + SIM_SIZE) % SIM_SIZE;
+                const py = (cy + dy + SIM_SIZE) % SIM_SIZE;
+                const idx = (py * SIM_SIZE + px) * 4;
+                data[idx] = clamp(uValue + Math.random() * 0.03, 0, 1);
+                data[idx + 1] = clamp(vValue + Math.random() * 0.02, 0, 1);
+              }
+            }
+          };
+
+          const seedBrokenRing = (cx, cy, radius, width, startAngle, gapAngle, uValue, vValue) => {
+            const inner = Math.max(0, radius - width);
+            for (let dy = -radius; dy <= radius; dy += 1) {
+              for (let dx = -radius; dx <= radius; dx += 1) {
+                const distSq = dx * dx + dy * dy;
+                if (distSq > radius * radius || distSq < inner * inner) {
+                  continue;
+                }
+                const angle = Math.atan2(dy, dx);
+                let delta = angle - startAngle;
+                while (delta < -Math.PI) {
+                  delta += Math.PI * 2;
+                }
+                while (delta > Math.PI) {
+                  delta -= Math.PI * 2;
+                }
+                if (Math.abs(delta) < gapAngle) {
+                  continue;
+                }
+                const px = (cx + dx + SIM_SIZE) % SIM_SIZE;
+                const py = (cy + dy + SIM_SIZE) % SIM_SIZE;
+                const idx = (py * SIM_SIZE + px) * 4;
+                data[idx] = clamp(uValue + Math.random() * 0.03, 0, 1);
+                data[idx + 1] = clamp(vValue + Math.random() * 0.02, 0, 1);
+              }
+            }
+          };
+
+          const seedStripe = (x0, y0, x1, y1, thickness, uValue, vValue) => {
+            const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
+            for (let i = 0; i <= steps; i += 1) {
+              const t = steps === 0 ? 0 : i / steps;
+              const x = Math.round(x0 + (x1 - x0) * t);
+              const y = Math.round(y0 + (y1 - y0) * t);
+              seedDisk(x, y, thickness, uValue, vValue);
+            }
+          };
+
+          if (seedMode === "spirals") {
+            for (let i = 0; i < 7; i += 1) {
+              const cx = Math.floor(randomRange(64, SIM_SIZE - 64));
+              const cy = Math.floor(randomRange(64, SIM_SIZE - 64));
+              seedBrokenRing(
+                cx,
+                cy,
+                Math.floor(randomRange(14, 24)),
+                3,
+                randomRange(-Math.PI, Math.PI),
+                randomRange(0.22, 0.48),
+                randomRange(0.82, 0.9),
+                randomRange(0.03, 0.07)
+              );
+              seedDisk(cx, cy, 4, 0.88, 0.04);
+            }
+          } else if (seedMode === "targets") {
+            for (let i = 0; i < 6; i += 1) {
+              const cx = Math.floor(randomRange(32, SIM_SIZE - 32));
+              const cy = Math.floor(randomRange(32, SIM_SIZE - 32));
+              seedDisk(cx, cy, 4, 0.9, 0.04);
+              seedRing(cx, cy, 18, 2, 0.74, 0.06);
+              seedRing(cx, cy, 28, 2, 0.62, 0.08);
+            }
+          } else if (seedMode === "chaos") {
+            for (let i = 0; i < 12; i += 1) {
+              seedDisk(
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(5, 12)),
+                randomRange(0.82, 0.96),
+                randomRange(0.02, 0.08)
+              );
+            }
+            for (let i = 0; i < 9; i += 1) {
+              seedStripe(
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(0, SIM_SIZE)),
+                Math.floor(randomRange(3, 6)),
+                randomRange(0.78, 0.92),
+                randomRange(0.03, 0.06)
+              );
+            }
+          } else if (seedMode === "slow") {
+            for (let i = 0; i < 5; i += 1) {
+              seedDisk(
+                Math.floor(randomRange(48, SIM_SIZE - 48)),
+                Math.floor(randomRange(48, SIM_SIZE - 48)),
+                Math.floor(randomRange(16, 30)),
+                randomRange(0.7, 0.88),
+                randomRange(0.04, 0.11)
+              );
+            }
+          }
+
+          return data;
+        }
+
+        function uploadSimulationData(gl, texture, seedMode) {
+          const data = buildInitialData(seedMode);
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, SIM_SIZE, SIM_SIZE, gl.RGBA, gl.FLOAT, data);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+        }
+
+        function copyTexture(gl, sourceTexture, targetFramebuffer) {
+          const display = state.programs.display;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, targetFramebuffer);
+          gl.viewport(0, 0, SIM_SIZE, SIM_SIZE);
+          gl.useProgram(display.program);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, sourceTexture);
+          gl.uniform1i(display.locations.uState, 0);
+          gl.bindVertexArray(state.vao);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindVertexArray(null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+
+        function initializeTextures(seedMode) {
+          const gl = state.gl;
+          uploadSimulationData(gl, state.textures[0], seedMode);
+          uploadSimulationData(gl, state.textures[1], seedMode);
+          state.currentIndex = 0;
+          state.tick = 0;
+        }
+
+        function resizeCanvases() {
+          const rect = elements.stage.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          const width = Math.max(1, Math.floor(rect.width * dpr));
+          const height = Math.max(1, Math.floor(rect.height * dpr));
+
+          if (elements.simCanvas.width !== width || elements.simCanvas.height !== height) {
+            elements.simCanvas.width = width;
+            elements.simCanvas.height = height;
+          }
+          if (elements.cursorCanvas.width !== width || elements.cursorCanvas.height !== height) {
+            elements.cursorCanvas.width = width;
+            elements.cursorCanvas.height = height;
+          }
+          if (state.gl) {
+            state.gl.viewport(0, 0, width, height);
+          }
+        }
+
+        function updatePointerFromEvent(event) {
+          const rect = elements.simCanvas.getBoundingClientRect();
+          const px = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+          const py = clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1);
+          state.pointerX = px;
+          state.pointerY = py;
+        }
+
+        function paintStateFromPointer(event, painting) {
+          updatePointerFromEvent(event);
+          state.isPainting = painting;
+          state.isHovering = true;
+          if (state.isMobile && !state.drawerOpen) {
+            elements.hintLine.textContent = "touch is seeding live wave nuclei";
+          }
+        }
+
+        function resetPainting() {
+          state.isPainting = false;
+          state.pointerId = null;
+          if (!state.isMobile) {
+            elements.hintLine.textContent = "click · drag to seed chemical waves";
+          } else {
+            elements.hintLine.textContent = state.drawerOpen
+              ? "close drawer to paint the reactor"
+              : "touch · drag to seed chemical waves";
+          }
+        }
+
+        function bindPointerEvents() {
+          elements.simCanvas.addEventListener("pointerdown", (event) => {
+            if (state.isMobile && state.drawerOpen) {
+              return;
+            }
+            state.pointerId = event.pointerId;
+            elements.simCanvas.setPointerCapture(event.pointerId);
+            paintStateFromPointer(event, true);
+            setStatus("reactor stirred");
+          });
+
+          elements.simCanvas.addEventListener("pointermove", (event) => {
+            state.isHovering = true;
+            updatePointerFromEvent(event);
+            if (state.pointerId === event.pointerId && state.isPainting) {
+              paintStateFromPointer(event, true);
+            }
+          });
+
+          elements.simCanvas.addEventListener("pointerup", (event) => {
+            if (state.pointerId === event.pointerId) {
+              resetPainting();
+            }
+          });
+
+          elements.simCanvas.addEventListener("pointercancel", () => {
+            resetPainting();
+          });
+
+          elements.simCanvas.addEventListener("pointerleave", () => {
+            state.isHovering = false;
+            resetPainting();
+          });
+
+          elements.simCanvas.addEventListener("pointerenter", () => {
+            state.isHovering = true;
+          });
+        }
+
+        function bindControls() {
+          const syncPresetButtons = (presetKey) => {
+            for (const button of presetButtons) {
+              const active = button.dataset.preset === presetKey;
+              button.classList.toggle("active", active);
+              button.setAttribute("aria-pressed", active ? "true" : "false");
+            }
+          };
+
+          const applyPreset = (presetKey, updateSpeedSlider) => {
+            const preset = presetDefinitions[presetKey];
+            if (!preset) {
+              return;
+            }
+            state.activePreset = presetKey;
+            state.epsilon = preset.epsilon;
+            state.mu = preset.mu;
+            state.coupling = preset.f;
+            state.du = preset.du;
+            state.dv = preset.dv;
+            if (updateSpeedSlider) {
+              state.stepsPerFrame = preset.steps;
+              elements.slSpeed.value = String(preset.steps);
+            }
+            elements.slEpsilon.value = String(preset.epsilon);
+            elements.slF.value = String(preset.f);
+            elements.epVal.textContent = preset.epsilon.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+            elements.fVal.textContent = preset.f.toFixed(1);
+            elements.speedVal.textContent = `${state.stepsPerFrame}×`;
+            elements.patternStat.textContent = preset.label;
+            elements.signalStat.textContent = preset.signal;
+            syncPresetButtons(presetKey);
+            initializeTextures(preset.seedMode);
+            warmSimulation(220);
+            setStatus(`${preset.label.toLowerCase()} loaded`);
+          };
+
+          for (const button of presetButtons) {
+            button.addEventListener("click", () => {
+              applyPreset(button.dataset.preset, true);
+            });
+          }
+
+          elements.slEpsilon.addEventListener("input", () => {
+            state.epsilon = Number.parseFloat(elements.slEpsilon.value);
+            elements.epVal.textContent = state.epsilon.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+            elements.signalStat.textContent = "timescale shifted";
+            setStatus("epsilon live");
+          });
+
+          elements.slF.addEventListener("input", () => {
+            state.coupling = Number.parseFloat(elements.slF.value);
+            elements.fVal.textContent = state.coupling.toFixed(1);
+            elements.signalStat.textContent = "coupling shifted";
+            setStatus("coupling live");
+          });
+
+          elements.slSpeed.addEventListener("input", () => {
+            state.stepsPerFrame = Number.parseInt(elements.slSpeed.value, 10);
+            elements.speedVal.textContent = `${state.stepsPerFrame}×`;
+            setStatus(`speed ${state.stepsPerFrame}x`);
+          });
+
+          elements.slBrush.addEventListener("input", () => {
+            state.brushRadius = Number.parseFloat(elements.slBrush.value);
+            elements.brushVal.textContent = state.brushRadius.toFixed(3);
+            setStatus("brush resized");
+          });
+
+          const resetAction = () => {
+            initializeTextures(presetDefinitions[state.activePreset].seedMode);
+            warmSimulation(220);
+            setStatus("reactor reseeded");
+          };
+
+          elements.btnReset.addEventListener("click", resetAction);
+          elements.mobileReset.addEventListener("click", resetAction);
+
+          elements.btnShot.addEventListener("click", () => {
+            saveScreenshot();
+          });
+
+          elements.mobileHandle.addEventListener("click", () => {
+            toggleDrawer();
+          });
+
+          window.addEventListener("keydown", (event) => {
+            if (event.key.toLowerCase() === "r") {
+              resetAction();
+            }
+            if (event.key.toLowerCase() === "s") {
+              saveScreenshot();
+            }
+            if (state.isMobile && event.key === "Escape" && state.drawerOpen) {
+              toggleDrawer(false);
+            }
+          });
+
+          applyPreset("spirals", false);
+        }
+
+        function toggleDrawer(force) {
+          if (!state.isMobile) {
+            return;
+          }
+          state.drawerOpen = typeof force === "boolean" ? force : !state.drawerOpen;
+          elements.panel.classList.toggle("open", state.drawerOpen);
+          elements.mobileHandle.setAttribute("aria-expanded", state.drawerOpen ? "true" : "false");
+          const toggleGlyph = elements.mobileHandle.querySelector(".handle-toggle");
+          if (toggleGlyph) {
+            toggleGlyph.textContent = state.drawerOpen ? "−" : "+";
+          }
+          elements.hintLine.textContent = state.drawerOpen
+            ? "close drawer to paint the reactor"
+            : "touch · drag to seed chemical waves";
+        }
+
+        function saveScreenshot() {
+          const link = document.createElement("a");
+          const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+          link.href = elements.simCanvas.toDataURL("image/png");
+          link.download = `bz-reactor-${stamp}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setStatus("screenshot captured");
+        }
+
+        function drawCursorOverlay() {
+          const ctx = state.cursorCtx;
+          if (!ctx) {
+            return;
+          }
+          const width = elements.cursorCanvas.width;
+          const height = elements.cursorCanvas.height;
+          ctx.clearRect(0, 0, width, height);
+          if (state.isMobile || !state.isHovering) {
+            return;
+          }
+          const x = state.pointerX * width;
+          const y = (1 - state.pointerY) * height;
+          const radius = state.brushRadius * width;
+          const alpha = state.isPainting ? 0.72 : 0.42;
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(180, 140, 255, ${alpha})`;
+          ctx.lineWidth = 1.25 * (window.devicePixelRatio || 1);
+          ctx.shadowColor = "rgba(153, 102, 255, 0.4)";
+          ctx.shadowBlur = 16;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        function simulationStep() {
+          const gl = state.gl;
+          const reaction = state.programs.reaction;
+          const sourceIndex = state.currentIndex;
+          const targetIndex = 1 - sourceIndex;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, state.framebuffers[targetIndex]);
+          gl.viewport(0, 0, SIM_SIZE, SIM_SIZE);
+          gl.useProgram(reaction.program);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, state.textures[sourceIndex]);
+          gl.uniform1i(reaction.locations.uPrev, 0);
+          gl.uniform2f(reaction.locations.uResolution, SIM_SIZE, SIM_SIZE);
+          gl.uniform1f(reaction.locations.uDt, DT);
+          gl.uniform1f(reaction.locations.uEpsilon, state.epsilon);
+          gl.uniform1f(reaction.locations.uMu, state.mu);
+          gl.uniform1f(reaction.locations.uF, state.coupling);
+          gl.uniform1f(reaction.locations.uDu, state.du);
+          gl.uniform1f(reaction.locations.uDv, state.dv);
+          gl.uniform1i(reaction.locations.uPainting, state.isPainting ? 1 : 0);
+          gl.uniform2f(reaction.locations.uPaintPos, state.pointerX, state.pointerY);
+          gl.uniform1f(reaction.locations.uBrushRadius, state.brushRadius);
+          gl.uniform1f(reaction.locations.uPaintU, DEFAULT_PAINT_U);
+          gl.uniform1f(reaction.locations.uPaintV, DEFAULT_PAINT_V);
+          gl.bindVertexArray(state.vao);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindVertexArray(null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          state.currentIndex = targetIndex;
+          state.tick += 1;
+        }
+
+        function warmSimulation(iterations) {
+          for (let i = 0; i < iterations; i += 1) {
+            simulationStep();
+          }
+        }
+
+        function renderDisplay(time) {
+          const gl = state.gl;
+          const display = state.programs.display;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.viewport(0, 0, elements.simCanvas.width, elements.simCanvas.height);
+          gl.useProgram(display.program);
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, state.textures[state.currentIndex]);
+          gl.uniform1i(display.locations.uState, 0);
+          gl.uniform1f(display.locations.uPulse, state.phasePulse);
+          gl.uniform2f(display.locations.uViewport, elements.simCanvas.width, elements.simCanvas.height);
+          gl.bindVertexArray(state.vao);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindVertexArray(null);
+
+          const dtMs = time - state.lastFrameTime;
+          state.lastFrameTime = time;
+          state.fpsAccum += dtMs;
+          state.fpsFrames += 1;
+          if (state.fpsAccum >= 500) {
+            state.fps = Math.round((state.fpsFrames * 1000) / state.fpsAccum);
+            state.fpsAccum = 0;
+            state.fpsFrames = 0;
+          }
+        }
+
+        function updateHud(time) {
+          elements.stepsStat.textContent = state.tick.toLocaleString();
+          elements.fpsStat.textContent = `${state.fps || 0} fps`;
+          if (time - state.lastStatusAt > 1100) {
+            state.lastStatusAt = time;
+            state.phasePulse = (state.phasePulse + 0.17) % 1;
+            const phrases = {
+              spirals: ["spiral cores locking", "fronts annihilating", "rotors drifting"],
+              targets: ["rings blooming", "wavefronts stabilizing", "targets radiating"],
+              chaos: ["filaments breaking", "chemical storm", "fronts shredding"],
+              slow: ["heat bloom swelling", "lava pulse breathing", "slow cores expanding"],
+            };
+            const line = phrases[state.activePreset];
+            const choice = line[Math.floor(Math.random() * line.length)];
+            setStatus(choice);
+          }
+          if (state.fps < 42 && state.fps > 0) {
+            elements.signalStat.textContent = "load high";
+          } else {
+            elements.signalStat.textContent = presetDefinitions[state.activePreset].signal;
+          }
+        }
+
+        function frame(time) {
+          if (!state.running) {
+            return;
+          }
+          const safeSteps = state.isMobile
+            ? Math.min(state.stepsPerFrame, 5)
+            : Math.max(MIN_DESKTOP_STEPS, state.stepsPerFrame);
+          for (let i = 0; i < safeSteps; i += 1) {
+            simulationStep();
+          }
+          renderDisplay(time);
+          drawCursorOverlay();
+          updateHud(time);
+          requestAnimationFrame(frame);
+        }
+
+        function createContext() {
+          const gl = elements.simCanvas.getContext("webgl2", {
+            antialias: false,
+            alpha: false,
+            depth: false,
+            stencil: false,
+            preserveDrawingBuffer: false,
+          });
+          if (!gl) {
+            throw new Error("WebGL2 required");
+          }
+          const ext = gl.getExtension("EXT_color_buffer_float");
+          if (!ext) {
+            throw new Error("EXT_color_buffer_float required");
+          }
+          state.gl = gl;
+          state.ext = ext;
+          state.cursorCtx = elements.cursorCanvas.getContext("2d");
+        }
+
+        function initGLResources() {
+          const gl = state.gl;
+          const vertexSource = `#version 300 es
+layout(location = 0) in vec2 aPosition;
+out vec2 vUv;
+void main() {
+  vUv = aPosition * 0.5 + 0.5;
+  gl_Position = vec4(aPosition, 0.0, 1.0);
+}`;
+
+          const reactionSource = `#version 300 es
+precision highp float;
+uniform sampler2D uPrev;
+uniform vec2 uResolution;
+uniform float uDt;
+uniform float uEpsilon;
+uniform float uMu;
+uniform float uF;
+uniform float uDu;
+uniform float uDv;
+uniform bool uPainting;
+uniform vec2 uPaintPos;
+uniform float uBrushRadius;
+uniform float uPaintU;
+uniform float uPaintV;
+in vec2 vUv;
+out vec4 fragColor;
+void main() {
+  vec2 px = 1.0 / uResolution;
+  float u = texture(uPrev, vUv).r;
+  float v = texture(uPrev, vUv).g;
+  float n = texture(uPrev, vUv + vec2(0.0, px.y)).r;
+  float s = texture(uPrev, vUv + vec2(0.0, -px.y)).r;
+  float e = texture(uPrev, vUv + vec2(px.x, 0.0)).r;
+  float w = texture(uPrev, vUv + vec2(-px.x, 0.0)).r;
+  float nv = texture(uPrev, vUv + vec2(0.0, px.y)).g;
+  float sv = texture(uPrev, vUv + vec2(0.0, -px.y)).g;
+  float ev = texture(uPrev, vUv + vec2(px.x, 0.0)).g;
+  float wv = texture(uPrev, vUv + vec2(-px.x, 0.0)).g;
+  float lapU = n + s + e + w - 4.0 * u;
+  float lapV = nv + sv + ev + wv - 4.0 * v;
+  float denom = max(u + uMu, 1e-6);
+  float reactionU = (u * (1.0 - u) - uF * v * (u - uMu) / denom) / uEpsilon;
+  float reactionV = u - v;
+  float newU = clamp(u + uDt * (uDu * lapU + reactionU), 0.0, 1.0);
+  float newV = clamp(v + uDt * (uDv * lapV + reactionV), 0.0, 1.0);
+  if (uPainting) {
+    float dist = length(vUv - uPaintPos);
+    if (dist < uBrushRadius) {
+      float str = 1.0 - dist / uBrushRadius;
+      str = str * str;
+      newU = mix(newU, uPaintU, str * 0.9);
+      newV = mix(newV, uPaintV, str * 0.6);
+    }
+  }
+  fragColor = vec4(newU, newV, 0.0, 1.0);
+}`;
+
+          const displaySource = `#version 300 es
+precision highp float;
+uniform sampler2D uState;
+uniform float uPulse;
+uniform vec2 uViewport;
+in vec2 vUv;
+out vec4 fragColor;
+vec3 chemColor(float t) {
+  vec3 c0 = vec3(0.016, 0.031, 0.071);
+  vec3 c1 = vec3(0.106, 0.243, 0.776);
+  vec3 c2 = vec3(0.000, 0.784, 1.000);
+  vec3 c3 = vec3(0.961, 0.878, 0.000);
+  vec3 c4 = vec3(1.000, 0.957, 0.878);
+  float s = clamp(t, 0.0, 1.0) * 4.0;
+  int i = int(s);
+  float f = fract(s);
+  if (i == 0) return mix(c0, c1, f);
+  if (i == 1) return mix(c1, c2, f);
+  if (i == 2) return mix(c2, c3, f);
+  return mix(c3, c4, f);
+}
+void main() {
+  float u = texture(uState, vUv).r;
+  float v = texture(uState, vUv).g;
+  float front = u * (1.0 - u) * 4.0;
+  float contrast = abs(u - v);
+  float field = clamp(front * 0.72 + contrast * 0.42 + u * 0.12 - v * 0.08, 0.0, 1.0);
+  vec3 col = chemColor(field);
+  float inhibFactor = 1.0 - v * 0.3;
+  col += vec3(0.05, 0.12, 0.20) * front * inhibFactor;
+  vec2 ctr = vUv - 0.5;
+  float vign = 1.0 - dot(ctr, ctr) * 0.6;
+  float shimmer = sin((vUv.x + vUv.y + uPulse) * 12.0) * 0.018;
+  vec2 aspectUv = (vUv - 0.5) * vec2(uViewport.x / max(uViewport.y, 1.0), 1.0);
+  float halo = exp(-6.5 * dot(aspectUv, aspectUv)) * 0.08;
+  float crest = smoothstep(0.22, 0.78, u);
+  float inhibitorGlow = smoothstep(0.0, 0.4, v) * 0.1;
+  col *= max(vign, 0.78);
+  col += vec3(0.02, 0.01, 0.04) * halo;
+  col += shimmer * vec3(0.4, 0.5, 0.9) * front;
+  col += vec3(0.08, 0.1, 0.16) * crest;
+  col += vec3(0.05, 0.03, 0.01) * inhibitorGlow;
+  col = pow(max(col, 0.0), vec3(0.9));
+  fragColor = vec4(col, 1.0);
+}`;
+
+          const reactionProgram = createProgram(gl, vertexSource, reactionSource);
+          const displayProgram = createProgram(gl, vertexSource, displaySource);
+          state.programs = {
+            reaction: buildProgramBundle(gl, reactionProgram, [
+              "uPrev",
+              "uResolution",
+              "uDt",
+              "uEpsilon",
+              "uMu",
+              "uF",
+              "uDu",
+              "uDv",
+              "uPainting",
+              "uPaintPos",
+              "uBrushRadius",
+              "uPaintU",
+              "uPaintV",
+            ]),
+            display: buildProgramBundle(gl, displayProgram, ["uState", "uPulse", "uViewport"]),
+          };
+          state.vao = createQuad(gl);
+          state.textures = [createTexture(gl), createTexture(gl)];
+          state.framebuffers = [
+            createFramebuffer(gl, state.textures[0]),
+            createFramebuffer(gl, state.textures[1]),
+          ];
+          gl.clearColor(0, 0, 0, 1);
+        }
+
+        function updateMobileMode() {
+          const mobile = window.matchMedia("(max-width: 767px)").matches;
+          const changed = mobile !== state.isMobile;
+          state.isMobile = mobile;
+          if (!mobile) {
+            state.drawerOpen = false;
+            elements.panel.classList.remove("open");
+            elements.mobileHandle.setAttribute("aria-expanded", "false");
+          }
+          elements.hintLine.textContent = mobile
+            ? state.drawerOpen
+              ? "close drawer to paint the reactor"
+              : "touch · drag to seed chemical waves"
+            : "click · drag to seed chemical waves";
+          if (changed) {
+            resizeCanvases();
+          }
+        }
+
+        function start() {
+          try {
+            createContext();
+            initGLResources();
+            resizeCanvases();
+            bindPointerEvents();
+            bindControls();
+            updateMobileMode();
+            initializeTextures("spirals");
+            warmSimulation(140);
+            hideLoading();
+            state.running = true;
+            setStatus("spirals forming");
+            requestAnimationFrame(frame);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(error);
+            showError("WebGL2 required", message);
+          }
+        }
+
+        window.addEventListener("resize", () => {
+          updateMobileMode();
+          resizeCanvases();
+        });
+
+        window.addEventListener("orientationchange", () => {
+          updateMobileMode();
+          resizeCanvases();
+        });
+
+        start();
+      })();
+    </script>
+  </body>
+</html>
