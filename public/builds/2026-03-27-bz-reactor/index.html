@@ -892,8 +892,8 @@
         function createTexture(gl) {
           const texture = gl.createTexture();
           gl.bindTexture(gl.TEXTURE_2D, texture);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
           gl.texImage2D(
@@ -1547,12 +1547,21 @@ uniform float uPulse;
 uniform vec2 uViewport;
 in vec2 vUv;
 out vec4 fragColor;
+
+vec2 torusUv(vec2 uv) {
+  return fract(uv + 1.0);
+}
+
+vec2 sampleField(vec2 uv) {
+  return texture(uState, torusUv(uv)).rg;
+}
+
 vec3 chemColor(float t) {
-  vec3 c0 = vec3(0.016, 0.031, 0.071);
-  vec3 c1 = vec3(0.106, 0.243, 0.776);
-  vec3 c2 = vec3(0.000, 0.784, 1.000);
-  vec3 c3 = vec3(0.961, 0.878, 0.000);
-  vec3 c4 = vec3(1.000, 0.957, 0.878);
+  vec3 c0 = vec3(0.012, 0.020, 0.082);
+  vec3 c1 = vec3(0.035, 0.105, 0.340);
+  vec3 c2 = vec3(0.000, 0.720, 0.960);
+  vec3 c3 = vec3(0.965, 0.965, 0.120);
+  vec3 c4 = vec3(1.000, 0.990, 0.860);
   float s = clamp(t, 0.0, 1.0) * 4.0;
   int i = int(s);
   float f = fract(s);
@@ -1562,14 +1571,20 @@ vec3 chemColor(float t) {
   return mix(c3, c4, f);
 }
 void main() {
-  float u = texture(uState, vUv).r;
-  float v = texture(uState, vUv).g;
+  vec2 texel = 1.0 / vec2(512.0, 512.0);
+  vec2 centerState = sampleField(vUv);
+  vec2 northState = sampleField(vUv + vec2(0.0, texel.y));
+  vec2 southState = sampleField(vUv - vec2(0.0, texel.y));
+  vec2 eastState = sampleField(vUv + vec2(texel.x, 0.0));
+  vec2 westState = sampleField(vUv - vec2(texel.x, 0.0));
+  float u = (centerState.r * 2.0 + northState.r + southState.r + eastState.r + westState.r) / 6.0;
+  float v = (centerState.g * 2.0 + northState.g + southState.g + eastState.g + westState.g) / 6.0;
   float front = u * (1.0 - u) * 4.0;
   float contrast = abs(u - v);
-  float field = clamp(front * 0.72 + contrast * 0.42 + u * 0.12 - v * 0.08, 0.0, 1.0);
+  float field = clamp(front * 0.78 + contrast * 0.36 + u * 0.16 - v * 0.06, 0.0, 1.0);
   vec3 col = chemColor(field);
-  float inhibFactor = 1.0 - v * 0.3;
-  col += vec3(0.05, 0.12, 0.20) * front * inhibFactor;
+  float inhibFactor = 1.0 - v * 0.28;
+  col += vec3(0.015, 0.060, 0.180) * front * inhibFactor;
   vec2 ctr = vUv - 0.5;
   float vign = 1.0 - dot(ctr, ctr) * 0.6;
   float shimmer = sin((vUv.x + vUv.y + uPulse) * 12.0) * 0.018;
@@ -1578,10 +1593,10 @@ void main() {
   float crest = smoothstep(0.22, 0.78, u);
   float inhibitorGlow = smoothstep(0.0, 0.4, v) * 0.1;
   col *= max(vign, 0.78);
-  col += vec3(0.02, 0.01, 0.04) * halo;
-  col += shimmer * vec3(0.4, 0.5, 0.9) * front;
-  col += vec3(0.08, 0.1, 0.16) * crest;
-  col += vec3(0.05, 0.03, 0.01) * inhibitorGlow;
+  col += vec3(0.010, 0.030, 0.080) * halo;
+  col += shimmer * vec3(0.16, 0.44, 0.94) * front;
+  col += vec3(0.10, 0.14, 0.18) * crest;
+  col += vec3(0.08, 0.06, 0.01) * inhibitorGlow;
   col = pow(max(col, 0.0), vec3(0.9));
   fragColor = vec4(col, 1.0);
 }`;
