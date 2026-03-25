@@ -64,7 +64,7 @@
 
       #stage {
         position: absolute;
-        inset: 0 0 168px;
+        inset: 0 0 calc(168px + env(safe-area-inset-bottom));
         overflow: hidden;
       }
 
@@ -203,13 +203,14 @@
         right: 0;
         bottom: 0;
         min-height: 168px;
-        padding: 12px 16px 14px;
+        padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
         display: flex;
         flex-direction: column;
         gap: 10px;
         background: var(--ctrl-bg);
         border-top: 1px solid var(--ctrl-border);
         box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.35);
+        overflow-y: auto;
         z-index: 5;
       }
 
@@ -358,8 +359,9 @@
         color: var(--text-ui);
         font-size: 0.78rem;
         font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-        white-space: nowrap;
-        overflow-x: auto;
+        line-height: 1.45;
+        white-space: normal;
+        overflow-wrap: anywhere;
       }
 
       #vocab-overlay {
@@ -453,7 +455,7 @@
 
       @media (max-width: 767px) {
         #stage {
-          inset: 0 0 196px;
+          inset: 0 0 calc(276px + env(safe-area-inset-bottom));
         }
 
         #hero-panel {
@@ -474,8 +476,8 @@
         }
 
         #ctrl-bar {
-          min-height: 196px;
-          padding: 10px 12px 12px;
+          min-height: 276px;
+          padding: 10px 12px calc(14px + env(safe-area-inset-bottom));
         }
 
         .ctrl-row {
@@ -493,6 +495,11 @@
 
         .token-label {
           font-size: 9px;
+        }
+
+        #attn-readout {
+          font-size: 0.74rem;
+          max-width: 100%;
         }
       }
     </style>
@@ -1064,7 +1071,9 @@
         function updateReadout() {
           clearNode(readoutEl);
           if (state.selectedIdx === null) {
-            readoutEl.textContent = "Click a token to isolate its strongest attention links.";
+            readoutEl.textContent = state.isMobile
+              ? "Tap a token to focus its strongest links."
+              : "Click a token to isolate its strongest attention links.";
             updatePhraseChips();
             return;
           }
@@ -1073,6 +1082,13 @@
             .map((weight, index) => ({ weight, index }))
             .sort((a, b) => b.weight - a.weight)
             .slice(0, 3);
+          if (state.isMobile) {
+            readoutEl.textContent = state.tokens[state.selectedIdx].label + " → " + ranked
+              .map((entry) => state.tokens[entry.index].label + " " + entry.weight.toFixed(2))
+              .join("  •  ");
+            updatePhraseChips();
+            return;
+          }
           const intro = document.createElement("span");
           intro.textContent = state.tokens[state.selectedIdx].label + " → ";
           readoutEl.appendChild(intro);
