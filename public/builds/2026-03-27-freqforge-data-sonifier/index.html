@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FreqForge Data Sonifier</title>
+    <style>
+      :root {
+        --bg: #08141c;
+        --bg-deep: #02070b;
+        --panel: rgba(8, 20, 28, 0.84);
+        --panel-solid: #0d202b;
+        --line: rgba(162, 230, 255, 0.22);
+        --text: #ebfbff;
+        --muted: #93bbc7;
+        --accent: #4ed8ff;
+        --accent-hot: #ffd166;
+        --accent-warm: #ff8c61;
+        --good: #9af7a7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(78, 216, 255, 0.16), transparent 30%),
+          radial-gradient(circle at 80% 20%, rgba(255, 140, 97, 0.14), transparent 26%),
+          linear-gradient(180deg, #08141c 0%, #04090d 100%);
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        padding: 18px;
+      }
+
+      button,
+      select,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      button,
+      select,
+      input[type="text"] {
+        border: 1px solid rgba(162, 230, 255, 0.2);
+        border-radius: 999px;
+        background: rgba(7, 19, 28, 0.92);
+        padding: 0.7rem 1rem;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:hover,
+      button:focus-visible,
+      select:hover,
+      select:focus-visible,
+      input[type="text"]:focus-visible {
+        outline: none;
+        border-color: rgba(78, 216, 255, 0.58);
+        box-shadow: 0 0 0 2px rgba(78, 216, 255, 0.12);
+      }
+
+      input[type="text"].invalid {
+        border-color: rgba(255, 140, 97, 0.72);
+        box-shadow: 0 0 0 2px rgba(255, 140, 97, 0.12);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .shell {
+        width: min(1240px, 100%);
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(320px, 420px);
+        gap: 18px;
+      }
+
+      .hero,
+      .panel {
+        border: 1px solid rgba(162, 230, 255, 0.12);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+        backdrop-filter: blur(16px);
+      }
+
+      .hero {
+        padding: 18px;
+      }
+
+      .panel {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 8px;
+        color: var(--muted);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: clamp(2.1rem, 5vw, 4.4rem);
+        line-height: 0.96;
+      }
+
+      .lede {
+        margin: 0 0 16px;
+        color: var(--muted);
+        max-width: 62ch;
+        line-height: 1.55;
+      }
+
+      .stage {
+        position: relative;
+        min-height: 620px;
+        border-radius: 24px;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(6, 16, 24, 0.94), rgba(2, 7, 11, 0.98)),
+          radial-gradient(circle at top, rgba(78, 216, 255, 0.18), transparent 30%);
+      }
+
+      #visualizer,
+      #scope {
+        display: block;
+        width: 100%;
+      }
+
+      #visualizer {
+        height: 420px;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      #scope {
+        height: 160px;
+        border-top: 1px solid rgba(162, 230, 255, 0.12);
+        background: linear-gradient(180deg, rgba(10, 21, 29, 0.64), rgba(2, 7, 11, 0.9));
+      }
+
+      .hud {
+        position: absolute;
+        inset: 16px 16px auto;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      .pill {
+        padding: 0.7rem 0.95rem;
+        border-radius: 18px;
+        background: rgba(7, 19, 28, 0.84);
+        border: 1px solid rgba(162, 230, 255, 0.14);
+        backdrop-filter: blur(14px);
+      }
+
+      .pill strong,
+      .stat strong {
+        color: var(--accent);
+      }
+
+      .bottom-bar {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .stat {
+        padding: 0.9rem 1rem;
+        border-radius: 18px;
+        background: rgba(7, 19, 28, 0.72);
+        border: 1px solid rgba(162, 230, 255, 0.1);
+      }
+
+      .stat span {
+        display: block;
+        font-size: 0.77rem;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.35rem;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .control {
+        display: flex;
+        flex-direction: column;
+        gap: 0.45rem;
+      }
+
+      .control label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+
+      .btn-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .transport {
+        padding: 0.95rem 1rem 1rem;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(10, 26, 35, 0.96), rgba(5, 14, 20, 0.94));
+        border: 1px solid rgba(162, 230, 255, 0.12);
+      }
+
+      .transport-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 0.85rem;
+      }
+
+      .transport-head strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .transport-head span,
+      .transport-insight small {
+        color: var(--muted);
+      }
+
+      .transport-buttons {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .transport button {
+        padding-inline: 0.7rem;
+      }
+
+      .transport-insight {
+        margin-top: 0.85rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid rgba(162, 230, 255, 0.08);
+      }
+
+      .transport-insight strong {
+        display: block;
+        margin-top: 0.25rem;
+        color: var(--accent-hot);
+      }
+
+      .primary {
+        background: linear-gradient(135deg, rgba(78, 216, 255, 0.2), rgba(255, 209, 102, 0.24));
+      }
+
+      .secondary {
+        background: rgba(10, 26, 35, 0.9);
+      }
+
+      .recording {
+        color: var(--accent-warm);
+        animation: pulse 1.1s infinite;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .note {
+        font-size: 0.93rem;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .dataset-summary {
+        padding: 0.95rem 1rem 1rem;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(10, 26, 35, 0.96), rgba(5, 14, 20, 0.94));
+        border: 1px solid rgba(162, 230, 255, 0.12);
+      }
+
+      .dataset-summary strong {
+        display: block;
+        margin-bottom: 0.3rem;
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      .dataset-meta {
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .dataset-summary p {
+        margin: 0.5rem 0 0;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 0.9rem;
+      }
+
+      .dataset-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16px, 1fr));
+        gap: 6px;
+        margin-top: 0.8rem;
+      }
+
+      .dataset-marker {
+        min-width: 0;
+        height: 54px;
+        border: 0;
+        border-radius: 14px;
+        padding: 0;
+        background: linear-gradient(180deg, rgba(78, 216, 255, 0.08), rgba(255, 140, 97, 0.04));
+        box-shadow: inset 0 0 0 1px rgba(162, 230, 255, 0.08);
+        position: relative;
+        cursor: pointer;
+        transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+      }
+
+      .dataset-marker::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0;
+        height: var(--marker-height, 35%);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(78, 216, 255, 0.55), rgba(255, 209, 102, 0.8));
+      }
+
+      .dataset-marker:hover,
+      .dataset-marker:focus-visible {
+        outline: none;
+        transform: translateY(-2px);
+        box-shadow:
+          inset 0 0 0 1px rgba(162, 230, 255, 0.16),
+          0 10px 20px rgba(0, 0, 0, 0.18);
+      }
+
+      .dataset-marker.active {
+        background: linear-gradient(180deg, rgba(255, 209, 102, 0.18), rgba(78, 216, 255, 0.08));
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 209, 102, 0.48),
+          0 0 0 2px rgba(255, 209, 102, 0.12);
+      }
+
+      .dataset-marker.active::after {
+        background: linear-gradient(180deg, rgba(255, 209, 102, 0.86), rgba(255, 140, 97, 0.9));
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .legend span {
+        padding: 0.42rem 0.68rem;
+        border-radius: 999px;
+        background: rgba(10, 26, 35, 0.86);
+        border: 1px solid rgba(162, 230, 255, 0.12);
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.42;
+        }
+      }
+
+      @media (max-width: 980px) {
+        body {
+          padding: 12px;
+        }
+
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .stage {
+          min-height: 540px;
+        }
+
+        .transport-buttons {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        .hero,
+        .panel {
+          border-radius: 22px;
+          padding: 14px;
+        }
+
+        .hud {
+          position: static;
+          pointer-events: auto;
+          flex-direction: column;
+          margin-bottom: 10px;
+        }
+
+        #visualizer {
+          height: 360px;
+        }
+
+        #scope {
+          height: 132px;
+        }
+
+        .bottom-bar,
+        .grid-2,
+        .btn-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="kicker">Data Sonification Lab</div>
+        <h1>FreqForge</h1>
+        <p class="lede">
+          Draw a waveform, type a function, or load a dataset. FreqForge maps the resulting curve
+          into a live melody stream, a reactive oscilloscope, and a glowing data canvas that pulses
+          with every shift in pitch and slope.
+        </p>
+        <div class="stage">
+          <div class="hud">
+            <div class="pill"><strong id="modeBadge">Free Draw</strong><br />Current source</div>
+            <div class="pill"><strong id="statusBadge">Audio armed</strong><br />Tap play to begin</div>
+          </div>
+          <canvas id="visualizer"></canvas>
+          <canvas id="scope"></canvas>
+        </div>
+        <div class="bottom-bar">
+          <div class="stat"><span>Dominant note</span><strong id="noteValue">A3</strong></div>
+          <div class="stat"><span>Playback</span><strong id="speedValue">1.0x scan</strong></div>
+          <div class="stat"><span>Data span</span><strong id="rangeValue">0.00 to 1.00</strong></div>
+          <div class="stat"><span>Scan focus</span><strong id="focusValue">Step 1</strong></div>
+          <div class="stat"><span>Recorder</span><strong id="recordValue">Idle</strong></div>
+        </div>
+      </section>
+      <aside class="panel">
+        <div class="grid-2">
+          <div class="control">
+            <label for="modeSelect">Mode</label>
+            <select id="modeSelect">
+              <option value="draw">Free draw waveform</option>
+              <option value="function">Math function</option>
+              <option value="dataset">Preset dataset</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="scaleSelect">Scale</label>
+            <select id="scaleSelect">
+              <option value="pentatonic">Pentatonic</option>
+              <option value="major">Major</option>
+              <option value="chromatic">Chromatic</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="functionControl" class="control hidden">
+          <label for="functionInput">Function of x</label>
+          <input id="functionInput" type="text" value="Math.sin(x * 3) * 0.8 + Math.cos(x * 9) * 0.15" />
+        </div>
+
+        <div id="datasetControl" class="control hidden">
+          <label for="datasetSelect">Dataset</label>
+          <select id="datasetSelect">
+            <option value="weather">Weekly weather swing</option>
+            <option value="population">City growth pulses</option>
+            <option value="market">Market tremor</option>
+          </select>
+        </div>
+
+        <div id="datasetSummary" class="dataset-summary hidden">
+          <div class="dataset-meta" id="datasetMeta">Dataset sonification</div>
+          <strong id="datasetTitle">Weekly weather swing</strong>
+          <p id="datasetInsight">
+            A compact run of values becomes a melodic walk, with the scan highlighting where the
+            contour rises, settles, or snaps back.
+          </p>
+          <div id="datasetStrip" class="dataset-strip" aria-label="Dataset value markers"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="control">
+            <label for="mappingSelect">Mapping</label>
+            <select id="mappingSelect">
+              <option value="pitch-value">Pitch by value</option>
+              <option value="pitch-derivative">Pitch by slope</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="responseSelect">Contour response</label>
+            <select id="responseSelect">
+              <option value="hybrid">Hybrid glow</option>
+              <option value="timbre">Timbre by slope</option>
+              <option value="envelope">Envelope by delta</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="control">
+            <label for="directionSelect">Scan direction</label>
+            <select id="directionSelect">
+              <option value="forward">Forward</option>
+              <option value="reverse">Reverse</option>
+              <option value="pingpong">Ping-pong</option>
+            </select>
+          </div>
+          <div class="control">
+            <label for="volumeSlider">Master volume</label>
+            <input id="volumeSlider" type="range" min="0" max="1" value="0.52" step="0.01" />
+          </div>
+        </div>
+
+        <div class="control">
+          <label for="speedSlider">Playback speed</label>
+          <input id="speedSlider" type="range" min="0.5" max="4" value="1.1" step="0.05" />
+        </div>
+
+        <div class="btn-row">
+          <button id="playButton" class="primary">Play</button>
+          <button id="loopButton" class="secondary">Loop on</button>
+          <button id="recordButton" class="secondary">Record</button>
+          <button id="clearButton" class="secondary">Clear draw</button>
+          <button id="randomizeButton" class="secondary">Remix source</button>
+        </div>
+
+        <div class="transport">
+          <div class="transport-head">
+            <div>
+              <span>Scan transport</span>
+              <strong id="transportValue">Start of scan</strong>
+            </div>
+            <span>Arrow keys + Page Up/Down + Home/End</span>
+          </div>
+          <div class="transport-buttons">
+            <button id="jumpStartButton" class="secondary">To start</button>
+            <button id="jumpBackChunkButton" class="secondary">Back 25%</button>
+            <button id="stepBackButton" class="secondary">Step back</button>
+            <button id="stepForwardButton" class="secondary">Step forward</button>
+            <button id="jumpForwardChunkButton" class="secondary">Ahead 25%</button>
+            <button id="jumpEndButton" class="secondary">To end</button>
+          </div>
+          <div class="transport-insight">
+            <small>Current scan insight</small>
+            <strong id="transportInsight">Raw value 0.50 with a calm contour.</strong>
+          </div>
+        </div>
+
+        <p class="note" id="modeNote">
+          Drag across the main canvas to forge a waveform. Higher values become higher notes;
+          steeper changes brighten the timbre.
+        </p>
+
+        <div class="legend">
+          <span>Blue line = source data</span>
+          <span>Amber glow = current scan position</span>
+          <span>Scope = live output waveform</span>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      const visualizer = document.getElementById("visualizer");
+      const scopeCanvas = document.getElementById("scope");
+      const vctx = visualizer.getContext("2d");
+      const sctx = scopeCanvas.getContext("2d");
+
+      const modeSelect = document.getElementById("modeSelect");
+      const scaleSelect = document.getElementById("scaleSelect");
+      const mappingSelect = document.getElementById("mappingSelect");
+      const responseSelect = document.getElementById("responseSelect");
+      const datasetSelect = document.getElementById("datasetSelect");
+      const datasetSummary = document.getElementById("datasetSummary");
+      const datasetMeta = document.getElementById("datasetMeta");
+      const datasetTitle = document.getElementById("datasetTitle");
+      const datasetInsight = document.getElementById("datasetInsight");
+      const datasetStrip = document.getElementById("datasetStrip");
+      const directionSelect = document.getElementById("directionSelect");
+      const functionInput = document.getElementById("functionInput");
+      const speedSlider = document.getElementById("speedSlider");
+      const volumeSlider = document.getElementById("volumeSlider");
+      const playButton = document.getElementById("playButton");
+      const loopButton = document.getElementById("loopButton");
+      const recordButton = document.getElementById("recordButton");
+      const clearButton = document.getElementById("clearButton");
+      const randomizeButton = document.getElementById("randomizeButton");
+      const functionControl = document.getElementById("functionControl");
+      const datasetControl = document.getElementById("datasetControl");
+
+      const modeBadge = document.getElementById("modeBadge");
+      const statusBadge = document.getElementById("statusBadge");
+      const modeNote = document.getElementById("modeNote");
+      const noteValue = document.getElementById("noteValue");
+      const speedValue = document.getElementById("speedValue");
+      const rangeValue = document.getElementById("rangeValue");
+      const focusValue = document.getElementById("focusValue");
+      const recordValue = document.getElementById("recordValue");
+      const transportValue = document.getElementById("transportValue");
+      const transportInsight = document.getElementById("transportInsight");
+      const jumpStartButton = document.getElementById("jumpStartButton");
+      const jumpBackChunkButton = document.getElementById("jumpBackChunkButton");
+      const stepBackButton = document.getElementById("stepBackButton");
+      const stepForwardButton = document.getElementById("stepForwardButton");
+      const jumpForwardChunkButton = document.getElementById("jumpForwardChunkButton");
+      const jumpEndButton = document.getElementById("jumpEndButton");
+
+      const SAMPLE_COUNT = 256;
+      const VISUAL_POINTS = 96;
+      const datasets = {
+        weather: {
+          label: "Weekly weather swing",
+          unit: "degrees F",
+          cadence: "14-day temperature ribbon",
+          insight: "Cool mornings drift upward into a warm crest, then taper back down into a softer close.",
+          values: [42, 44, 49, 53, 57, 62, 65, 68, 66, 61, 56, 51, 47, 43],
+        },
+        population: {
+          label: "City growth pulses",
+          unit: "millions",
+          cadence: "Decadal population checkpoints",
+          insight: "Each step stacks into a long ascent, so the melody keeps climbing with only brief plateaus.",
+          values: [1.1, 1.18, 1.25, 1.34, 1.49, 1.7, 1.98, 2.35, 2.74, 3.08, 3.36],
+        },
+        market: {
+          label: "Market tremor",
+          unit: "index points",
+          cadence: "Fourteen-session volatility burst",
+          insight: "Short drops interrupt a larger uptrend, which makes the scan alternate between nervous stabs and recovery lifts.",
+          values: [93, 95, 101, 97, 112, 109, 118, 124, 115, 129, 137, 132, 148, 141],
+        },
+      };
+      const scales = {
+        pentatonic: [0, 2, 4, 7, 9],
+        major: [0, 2, 4, 5, 7, 9, 11],
+        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      };
+
+      const state = {
+        mode: "draw",
+        samples: new Array(SAMPLE_COUNT).fill(0).map((_, index) => 0.5 + Math.sin(index * 0.2) * 0.18),
+        phase: 0,
+        playhead: 0,
+        playing: false,
+        dragging: false,
+        lastDrawIndex: 0,
+        lastDrawValue: 0.5,
+        currentFrequency: 220,
+        lastValue: 0.5,
+        meter: 0,
+        recorder: null,
+        recordChunks: [],
+        recording: false,
+        loopEnabled: true,
+        sourceLabel: "Free draw waveform",
+        functionError: "",
+        datasetKey: "weather",
+        scanDirection: "forward",
+        directionForward: true,
+      };
+
+      let audioContext;
+      let processor;
+      let gainNode;
+      let filterNode;
+      let analyser;
+      let destination;
+      let functionInputTimer = null;
+
+      const responseModes = {
+        hybrid: {
+          harmonics: 1.8,
+          shimmer: 0.65,
+          envelope: 1.2,
+          filterBase: 1200,
+          filterRange: 4200,
+        },
+        timbre: {
+          harmonics: 2.8,
+          shimmer: 1.1,
+          envelope: 0.75,
+          filterBase: 1550,
+          filterRange: 5200,
+        },
+        envelope: {
+          harmonics: 1.15,
+          shimmer: 0.35,
+          envelope: 2.3,
+          filterBase: 900,
+          filterRange: 3000,
+        },
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function resizeCanvas(canvas) {
+        const ratio = window.devicePixelRatio || 1;
+        const bounds = canvas.getBoundingClientRect();
+        canvas.width = Math.max(1, Math.round(bounds.width * ratio));
+        canvas.height = Math.max(1, Math.round(bounds.height * ratio));
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+
+      function normalizeSeries(values, targetLength = SAMPLE_COUNT) {
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const span = max - min || 1;
+        return new Array(targetLength).fill(0).map((_, index) => {
+          const t = index / (targetLength - 1);
+          const sourceIndex = t * (values.length - 1);
+          const low = Math.floor(sourceIndex);
+          const high = Math.min(values.length - 1, low + 1);
+          const localT = sourceIndex - low;
+          const raw = lerp(values[low], values[high], localT);
+          return (raw - min) / span;
+        });
+      }
+
+      function resetScan() {
+        state.directionForward = state.scanDirection !== "reverse";
+        state.playhead = state.scanDirection === "reverse" ? SAMPLE_COUNT - 1 : 0;
+        state.phase = 0;
+        state.meter = 0;
+        state.lastValue = state.samples[Math.round(state.playhead)] ?? 0.5;
+      }
+
+      function regenerateFunctionSamples() {
+        try {
+          const expr = functionInput.value.trim() || "0";
+          const fn = new Function("x", `return ${expr};`);
+          const values = [];
+          for (let i = 0; i < SAMPLE_COUNT; i += 1) {
+            const x = lerp(-Math.PI, Math.PI, i / (SAMPLE_COUNT - 1));
+            const result = Number(fn(x));
+            values.push(Number.isFinite(result) ? result : 0);
+          }
+          state.samples = normalizeSeries(values);
+          state.sourceLabel = "Math function";
+          state.functionError = "";
+          resetScan();
+          functionInput.classList.remove("invalid");
+          setStatus("Function captured");
+        } catch (error) {
+          state.functionError = error instanceof Error ? error.message : "Invalid function";
+          functionInput.classList.add("invalid");
+          setStatus("Function error");
+        }
+      }
+
+      function applyDataset() {
+        state.datasetKey = datasetSelect.value in datasets ? datasetSelect.value : "weather";
+        const dataset = datasets[state.datasetKey];
+        state.samples = normalizeSeries(dataset.values);
+        state.sourceLabel = dataset.label;
+        resetScan();
+        rebuildDatasetStrip();
+        setStatus("Dataset loaded");
+      }
+
+      function setDatasetPlayheadFocus() {
+        const markers = datasetStrip.querySelectorAll(".dataset-marker");
+        if (!markers.length) {
+          return;
+        }
+        const dataset = datasets[state.datasetKey] || datasets.weather;
+        const activeIndex = Math.round((state.playhead / (SAMPLE_COUNT - 1)) * (dataset.values.length - 1));
+        markers.forEach((marker, index) => {
+          marker.classList.toggle("active", index === activeIndex);
+        });
+      }
+
+      function rebuildDatasetStrip() {
+        const dataset = datasets[state.datasetKey] || datasets.weather;
+        const min = Math.min(...dataset.values);
+        const max = Math.max(...dataset.values);
+        const span = max - min || 1;
+        datasetMeta.textContent = `${dataset.cadence} · ${dataset.unit}`;
+        datasetTitle.textContent = dataset.label;
+        datasetInsight.textContent = dataset.insight;
+        datasetStrip.innerHTML = "";
+        dataset.values.forEach((value, index) => {
+          const marker = document.createElement("button");
+          marker.type = "button";
+          marker.className = "dataset-marker";
+          marker.style.setProperty("--marker-height", `${24 + ((value - min) / span) * 66}%`);
+          marker.title = `${dataset.label}: step ${index + 1}, ${value} ${dataset.unit}`;
+          marker.setAttribute("aria-label", `${dataset.label} step ${index + 1}: ${value} ${dataset.unit}`);
+          marker.addEventListener("click", () => {
+            state.playhead = Math.round((index / Math.max(1, dataset.values.length - 1)) * (SAMPLE_COUNT - 1));
+            state.lastValue = state.samples[state.playhead] ?? state.lastValue;
+            setDatasetPlayheadFocus();
+            setStatus(`Jumped to dataset step ${index + 1}`);
+          });
+          datasetStrip.appendChild(marker);
+        });
+        setDatasetPlayheadFocus();
+      }
+
+      function randomizeDraw() {
+        const offset = Math.random() * Math.PI * 2;
+        state.samples = state.samples.map((_, index) => {
+          const x = index / (SAMPLE_COUNT - 1);
+          const contour =
+            0.48 +
+            Math.sin(x * Math.PI * (2 + Math.random() * 3) + offset) * 0.18 +
+            Math.cos(x * Math.PI * (5 + Math.random() * 5) + offset * 0.5) * 0.1 +
+            (Math.random() - 0.5) * 0.05;
+          return clamp(contour, 0, 1);
+        });
+        resetScan();
+        setStatus("Waveform remixed");
+      }
+
+      function quantizeFrequency(normalized) {
+        const scale = scales[scaleSelect.value] || scales.pentatonic;
+        const semitoneSpan = 24;
+        const absolute = normalized * semitoneSpan;
+        const octave = Math.floor(absolute / scale.length);
+        const step = scale[Math.round(absolute) % scale.length];
+        const midi = 45 + octave * 12 + step;
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function getSourceStepCount() {
+        if (state.mode === "dataset") {
+          const dataset = datasets[state.datasetKey] || datasets.weather;
+          return dataset.values.length;
+        }
+        return 16;
+      }
+
+      function getCurrentSourceStep() {
+        const total = getSourceStepCount();
+        if (total <= 1) {
+          return { index: 0, total: 1 };
+        }
+        const ratio = clamp(state.playhead / Math.max(1, SAMPLE_COUNT - 1), 0, 1);
+        return {
+          index: Math.round(ratio * (total - 1)),
+          total,
+        };
+      }
+
+      function syncPlayheadValue() {
+        const playheadIndex = clamp(Math.round(state.playhead), 0, SAMPLE_COUNT - 1);
+        state.lastValue = state.samples[playheadIndex] ?? state.lastValue;
+      }
+
+      function describeCurrentStep() {
+        const sampleIndex = clamp(Math.round(state.playhead), 0, SAMPLE_COUNT - 1);
+        const value = state.samples[sampleIndex] ?? 0.5;
+        const nextValue = state.samples[Math.min(SAMPLE_COUNT - 1, sampleIndex + 1)] ?? value;
+        const derivative = nextValue - value;
+        const motion =
+          Math.abs(derivative) < 0.01 ? "calm contour" : derivative > 0 ? "rising edge" : "falling edge";
+
+        if (state.mode === "dataset") {
+          const dataset = datasets[state.datasetKey] || datasets.weather;
+          const step = getCurrentSourceStep();
+          const rawValue = dataset.values[step.index];
+          return `${dataset.label} · step ${step.index + 1}/${step.total} · ${rawValue} ${dataset.unit} with a ${motion}.`;
+        }
+
+        if (state.mode === "function") {
+          const x = lerp(-Math.PI, Math.PI, sampleIndex / Math.max(1, SAMPLE_COUNT - 1));
+          return `x=${x.toFixed(2)} rad · normalized value ${value.toFixed(2)} with a ${motion}.`;
+        }
+
+        return `Draw step ${getCurrentSourceStep().index + 1}/${getCurrentSourceStep().total} · normalized value ${value.toFixed(2)} with a ${motion}.`;
+      }
+
+      function setTransportPosition(targetRatio, label) {
+        const ratio = clamp(targetRatio, 0, 1);
+        state.playhead = ratio * (SAMPLE_COUNT - 1);
+        syncPlayheadValue();
+        if (state.mode === "dataset") {
+          setDatasetPlayheadFocus();
+        }
+        setStatus(label);
+      }
+
+      function nudgeTransport(stepDelta) {
+        const step = getCurrentSourceStep();
+        const total = Math.max(1, step.total - 1);
+        const nextIndex = clamp(step.index + stepDelta, 0, total);
+        const ratio = total === 0 ? 0 : nextIndex / total;
+        setTransportPosition(ratio, stepDelta > 0 ? "Stepped forward" : "Stepped backward");
+      }
+
+      function jumpTransportChunk(chunkDelta) {
+        const nextRatio = clamp(state.playhead / Math.max(1, SAMPLE_COUNT - 1) + chunkDelta * 0.25, 0, 1);
+        setTransportPosition(
+          nextRatio,
+          chunkDelta > 0 ? "Jumped ahead by a quarter scan" : "Jumped back by a quarter scan"
+        );
+      }
+
+      function stepPlayhead(stepAmount) {
+        if (state.scanDirection === "pingpong") {
+          state.playhead += stepAmount * (state.directionForward ? 1 : -1);
+          if (state.playhead >= SAMPLE_COUNT - 1) {
+            if (state.loopEnabled) {
+              state.playhead = SAMPLE_COUNT - 1;
+              state.directionForward = false;
+            } else {
+              state.playhead = SAMPLE_COUNT - 1;
+              return false;
+            }
+          }
+          if (state.playhead <= 0) {
+            if (state.loopEnabled) {
+              state.playhead = 0;
+              state.directionForward = true;
+            } else {
+              state.playhead = 0;
+              return false;
+            }
+          }
+          return true;
+        }
+
+        const directionMultiplier = state.scanDirection === "reverse" ? -1 : 1;
+        state.playhead += stepAmount * directionMultiplier;
+        if (state.playhead >= SAMPLE_COUNT) {
+          if (state.loopEnabled) {
+            state.playhead -= SAMPLE_COUNT;
+            return true;
+          }
+          state.playhead = SAMPLE_COUNT - 1;
+          return false;
+        }
+        if (state.playhead < 0) {
+          if (state.loopEnabled) {
+            state.playhead += SAMPLE_COUNT;
+            return true;
+          }
+          state.playhead = 0;
+          return false;
+        }
+        return true;
+      }
+
+      function frequencyToName(freq) {
+        const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const midi = Math.round(69 + 12 * Math.log2(Math.max(freq, 1) / 440));
+        return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+      }
+
+      async function ensureAudio() {
+        if (audioContext) {
+          return;
+        }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioCtx();
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = Number(volumeSlider.value);
+        filterNode = audioContext.createBiquadFilter();
+        filterNode.type = "lowpass";
+        filterNode.frequency.value = 2200;
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 1024;
+        destination = audioContext.createMediaStreamDestination();
+        processor = audioContext.createScriptProcessor(1024, 0, 1);
+
+        processor.onaudioprocess = (event) => {
+          const output = event.outputBuffer.getChannelData(0);
+          const speed = Number(speedSlider.value);
+          const mapping = mappingSelect.value;
+          const response = responseModes[responseSelect.value] || responseModes.hybrid;
+
+          for (let i = 0; i < output.length; i += 1) {
+            const sampleIndex = Math.floor(state.playhead) % SAMPLE_COUNT;
+            const nextIndex = (sampleIndex + 1) % SAMPLE_COUNT;
+            const baseValue = state.samples[sampleIndex];
+            const nextValue = state.samples[nextIndex];
+            const derivative = nextValue - baseValue;
+            const delta = Math.abs(derivative);
+            const mappedValue = mapping === "pitch-derivative" ? clamp(0.5 + derivative * 8, 0, 1) : baseValue;
+            const frequency = quantizeFrequency(mappedValue);
+            state.currentFrequency = frequency;
+            state.phase += (Math.PI * 2 * frequency) / audioContext.sampleRate;
+
+            const sine = Math.sin(state.phase);
+            const harmonic = Math.sin(state.phase * 2) * derivative * response.harmonics;
+            const shimmer =
+              Math.sin(state.phase * 3 + state.playhead * 0.03) * (baseValue - 0.5) * response.shimmer;
+            const env = 0.72 + delta * response.envelope;
+            output[i] = clamp((sine + harmonic + shimmer) * 0.22 * env, -0.98, 0.98);
+
+            state.lastValue = baseValue;
+            state.meter = Math.max(state.meter * 0.92, Math.abs(output[i]));
+            if (!stepPlayhead(0.045 * speed)) {
+              state.playing = false;
+              output.fill(0, i, output.length);
+              gainNode.gain.setTargetAtTime(0, audioContext.currentTime, 0.03);
+              playButton.textContent = "Play";
+              setStatus("One-shot complete");
+              break;
+            }
+          }
+
+          filterNode.frequency.setTargetAtTime(
+            response.filterBase + state.meter * response.filterRange,
+            audioContext.currentTime,
+            0.01
+          );
+        };
+
+        processor.connect(filterNode);
+        filterNode.connect(gainNode);
+        gainNode.connect(analyser);
+        analyser.connect(audioContext.destination);
+        analyser.connect(destination);
+      }
+
+      async function togglePlayback() {
+        await ensureAudio();
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+        if (!state.playing && state.playhead >= SAMPLE_COUNT - 1) {
+          resetScan();
+        }
+        state.playing = !state.playing;
+        playButton.textContent = state.playing ? "Pause" : "Play";
+        gainNode.gain.setTargetAtTime(state.playing ? Number(volumeSlider.value) : 0, audioContext.currentTime, 0.03);
+        setStatus(state.playing ? "Playback live" : "Playback paused");
+      }
+
+      function setStatus(text) {
+        statusBadge.textContent = text;
+      }
+
+      function updateModeUI() {
+        state.mode = modeSelect.value;
+        functionControl.classList.toggle("hidden", state.mode !== "function");
+        datasetControl.classList.toggle("hidden", state.mode !== "dataset");
+        datasetSummary.classList.toggle("hidden", state.mode !== "dataset");
+
+        if (state.mode === "draw") {
+          state.sourceLabel = "Free draw waveform";
+          modeNote.textContent =
+            "Drag across the main canvas to forge a waveform. Higher values become higher notes, while contour response decides whether sharp turns brighten timbre or hit harder in the envelope.";
+        }
+        if (state.mode === "function") {
+          regenerateFunctionSamples();
+          modeNote.textContent =
+            state.functionError
+              ? `Fix the expression to resume live sampling. ${state.functionError}`
+              : "Type any JavaScript Math expression using x. FreqForge samples it from -π to π, then sonifies the resulting contour in real time with steerable slope response.";
+        }
+        if (state.mode === "dataset") {
+          applyDataset();
+          modeNote.textContent =
+            "Preset datasets are normalized into a melodic scan. Use the marker strip to jump to specific moments, then change mapping to hear raw level or rate-of-change while contour response shifts brightness versus punch.";
+        }
+        if (state.mode !== "function") {
+          state.functionError = "";
+          functionInput.classList.remove("invalid");
+        }
+
+        modeBadge.textContent = modeSelect.options[modeSelect.selectedIndex].text;
+      }
+
+      function updateStats() {
+        noteValue.textContent = frequencyToName(state.currentFrequency);
+        speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}x scan`;
+        const min = Math.min(...state.samples);
+        const max = Math.max(...state.samples);
+        rangeValue.textContent = `${min.toFixed(2)} to ${max.toFixed(2)}`;
+        const focus = getCurrentSourceStep();
+        focusValue.textContent = `Step ${focus.index + 1}/${focus.total}`;
+        recordValue.textContent = state.recording ? "Recording" : "Idle";
+        recordValue.className = state.recording ? "recording" : "";
+        transportValue.textContent =
+          focus.index === 0 ? "Start of scan" : focus.index === focus.total - 1 ? "End of scan" : `Step ${focus.index + 1} in focus`;
+        transportInsight.textContent = describeCurrentStep();
+      }
+
+      function sampleToY(value, height) {
+        return height - value * (height * 0.82) - height * 0.09;
+      }
+
+      function drawMain() {
+        const width = visualizer.clientWidth;
+        const height = visualizer.clientHeight;
+        vctx.clearRect(0, 0, width, height);
+
+        const gradient = vctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, "rgba(78, 216, 255, 0.08)");
+        gradient.addColorStop(1, "rgba(255, 140, 97, 0.12)");
+        vctx.fillStyle = gradient;
+        vctx.fillRect(0, 0, width, height);
+
+        const barCount = 32;
+        for (let i = 0; i < barCount; i += 1) {
+          const idx = Math.round((i / (barCount - 1)) * (state.samples.length - 1));
+          const value = state.samples[idx];
+          const nextValue = state.samples[Math.min(state.samples.length - 1, idx + 1)];
+          const derivative = nextValue - value;
+          const x = (i / (barCount - 1)) * width;
+          const barWidth = width / barCount;
+          const top = sampleToY(value, height);
+          const energy = clamp(Math.abs(derivative) * 5 + state.meter * 0.85, 0, 1.6);
+          const barHeight = (height - top) * (0.24 + energy * 0.6);
+          const hue = 205 - value * 55 + derivative * 260;
+          vctx.fillStyle = `hsla(${hue}, 90%, ${32 + energy * 20}%, ${0.07 + energy * 0.14})`;
+          vctx.fillRect(x - barWidth * 0.32, height - barHeight, barWidth * 0.64, barHeight);
+        }
+
+        for (let i = 0; i <= 6; i += 1) {
+          const y = (height / 6) * i;
+          vctx.strokeStyle = "rgba(162, 230, 255, 0.08)";
+          vctx.beginPath();
+          vctx.moveTo(0, y);
+          vctx.lineTo(width, y);
+          vctx.stroke();
+        }
+
+        vctx.beginPath();
+        for (let i = 0; i < state.samples.length; i += 1) {
+          const x = (i / (state.samples.length - 1)) * width;
+          const y = sampleToY(state.samples[i], height);
+          if (i === 0) {
+            vctx.moveTo(x, y);
+          } else {
+            vctx.lineTo(x, y);
+          }
+        }
+        vctx.lineTo(width, height);
+        vctx.lineTo(0, height);
+        vctx.closePath();
+        const bedGradient = vctx.createLinearGradient(0, height * 0.12, 0, height);
+        bedGradient.addColorStop(0, "rgba(102, 227, 255, 0.22)");
+        bedGradient.addColorStop(0.55, "rgba(38, 104, 146, 0.1)");
+        bedGradient.addColorStop(1, "rgba(8, 18, 31, 0)");
+        vctx.fillStyle = bedGradient;
+        vctx.fill();
+
+        vctx.lineWidth = 3;
+        vctx.strokeStyle = "#66e3ff";
+        vctx.shadowColor = "rgba(78, 216, 255, 0.5)";
+        vctx.shadowBlur = 18;
+        vctx.beginPath();
+        for (let i = 0; i < state.samples.length; i += 1) {
+          const x = (i / (state.samples.length - 1)) * width;
+          const y = sampleToY(state.samples[i], height);
+          if (i === 0) {
+            vctx.moveTo(x, y);
+          } else {
+            vctx.lineTo(x, y);
+          }
+        }
+        vctx.stroke();
+        vctx.shadowBlur = 0;
+
+        const scanX = (state.playhead / SAMPLE_COUNT) * width;
+        const scanY = sampleToY(state.lastValue, height);
+        const radius = 14 + state.meter * 36;
+        const glow = vctx.createRadialGradient(scanX, scanY, 0, scanX, scanY, radius * 2.2);
+        glow.addColorStop(0, "rgba(255, 209, 102, 0.95)");
+        glow.addColorStop(1, "rgba(255, 209, 102, 0)");
+        vctx.fillStyle = glow;
+        vctx.beginPath();
+        vctx.arc(scanX, scanY, radius * 2.1, 0, Math.PI * 2);
+        vctx.fill();
+
+        for (let i = 0; i < VISUAL_POINTS; i += 1) {
+          const t = ((state.playhead + i * 2.4) % SAMPLE_COUNT) / SAMPLE_COUNT;
+          const x = t * width;
+          const idx = Math.floor(t * (state.samples.length - 1));
+          const value = state.samples[idx];
+          const y = sampleToY(value, height);
+          const hue = 190 - value * 80 + Math.sin((i + performance.now() * 0.001) * 0.8) * 20;
+          vctx.fillStyle = `hsla(${hue}, 92%, ${48 + value * 26}%, 0.75)`;
+          vctx.beginPath();
+          vctx.arc(x, y, 1.8 + Math.abs(value - 0.5) * 5.5, 0, Math.PI * 2);
+          vctx.fill();
+        }
+
+        vctx.fillStyle = "rgba(235, 251, 255, 0.92)";
+        vctx.font = "600 14px Avenir Next, sans-serif";
+        vctx.fillText(state.sourceLabel, 16, height - 18);
+      }
+
+      function drawScope() {
+        const width = scopeCanvas.clientWidth;
+        const height = scopeCanvas.clientHeight;
+        sctx.clearRect(0, 0, width, height);
+        sctx.fillStyle = "rgba(4, 10, 15, 0.9)";
+        sctx.fillRect(0, 0, width, height);
+
+        for (let i = 0; i <= 4; i += 1) {
+          const y = (height / 4) * i;
+          sctx.strokeStyle = "rgba(162, 230, 255, 0.08)";
+          sctx.beginPath();
+          sctx.moveTo(0, y);
+          sctx.lineTo(width, y);
+          sctx.stroke();
+        }
+
+        if (analyser) {
+          const buffer = new Uint8Array(analyser.fftSize);
+          analyser.getByteTimeDomainData(buffer);
+          sctx.lineWidth = 2;
+          sctx.strokeStyle = "#ffd166";
+          sctx.beginPath();
+          for (let i = 0; i < buffer.length; i += 1) {
+            const x = (i / (buffer.length - 1)) * width;
+            const y = (buffer[i] / 255) * height;
+            if (i === 0) {
+              sctx.moveTo(x, y);
+            } else {
+              sctx.lineTo(x, y);
+            }
+          }
+          sctx.stroke();
+        }
+      }
+
+      function animate() {
+        updateStats();
+        if (state.mode === "dataset") {
+          setDatasetPlayheadFocus();
+        }
+        drawMain();
+        drawScope();
+        requestAnimationFrame(animate);
+      }
+
+      function writeAt(clientX, clientY) {
+        const rect = visualizer.getBoundingClientRect();
+        const x = clamp(clientX - rect.left, 0, rect.width);
+        const y = clamp(clientY - rect.top, 0, rect.height);
+        const index = Math.round((x / rect.width) * (SAMPLE_COUNT - 1));
+        const value = clamp(1 - y / rect.height, 0.03, 0.97);
+
+        const start = Math.min(index, state.lastDrawIndex);
+        const end = Math.max(index, state.lastDrawIndex);
+        for (let i = start; i <= end; i += 1) {
+          const t = end === start ? 1 : (i - start) / (end - start);
+          state.samples[i] = lerp(state.lastDrawValue, value, t);
+        }
+
+        state.lastDrawIndex = index;
+        state.lastDrawValue = value;
+        setStatus("Waveform forged");
+      }
+
+      visualizer.addEventListener("pointerdown", (event) => {
+        if (state.mode !== "draw") {
+          return;
+        }
+        state.dragging = true;
+        visualizer.setPointerCapture(event.pointerId);
+        state.lastDrawIndex = Math.round((event.offsetX / visualizer.clientWidth) * (SAMPLE_COUNT - 1));
+        state.lastDrawValue = clamp(1 - event.offsetY / visualizer.clientHeight, 0.03, 0.97);
+        writeAt(event.clientX, event.clientY);
+      });
+
+      visualizer.addEventListener("pointermove", (event) => {
+        if (!state.dragging || state.mode !== "draw") {
+          return;
+        }
+        writeAt(event.clientX, event.clientY);
+      });
+
+      visualizer.addEventListener("pointerup", () => {
+        state.dragging = false;
+      });
+
+      visualizer.addEventListener("pointerleave", () => {
+        state.dragging = false;
+      });
+
+      playButton.addEventListener("click", togglePlayback);
+      loopButton.addEventListener("click", () => {
+        state.loopEnabled = !state.loopEnabled;
+        loopButton.textContent = state.loopEnabled ? "Loop on" : "Loop off";
+        setStatus(state.loopEnabled ? "Looping enabled" : "One-shot enabled");
+      });
+      clearButton.addEventListener("click", () => {
+        state.samples = new Array(SAMPLE_COUNT).fill(0.5);
+        resetScan();
+        setStatus("Canvas cleared");
+      });
+      randomizeButton.addEventListener("click", () => {
+        if (state.mode === "function") {
+          functionInput.value = `Math.sin(x * ${(2 + Math.random() * 7).toFixed(2)}) * ${(0.35 + Math.random() * 0.5).toFixed(2)} + Math.cos(x * ${(3 + Math.random() * 11).toFixed(2)}) * ${(0.05 + Math.random() * 0.25).toFixed(2)}`;
+          regenerateFunctionSamples();
+          return;
+        }
+        if (state.mode === "dataset") {
+          datasetSelect.selectedIndex = Math.floor(Math.random() * datasetSelect.options.length);
+          applyDataset();
+          return;
+        }
+        randomizeDraw();
+      });
+      jumpStartButton.addEventListener("click", () => {
+        setTransportPosition(0, "Jumped to scan start");
+      });
+      jumpBackChunkButton.addEventListener("click", () => {
+        jumpTransportChunk(-1);
+      });
+      stepBackButton.addEventListener("click", () => {
+        nudgeTransport(-1);
+      });
+      stepForwardButton.addEventListener("click", () => {
+        nudgeTransport(1);
+      });
+      jumpForwardChunkButton.addEventListener("click", () => {
+        jumpTransportChunk(1);
+      });
+      jumpEndButton.addEventListener("click", () => {
+        setTransportPosition(1, "Jumped to scan end");
+      });
+
+      functionInput.addEventListener("change", regenerateFunctionSamples);
+      functionInput.addEventListener("input", () => {
+        if (state.mode !== "function") {
+          return;
+        }
+        window.clearTimeout(functionInputTimer);
+        functionInputTimer = window.setTimeout(() => {
+          regenerateFunctionSamples();
+          updateModeUI();
+        }, 120);
+      });
+      datasetSelect.addEventListener("change", applyDataset);
+      modeSelect.addEventListener("change", updateModeUI);
+      responseSelect.addEventListener("change", () => {
+        setStatus(`Contour response: ${responseSelect.options[responseSelect.selectedIndex].text}`);
+      });
+      directionSelect.addEventListener("change", () => {
+        state.scanDirection = directionSelect.value;
+        resetScan();
+        setStatus(`Scan direction: ${directionSelect.options[directionSelect.selectedIndex].text}`);
+      });
+      speedSlider.addEventListener("input", updateStats);
+      volumeSlider.addEventListener("input", async () => {
+        await ensureAudio();
+        gainNode.gain.setTargetAtTime(state.playing ? Number(volumeSlider.value) : 0, audioContext.currentTime, 0.05);
+      });
+      window.addEventListener("keydown", async (event) => {
+        const target = event.target;
+        const tag = target && "tagName" in target ? target.tagName : "";
+        if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA" || target?.isContentEditable) {
+          return;
+        }
+        if (event.code === "Space") {
+          event.preventDefault();
+          await togglePlayback();
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          nudgeTransport(-1);
+          return;
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          nudgeTransport(1);
+          return;
+        }
+        if (event.key === "PageUp") {
+          event.preventDefault();
+          jumpTransportChunk(-1);
+          return;
+        }
+        if (event.key === "PageDown") {
+          event.preventDefault();
+          jumpTransportChunk(1);
+          return;
+        }
+        if (event.key === "Home") {
+          event.preventDefault();
+          setTransportPosition(0, "Jumped to scan start");
+          return;
+        }
+        if (event.key === "End") {
+          event.preventDefault();
+          setTransportPosition(1, "Jumped to scan end");
+        }
+      });
+
+      recordButton.addEventListener("click", async () => {
+        await ensureAudio();
+        if (!state.recording) {
+          state.recordChunks = [];
+          state.recorder = new MediaRecorder(destination.stream);
+          state.recorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+              state.recordChunks.push(event.data);
+            }
+          };
+          state.recorder.onstop = () => {
+            const blob = new Blob(state.recordChunks, { type: "audio/webm" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "freqforge-recording.webm";
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+          };
+          state.recorder.start();
+          state.recording = true;
+          recordButton.textContent = "Stop recording";
+          setStatus("Recording live output");
+        } else {
+          state.recorder.stop();
+          state.recording = false;
+          recordButton.textContent = "Record";
+          setStatus("Recording exported");
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        resizeCanvas(visualizer);
+        resizeCanvas(scopeCanvas);
+      });
+
+      resizeCanvas(visualizer);
+      resizeCanvas(scopeCanvas);
+      updateModeUI();
+      updateStats();
+      animate();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Historical Timeline Atlas</title>
+    <style>
+      :root {
+        --paper: #efe1c2;
+        --paper-deep: #dbc49b;
+        --ink: #372212;
+        --muted: #70563d;
+        --gold: #c4933f;
+        --sea: #d1dfd6;
+        --roman: #8b4a34;
+        --mongol: #35556f;
+        --explore: #476b52;
+        --wwi: #6f5b39;
+        --panel: rgba(247, 237, 213, 0.84);
+        --shadow: 0 18px 40px rgba(51, 31, 11, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top, rgba(255, 255, 255, 0.5), transparent 28%),
+          linear-gradient(180deg, rgba(112, 86, 61, 0.08), rgba(112, 86, 61, 0)),
+          var(--paper);
+        color: var(--ink);
+        font-family: Georgia, "Times New Roman", serif;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      #app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 18px;
+        padding: 18px;
+      }
+
+      .masthead,
+      .timeline,
+      .factsheet {
+        border: 1px solid rgba(55, 34, 18, 0.16);
+        background: var(--panel);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(6px);
+      }
+
+      .masthead {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: end;
+        padding: 18px 20px;
+        border-radius: 24px;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.24em;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 6px 0 8px;
+        font-size: clamp(2.4rem, 5vw, 4.8rem);
+        line-height: 0.95;
+      }
+
+      .masthead p,
+      .meta {
+        margin: 0;
+        max-width: 60ch;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .meta {
+        text-align: right;
+        font-size: 0.98rem;
+      }
+
+      .viewport {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 18px;
+      }
+
+      .map-card {
+        position: relative;
+        min-height: 0;
+        border-radius: 30px;
+        overflow: hidden;
+        border: 1px solid rgba(55, 34, 18, 0.14);
+        box-shadow: var(--shadow);
+        background:
+          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.34), transparent 20%),
+          linear-gradient(180deg, rgba(219, 196, 155, 0.7), rgba(239, 225, 194, 0.96));
+      }
+
+      .map-card.active-target canvas {
+        cursor: pointer;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: pointer;
+        touch-action: none;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        pointer-events: none;
+      }
+
+      .chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(250, 245, 232, 0.86);
+        border: 1px solid rgba(55, 34, 18, 0.12);
+        color: var(--muted);
+        font-size: 0.92rem;
+        box-shadow: 0 12px 24px rgba(51, 31, 11, 0.08);
+      }
+
+      .factsheet {
+        border-radius: 28px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .factsheet h2,
+      .factsheet h3 {
+        margin: 0;
+      }
+
+      .fact-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .fact-meta {
+        margin: 8px 0 0;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .fact-reset {
+        padding: 8px 12px;
+        font-size: 0.88rem;
+      }
+
+      .fact-reset[disabled] {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .factsheet p,
+      .factsheet li {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .factsheet ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .legend {
+        display: grid;
+        gap: 8px;
+      }
+
+      .event-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .event-item {
+        display: grid;
+        gap: 4px;
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 16px;
+        background: rgba(250, 245, 232, 0.58);
+        border: 1px solid rgba(55, 34, 18, 0.1);
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .event-item:hover,
+      .event-item:focus-visible {
+        transform: translateY(-1px);
+        border-color: rgba(145, 95, 42, 0.32);
+        box-shadow: 0 10px 24px rgba(51, 31, 11, 0.08);
+        outline: none;
+      }
+
+      .event-item.active {
+        background: rgba(145, 95, 42, 0.14);
+        border-color: rgba(145, 95, 42, 0.32);
+        box-shadow: inset 0 0 0 1px rgba(145, 95, 42, 0.08);
+      }
+
+      .event-year {
+        font-size: 0.82rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+
+      .event-badge {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: rgba(145, 95, 42, 0.14);
+        color: var(--ink);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .event-item p {
+        margin: 0;
+      }
+
+      .legend-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+      }
+
+      .swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(55, 34, 18, 0.2);
+      }
+
+      .timeline {
+        border-radius: 26px;
+        padding: 16px 18px 18px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .timeline-head,
+      .preset-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .transition-meter {
+        display: grid;
+        gap: 6px;
+        min-width: min(320px, 100%);
+      }
+
+      .transition-label {
+        font-size: 0.86rem;
+        color: var(--muted);
+      }
+
+      .transition-track {
+        position: relative;
+        height: 10px;
+        border-radius: 999px;
+        overflow: hidden;
+        border: 1px solid rgba(55, 34, 18, 0.14);
+        background: rgba(95, 70, 46, 0.12);
+      }
+
+      .transition-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, rgba(139, 74, 52, 0.9), rgba(196, 147, 63, 0.92));
+      }
+
+      button {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: linear-gradient(180deg, #6d4c2f, #4a301c);
+        color: #f8edd5;
+        cursor: pointer;
+        box-shadow: 0 10px 24px rgba(51, 31, 11, 0.18);
+      }
+
+      button.secondary {
+        background: rgba(250, 245, 232, 0.9);
+        color: var(--ink);
+        border: 1px solid rgba(55, 34, 18, 0.14);
+        box-shadow: none;
+      }
+
+      button.secondary.active {
+        background: linear-gradient(180deg, rgba(125, 82, 41, 0.96), rgba(87, 55, 28, 0.96));
+        color: #f8edd5;
+        box-shadow: 0 10px 24px rgba(51, 31, 11, 0.16);
+      }
+
+      button.secondary.blend {
+        background: linear-gradient(180deg, rgba(184, 141, 91, 0.24), rgba(142, 103, 58, 0.18));
+        border-color: rgba(125, 82, 41, 0.4);
+        color: rgba(55, 34, 18, 0.94);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: #7a532e;
+      }
+
+      .preset-row {
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .preset-row button {
+        flex: 0 0 auto;
+      }
+
+      .timeline-markers {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .timeline-markers button {
+        width: 100%;
+        padding: 8px 10px;
+        text-align: center;
+      }
+
+      .timeline-markers button span {
+        display: block;
+      }
+
+      .timeline-markers button .marker-year {
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .timeline-markers button .marker-label {
+        margin-top: 4px;
+        font-size: 0.9rem;
+      }
+
+      .timeline-compass {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        font-size: 0.84rem;
+        color: var(--muted);
+      }
+
+      .timeline-compass strong {
+        color: var(--ink);
+      }
+
+      @media (max-width: 920px) {
+        body {
+          overflow: auto;
+        }
+
+        #app {
+          min-height: 100svh;
+        }
+
+        .masthead,
+        .viewport {
+          grid-template-columns: 1fr;
+        }
+
+        .masthead {
+          align-items: start;
+        }
+
+        .meta {
+          text-align: left;
+        }
+
+        .map-card {
+          min-height: 58svh;
+        }
+
+        .viewport {
+          gap: 0;
+        }
+
+        .factsheet {
+          position: relative;
+          z-index: 2;
+          margin: -54px 12px 0;
+          border-radius: 28px 28px 0 0;
+          max-height: 34svh;
+          overflow: auto;
+          background: rgba(247, 237, 213, 0.94);
+          box-shadow: 0 -10px 32px rgba(51, 31, 11, 0.12);
+        }
+
+        .timeline {
+          position: sticky;
+          bottom: 0;
+          z-index: 3;
+          margin-top: -6px;
+        }
+
+        .timeline-markers {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header class="masthead">
+        <div>
+          <div class="eyebrow">Atlas Study</div>
+          <h1>Historical Timeline Atlas</h1>
+          <p>
+            A parchment world map that fades between eras, lights trade routes,
+            and anchors each moment with a short regional history note.
+          </p>
+        </div>
+        <p class="meta">
+          March 26 daily build
+          <br />
+          Roman Empire, Mongol reach, Exploration routes, WWI eve
+        </p>
+      </header>
+
+      <main class="viewport">
+        <section class="map-card">
+          <canvas id="map" width="1440" height="900" aria-label="Historical map"></canvas>
+          <div class="overlay">
+            <div class="chip" id="eraLabel">117 AD · Roman Empire Peak</div>
+            <div class="chip" id="detailLabel">Trade routes, cities, and territory overlays</div>
+          </div>
+        </section>
+
+        <aside class="factsheet">
+          <div class="fact-head">
+            <div>
+              <div class="eyebrow">Current Focus</div>
+              <h2 id="factTitle">Mediterranean Core</h2>
+              <div class="fact-meta" id="factMeta">Era overview</div>
+            </div>
+            <button id="factReset" type="button" class="secondary fact-reset" disabled>Era overview</button>
+          </div>
+          <p id="factBody">
+            Rome linked western Europe, North Africa, and the Near East with a
+            dense road-and-sea network. Tap a highlighted empire or city marker
+            to swap the fact panel to that region's note.
+          </p>
+          <p>
+            Drag the year scrubber, press the era buttons, or use the keyboard
+            arrow keys to walk the atlas forward and backward through time.
+          </p>
+          <div>
+            <h3>Key Events</h3>
+            <div class="event-list" id="eventList"></div>
+          </div>
+          <div>
+            <h3>Atlas Layers</h3>
+            <ul>
+              <li>Era presets with layered territory clusters by region</li>
+              <li>Animated trade-route dashes and city activity markers</li>
+              <li>Click-to-open fact cards for empires, routes, and ports</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Legend</h3>
+            <div class="legend">
+              <div class="legend-row"><span class="swatch" style="background: var(--roman)"></span> Roman sphere</div>
+              <div class="legend-row"><span class="swatch" style="background: var(--mongol)"></span> Mongol expansion</div>
+              <div class="legend-row"><span class="swatch" style="background: var(--explore)"></span> Exploration powers</div>
+              <div class="legend-row"><span class="swatch" style="background: var(--wwi)"></span> 1913 tensions</div>
+            </div>
+          </div>
+        </aside>
+      </main>
+
+      <footer class="timeline">
+        <div class="timeline-head">
+          <div class="transition-meter" aria-live="polite">
+            <strong id="yearReadout">Year 117 AD</strong>
+            <div class="transition-label" id="transitionLabel">Anchored in Roman Empire Peak</div>
+            <div class="transition-track" aria-hidden="true">
+              <div class="transition-fill" id="transitionFill"></div>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="playButton" type="button">Play</button>
+            <button id="resetButton" type="button" class="secondary">Reset</button>
+          </div>
+        </div>
+        <input id="scrubber" type="range" min="117" max="1913" step="1" value="117" />
+        <div class="timeline-compass" id="timelineCompass" aria-live="polite">
+          <span id="anchorWindow">Anchored at 117 AD · Roman Empire Peak</span>
+          <span id="yearDelta"><strong>0 years</strong> from the selected anchor</span>
+        </div>
+        <div class="timeline-markers" id="timelineMarkers" aria-label="Era anchor years"></div>
+        <div class="preset-row" id="presetRow"></div>
+      </footer>
+    </div>
+
+    <script>
+      const rootStyle = getComputedStyle(document.documentElement);
+      const eras = [
+        {
+          yearValue: 117,
+          year: "117 AD",
+          label: "Roman Empire Peak",
+          title: "Mediterranean Core",
+          detail: "Ports, roads, and inland grain corridors",
+          body:
+            "Rome bound the Mediterranean with a mix of coastal shipping lanes and military roads. Click regions or city markers to swap the fact panel between imperial hubs.",
+          color: rootStyle.getPropertyValue("--roman").trim(),
+          events: [
+            {
+              year: "98-117 AD",
+              text: "Trajan's reign pushes Roman influence to its widest imperial footprint around the Mediterranean and Near East."
+            },
+            {
+              year: "2nd century AD",
+              text: "Grain convoys from Egypt and North Africa keep major cities fed, tying imperial stability to maritime logistics."
+            }
+          ],
+          regions: [
+            {
+              name: "Italia and the Western Mediterranean",
+              fact:
+                "Italy, southern Gaul, and Iberian ports formed the western backbone of Roman logistics. Grain, metals, and troop movements all ran through this coastal belt.",
+              shape: [
+                [270, 235],
+                [350, 205],
+                [435, 220],
+                [480, 290],
+                [415, 350],
+                [315, 332]
+              ]
+            },
+            {
+              name: "Eastern Mediterranean and Egypt",
+              fact:
+                "Alexandria and the eastern provinces linked the empire to Red Sea and Levantine trade. Egypt's grain shipments were a strategic lifeline for the capital.",
+              shape: [
+                [460, 240],
+                [610, 230],
+                [715, 260],
+                [735, 332],
+                [620, 390],
+                [490, 355]
+              ]
+            }
+          ],
+          routes: [
+            {
+              label: "Mediterranean grain route",
+              fact:
+                "Roman shipping lanes stitched Egypt and the wider Mediterranean into a food system that kept major cities supplied and politically stable.",
+              points: [
+                [340, 352],
+                [442, 320],
+                [540, 338],
+                [664, 295]
+              ]
+            },
+            {
+              label: "Danube frontier road",
+              fact:
+                "The Danube frontier mixed military movement with commerce, acting as both border defense and a corridor for supplies and provincial exchange.",
+              points: [
+                [372, 252],
+                [450, 232],
+                [540, 244],
+                [625, 226]
+              ]
+            }
+          ],
+          cities: [
+            { name: "Rome", fact: "Rome sat at the center of the imperial political network and drew resources from every coast of the inland sea.", point: [380, 286] },
+            { name: "Alexandria", fact: "Alexandria linked Mediterranean and Red Sea exchange while feeding the Roman metropolis with grain shipments.", point: [640, 350] },
+            { name: "Antioch", fact: "Antioch was a hinge city between Mediterranean governance and inland caravan traffic toward Mesopotamia.", point: [694, 286] }
+          ]
+        },
+        {
+          yearValue: 1279,
+          year: "1279 AD",
+          label: "Mongol Empire",
+          title: "Steppe Superhighway",
+          detail: "Overland relay stations across Eurasia",
+          body:
+            "The Mongol world joined distant cities with mounted couriers, merchant protection, and tributary extraction. The atlas emphasizes connected corridors rather than exact boundaries.",
+          color: rootStyle.getPropertyValue("--mongol").trim(),
+          events: [
+            {
+              year: "1206-1279",
+              text: "Steppe conquest and imperial consolidation turn caravan corridors into a protected trans-Eurasian communications system."
+            },
+            {
+              year: "13th century",
+              text: "Relay stations, tribute flows, and merchant protection compress travel time across a much larger connected world."
+            }
+          ],
+          regions: [
+            {
+              name: "Western Steppe Corridor",
+              fact:
+                "From the Volga to the Black Sea, Mongol successor states kept tribute moving westward while tying Slavic and steppe markets into a wider imperial system.",
+              shape: [
+                [392, 210],
+                [530, 178],
+                [660, 206],
+                [620, 286],
+                [450, 310],
+                [370, 260]
+              ]
+            },
+            {
+              name: "Central and Eastern Heartland",
+              fact:
+                "The heartland stretching through Central Asia toward northern China functioned as a relay zone where horses, messengers, and caravans could cross vast distances rapidly.",
+              shape: [
+                [592, 188],
+                [760, 165],
+                [968, 188],
+                [1032, 262],
+                [920, 324],
+                [702, 320],
+                [606, 262]
+              ]
+            }
+          ],
+          routes: [
+            {
+              label: "Silk Road relay chain",
+              fact:
+                "Mongol protection and relay stations reduced the friction of long-distance caravan travel, making overland Eurasian exchange faster and safer for merchants and envoys.",
+              points: [
+                [448, 312],
+                [586, 252],
+                [754, 272],
+                [926, 238]
+              ]
+            },
+            {
+              label: "Northern courier arc",
+              fact:
+                "Mounted couriers could move orders and intelligence rapidly across the steppe, giving the empire unusual administrative reach for its scale.",
+              points: [
+                [420, 224],
+                [548, 190],
+                [722, 194],
+                [910, 212]
+              ]
+            }
+          ],
+          cities: [
+            { name: "Karakorum", fact: "Karakorum symbolized imperial command, diplomacy, and redistribution in the Mongol center.", point: [704, 252] },
+            { name: "Khanbaliq", fact: "The Yuan capital tied Mongol rule to northern China and the empire's eastern administrative reach.", point: [930, 246] },
+            { name: "Sarai", fact: "Sarai connected the western khanates to Black Sea commerce and tributary extraction.", point: [478, 252] }
+          ]
+        },
+        {
+          yearValue: 1519,
+          year: "1519 AD",
+          label: "Age of Exploration",
+          title: "Oceanic Exchange",
+          detail: "Atlantic crossings and Indian Ocean links",
+          body:
+            "By the early sixteenth century, sea power reorganized the atlas around ocean routes. Rather than a single empire, this era highlights the maritime web itself.",
+          color: rootStyle.getPropertyValue("--explore").trim(),
+          events: [
+            {
+              year: "1492-1522",
+              text: "Atlantic expeditions and the first circumnavigation redraw commercial horizons and knit distant coasts into shared imperial routes."
+            },
+            {
+              year: "1519",
+              text: "Cortes reaches Tenochtitlan as Iberian maritime expansion collides with established American and Indian Ocean worlds."
+            }
+          ],
+          regions: [
+            {
+              name: "Atlantic Launch Zone",
+              fact:
+                "Iberian and Atlantic-facing ports served as departure points for expeditions that joined Europe, Africa, and the Americas in a violent commercial circuit.",
+              shape: [
+                [214, 208],
+                [312, 190],
+                [396, 212],
+                [412, 298],
+                [322, 334],
+                [224, 292]
+              ]
+            },
+            {
+              name: "Indian Ocean Trading Arc",
+              fact:
+                "Control over the Indian Ocean did not erase older trading systems; it layered European armed shipping onto already dense mercantile networks.",
+              shape: [
+                [568, 282],
+                [724, 250],
+                [856, 286],
+                [836, 404],
+                [654, 422],
+                [556, 356]
+              ]
+            }
+          ],
+          routes: [
+            {
+              label: "Atlantic crossing",
+              fact:
+                "Atlantic crossings moved silver, soldiers, missionaries, and disease vectors between Europe and the Americas, reshaping both shores of the ocean.",
+              points: [
+                [280, 334],
+                [360, 402],
+                [484, 462],
+                [664, 408]
+              ]
+            },
+            {
+              label: "Cape route to India",
+              fact:
+                "The Cape route let European fleets bypass older eastern Mediterranean chokepoints and plug directly into Indian Ocean trade by sea.",
+              points: [
+                [308, 352],
+                [418, 472],
+                [566, 574],
+                [756, 432]
+              ]
+            }
+          ],
+          cities: [
+            { name: "Seville", fact: "Seville became a key imperial accounting point for Atlantic bullion, shipping, and colonial administration.", point: [292, 286] },
+            { name: "Goa", fact: "Goa was central to Portuguese attempts to secure a fortified presence inside older Indian Ocean commercial systems.", point: [694, 404] },
+            { name: "Tenochtitlan", fact: "1519 also marks the moment before Spanish conquest remade central Mexican power and exchange networks.", point: [472, 392] }
+          ]
+        },
+        {
+          yearValue: 1913,
+          year: "1913 AD",
+          label: "Eve of WWI",
+          title: "Imperial Fault Lines",
+          detail: "Rail chokepoints, ports, and brittle alliances",
+          body:
+            "On the eve of the First World War, industrial transport intensified both connection and vulnerability. The highlighted clusters frame pressure points instead of exact battle maps.",
+          color: rootStyle.getPropertyValue("--wwi").trim(),
+          events: [
+            {
+              year: "1904-1913",
+              text: "Alliance blocs harden while rail timetables and armament planning make diplomatic crises harder to slow down."
+            },
+            {
+              year: "1913",
+              text: "Imperial sea lanes, Balkan instability, and industrial mobilization create a tightly wound prewar map of interdependence."
+            }
+          ],
+          regions: [
+            {
+              name: "Continental Europe",
+              fact:
+                "Dense rail systems, armament production, and alliance commitments made continental Europe both highly connected and prone to rapid escalation.",
+              shape: [
+                [436, 188],
+                [618, 176],
+                [734, 210],
+                [716, 314],
+                [520, 334],
+                [424, 270]
+              ]
+            },
+            {
+              name: "Imperial Sea Lanes",
+              fact:
+                "Maritime empires depended on chokepoints linking the Atlantic, Mediterranean, Suez, Indian Ocean, and East Asian ports.",
+              shape: [
+                [690, 204],
+                [828, 216],
+                [916, 266],
+                [930, 356],
+                [780, 404],
+                [688, 338]
+              ]
+            }
+          ],
+          routes: [
+            {
+              label: "Atlantic to Suez shipping chain",
+              fact:
+                "By 1913 imperial shipping relied on tightly linked ocean routes and canal chokepoints, so disruption at sea could ripple across multiple continents.",
+              points: [
+                [392, 282],
+                [510, 300],
+                [646, 258],
+                [830, 316]
+              ]
+            },
+            {
+              label: "Continental rail corridor",
+              fact:
+                "Rail concentrated mobilization power in continental Europe, letting states convert industrial depth into rapid troop movement and escalating crisis speed.",
+              points: [
+                [458, 236],
+                [540, 254],
+                [614, 240],
+                [692, 270]
+              ]
+            }
+          ],
+          cities: [
+            { name: "London", fact: "London coordinated imperial finance, insurance, and shipping on the eve of war.", point: [430, 234] },
+            { name: "Berlin", fact: "Berlin sat at the center of German industrial and rail planning inside an increasingly rigid alliance system.", point: [568, 240] },
+            { name: "Suez", fact: "The Suez Canal compressed imperial distance and made control over the eastern Mediterranean strategically decisive.", point: [742, 336] }
+          ]
+        }
+      ];
+
+      const canvas = document.getElementById("map");
+      const mapCard = document.querySelector(".map-card");
+      const ctx = canvas.getContext("2d");
+      const scrubber = document.getElementById("scrubber");
+      const eraLabel = document.getElementById("eraLabel");
+      const detailLabel = document.getElementById("detailLabel");
+      const factTitle = document.getElementById("factTitle");
+      const factBody = document.getElementById("factBody");
+      const factMeta = document.getElementById("factMeta");
+      const factReset = document.getElementById("factReset");
+      const yearReadout = document.getElementById("yearReadout");
+      const presetRow = document.getElementById("presetRow");
+      const playButton = document.getElementById("playButton");
+      const resetButton = document.getElementById("resetButton");
+      const eventList = document.getElementById("eventList");
+      const transitionLabel = document.getElementById("transitionLabel");
+      const transitionFill = document.getElementById("transitionFill");
+      const anchorWindow = document.getElementById("anchorWindow");
+      const yearDelta = document.getElementById("yearDelta");
+      const timelineMarkers = document.getElementById("timelineMarkers");
+
+      let index = 0;
+      let playing = false;
+      let playHandle = null;
+      let dashPhase = 0;
+      let activeFact = null;
+      let hitTargets = [];
+      let currentYear = eras[0].yearValue;
+      const minYear = eras[0].yearValue;
+      const maxYear = eras[eras.length - 1].yearValue;
+      const presetButtons = [];
+      const markerButtons = [];
+
+      function clampYear(yearValue) {
+        return Math.max(minYear, Math.min(maxYear, Math.round(yearValue)));
+      }
+
+      function isFactActive(fact) {
+        return Boolean(
+          activeFact &&
+            fact &&
+            activeFact.title === fact.title &&
+            activeFact.body === fact.body
+        );
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+      }
+
+      function drawMapBase(width, height) {
+        ctx.clearRect(0, 0, width, height);
+
+        const sea = ctx.createLinearGradient(0, 0, 0, height);
+        sea.addColorStop(0, "rgba(209, 223, 214, 0.78)");
+        sea.addColorStop(1, "rgba(190, 207, 197, 0.52)");
+        ctx.fillStyle = sea;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = "rgba(140, 113, 79, 0.26)";
+        [
+          [0.12, 0.22, 0.22, 0.24],
+          [0.34, 0.16, 0.18, 0.14],
+          [0.53, 0.15, 0.22, 0.18],
+          [0.72, 0.42, 0.16, 0.24],
+          [0.44, 0.54, 0.14, 0.22]
+        ].forEach(([x, y, w, h]) => {
+          ctx.beginPath();
+          ctx.roundRect(width * x, height * y, width * w, height * h, 40);
+          ctx.fill();
+        });
+
+        ctx.strokeStyle = "rgba(55, 34, 18, 0.14)";
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 8; i += 1) {
+          const y = (height / 8) * i;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "rgba(55, 34, 18, 0.16)";
+        for (let i = 1; i < 12; i += 1) {
+          const x = (width / 12) * i;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, height);
+          ctx.stroke();
+        }
+      }
+
+      function scalePoint([x, y], width, height) {
+        return [(x / 1440) * width, (y / 900) * height];
+      }
+
+      function updateFact(item) {
+        const era = eras[index];
+        const nextFact = item || { title: era.title, body: era.body, kind: "Era overview" };
+        activeFact = nextFact;
+        factTitle.textContent = nextFact.title;
+        factBody.textContent = nextFact.body;
+        factMeta.textContent = nextFact.kind || "Era overview";
+        factReset.disabled = nextFact.kind === "Era overview";
+      }
+
+      function updateEventList(events) {
+        eventList.replaceChildren();
+        const focusIndex = events.reduce((bestIndex, eventItem, eventIndex) => {
+          const currentDistance = Math.abs(parseEventYear(eventItem.year) - currentYear);
+          if (bestIndex === -1) {
+            return eventIndex;
+          }
+          const bestDistance = Math.abs(parseEventYear(events[bestIndex].year) - currentYear);
+          return currentDistance < bestDistance ? eventIndex : bestIndex;
+        }, -1);
+
+        events.forEach((eventItem, eventIndex) => {
+          const card = document.createElement("button");
+          card.className = "event-item";
+          card.type = "button";
+          const jumpYear = parseEventYear(eventItem.year);
+          const jumpLabel = Number.isFinite(jumpYear) ? formatYear(jumpYear) : eventItem.year;
+          card.setAttribute("aria-label", `Jump timeline to ${jumpLabel}`);
+          card.title = `Jump timeline to ${jumpLabel}`;
+          card.addEventListener("click", () => {
+            stopPlayback();
+            syncEra(jumpYear);
+          });
+          if (eventIndex === focusIndex) {
+            card.classList.add("active");
+            card.setAttribute("aria-current", "true");
+          }
+
+          const year = document.createElement("div");
+          year.className = "event-year";
+          year.textContent = eventItem.year;
+
+          const body = document.createElement("p");
+          body.textContent = eventItem.text;
+
+          if (eventIndex === focusIndex) {
+            const badge = document.createElement("div");
+            badge.className = "event-badge";
+            badge.textContent = `Closest to current year · jump to ${jumpLabel}`;
+            card.append(year, badge, body);
+          } else {
+            const badge = document.createElement("div");
+            badge.className = "event-badge";
+            badge.textContent = `Jump to ${jumpLabel}`;
+            card.append(year, badge, body);
+          }
+          eventList.appendChild(card);
+        });
+      }
+
+      function collectFactsForEra(era) {
+        return [
+          ...era.regions.map((region) => ({ title: region.name, body: region.fact, kind: "Region focus" })),
+          ...era.routes.map((route) => ({ title: route.label, body: route.fact, kind: "Route focus" })),
+          ...era.cities.map((city) => ({ title: city.name, body: city.fact, kind: "City focus" }))
+        ];
+      }
+
+      function parseEventYear(label) {
+        const rangeMatch = label.match(/(\d{1,4})\s*[-–]\s*(\d{1,4})/);
+        if (rangeMatch) {
+          const start = Number(rangeMatch[1]);
+          const end = Number(rangeMatch[2]);
+          if (Number.isFinite(start) && Number.isFinite(end)) {
+            const midpoint = start + (end - start) / 2;
+            return clampYear(midpoint);
+          }
+        }
+
+        const centuryMatch = label.match(/(\d{1,2})(?:st|nd|rd|th)\s+century/i);
+        if (centuryMatch) {
+          const century = Number(centuryMatch[1]);
+          if (Number.isFinite(century)) {
+            const midpoint = century * 100 - 50;
+            return clampYear(midpoint);
+          }
+        }
+
+        const match = label.match(/\d{1,4}/);
+        return match ? clampYear(Number(match[0])) : minYear;
+      }
+
+      function mergeEvents(blend) {
+        if (!blend.secondary) {
+          return blend.primary.events;
+        }
+        const merged = [...blend.primary.events, ...blend.secondary.events];
+        const unique = merged.filter((eventItem, eventIndex) => {
+          return merged.findIndex(
+            (candidate) => candidate.year === eventItem.year && candidate.text === eventItem.text
+          ) === eventIndex;
+        });
+        return unique.sort((left, right) => parseEventYear(left.year) - parseEventYear(right.year));
+      }
+
+      function resolveFactForBlend(blend) {
+        const defaultFact = {
+          title: eras[blend.primaryIndex].title,
+          body: eras[blend.primaryIndex].body,
+          kind: "Era overview"
+        };
+        if (!activeFact) {
+          return defaultFact;
+        }
+        const candidates = [
+          ...collectFactsForEra(blend.primary),
+          ...(blend.secondary ? collectFactsForEra(blend.secondary) : [])
+        ];
+        const match = candidates.find(
+          (fact) => fact.title === activeFact.title && fact.body === activeFact.body
+        );
+        return match || defaultFact;
+      }
+
+      function hexToRgba(hex, alpha) {
+        const normalized = hex.replace("#", "");
+        const chunkSize = normalized.length === 3 ? 1 : 2;
+        const parts = normalized.match(new RegExp(`.{1,${chunkSize}}`, "g")) || ["00", "00", "00"];
+        const [r, g, b] = parts.map((part) => {
+          const expanded = part.length === 1 ? `${part}${part}` : part;
+          return Number.parseInt(expanded, 16);
+        });
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function drawRegion(region, width, height, color, alpha = 1) {
+        const scaled = region.shape.map((point) => scalePoint(point, width, height));
+        const fact = { title: region.name, body: region.fact, kind: "Region focus" };
+        const selected = isFactActive(fact);
+        ctx.beginPath();
+        scaled.forEach(([x, y], pointIndex) => {
+          if (pointIndex === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.closePath();
+        const fillAlpha = (selected ? 0.54 : 0.38) * alpha + 0.08;
+        const strokeAlpha = (selected ? 1.08 : 0.86) * alpha + 0.08;
+        ctx.fillStyle = hexToRgba(color, fillAlpha);
+        ctx.strokeStyle = hexToRgba(color, strokeAlpha);
+        ctx.lineWidth = selected ? 4 : 2;
+        if (selected) {
+          ctx.shadowColor = hexToRgba(color, 0.35 * alpha + 0.12);
+          ctx.shadowBlur = 18;
+        }
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        if (alpha >= 0.5) {
+          hitTargets.push({
+            type: "region",
+            points: scaled,
+            fact
+          });
+        }
+      }
+
+      function drawRoute(route, width, height, alpha = 1) {
+        const scaled = route.points.map((point) => scalePoint(point, width, height));
+        const fact = { title: route.label, body: route.fact, kind: "Route focus" };
+        const selected = isFactActive(fact);
+        if (selected) {
+          ctx.strokeStyle = `rgba(247, 223, 154, ${0.28 * alpha + 0.12})`;
+          ctx.lineWidth = 8;
+          ctx.setLineDash([18, 12]);
+          ctx.lineDashOffset = -dashPhase;
+          ctx.beginPath();
+          scaled.forEach(([x, y], routeIndex) => {
+            if (routeIndex === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          });
+          ctx.stroke();
+        }
+        ctx.strokeStyle = `rgba(${selected ? "242, 209, 110" : "196, 147, 63"}, ${0.9 * alpha + 0.08})`;
+        ctx.lineWidth = selected ? 4.5 : 3;
+        ctx.setLineDash([14, 10]);
+        ctx.lineDashOffset = -dashPhase;
+        ctx.beginPath();
+        scaled.forEach(([x, y], routeIndex) => {
+          if (routeIndex === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (selected) {
+          const [startX, startY] = scaled[0];
+          const [endX, endY] = scaled[scaled.length - 1];
+          ctx.fillStyle = `rgba(247, 223, 154, ${0.88 * alpha + 0.08})`;
+          ctx.beginPath();
+          ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+          ctx.arc(endX, endY, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        if (alpha >= 0.5) {
+          hitTargets.push({
+            type: "route",
+            points: scaled,
+            fact
+          });
+        }
+      }
+
+      function drawCity(city, width, height, color, alpha = 1) {
+        const [px, py] = scalePoint(city.point, width, height);
+        const fact = { title: city.name, body: city.fact, kind: "City focus" };
+        const selected = isFactActive(fact);
+        ctx.fillStyle = `rgba(250, 245, 232, ${selected ? 1 : 0.9 * alpha + 0.05})`;
+        if (selected) {
+          ctx.shadowColor = hexToRgba(color, 0.4 * alpha + 0.12);
+          ctx.shadowBlur = 14;
+        }
+        ctx.beginPath();
+        ctx.arc(px, py, selected ? 8 : 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = hexToRgba(color, 0.88 * alpha + 0.08);
+        ctx.lineWidth = selected ? 3.5 : 2;
+        ctx.stroke();
+        ctx.fillStyle = `rgba(55, 34, 18, ${0.62 * alpha + 0.08})`;
+        ctx.font = '13px Georgia, "Times New Roman", serif';
+        ctx.fillText(city.name, px + 10, py - 10);
+        if (alpha >= 0.5) {
+          hitTargets.push({
+            type: "city",
+            x: px,
+            y: py,
+            radius: 14,
+            fact
+          });
+        }
+      }
+
+      function getEraBlend(year) {
+        if (year <= eras[0].yearValue) {
+          return { primary: eras[0], secondary: null, mix: 0, primaryIndex: 0, secondaryIndex: null };
+        }
+        if (year >= eras[eras.length - 1].yearValue) {
+          const finalIndex = eras.length - 1;
+          return {
+            primary: eras[finalIndex],
+            secondary: null,
+            mix: 0,
+            primaryIndex: finalIndex,
+            secondaryIndex: null
+          };
+        }
+        for (let eraIndex = 0; eraIndex < eras.length - 1; eraIndex += 1) {
+          const start = eras[eraIndex];
+          const end = eras[eraIndex + 1];
+          if (year >= start.yearValue && year <= end.yearValue) {
+            const span = end.yearValue - start.yearValue || 1;
+            const mix = (year - start.yearValue) / span;
+            const primaryIndex = mix < 0.5 ? eraIndex : eraIndex + 1;
+            return { primary: start, secondary: end, mix, primaryIndex, secondaryIndex: eraIndex + 1 };
+          }
+        }
+        return { primary: eras[0], secondary: null, mix: 0, primaryIndex: 0, secondaryIndex: null };
+      }
+
+      function setButtonStates(blend) {
+        const activeIndices = blend.secondary
+          ? [Math.min(blend.primaryIndex, blend.secondaryIndex), Math.max(blend.primaryIndex, blend.secondaryIndex)]
+          : [blend.primaryIndex];
+        const exactIndex = blend.secondary ? blend.primaryIndex : blend.primaryIndex;
+
+        presetButtons.forEach((button, buttonIndex) => {
+          button.classList.toggle("active", buttonIndex === exactIndex);
+          button.classList.toggle("blend", blend.secondary && activeIndices.includes(buttonIndex));
+          button.setAttribute("aria-pressed", buttonIndex === exactIndex ? "true" : "false");
+        });
+        markerButtons.forEach((button, buttonIndex) => {
+          button.classList.toggle("active", buttonIndex === exactIndex);
+          button.classList.toggle("blend", blend.secondary && activeIndices.includes(buttonIndex));
+          if (buttonIndex === exactIndex) {
+            button.setAttribute("aria-current", "step");
+          } else {
+            button.removeAttribute("aria-current");
+          }
+        });
+      }
+
+      function draw() {
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        const blend = getEraBlend(currentYear);
+        const primaryAlpha = blend.secondary ? 1 - blend.mix : 1;
+        const secondaryAlpha = blend.secondary ? blend.mix : 0;
+        hitTargets = [];
+
+        drawMapBase(width, height);
+
+        blend.primary.regions.forEach((region) => drawRegion(region, width, height, blend.primary.color, primaryAlpha));
+        blend.primary.routes.forEach((route) => drawRoute(route, width, height, primaryAlpha));
+        blend.primary.cities.forEach((city) => drawCity(city, width, height, blend.primary.color, primaryAlpha));
+
+        if (blend.secondary) {
+          blend.secondary.regions.forEach((region) => drawRegion(region, width, height, blend.secondary.color, secondaryAlpha));
+          blend.secondary.routes.forEach((route) => drawRoute(route, width, height, secondaryAlpha));
+          blend.secondary.cities.forEach((city) => drawCity(city, width, height, blend.secondary.color, secondaryAlpha));
+        }
+
+        ctx.fillStyle = "rgba(55, 34, 18, 0.55)";
+        ctx.font = '16px Georgia, "Times New Roman", serif';
+        ctx.fillText("Click highlighted regions or cities for local facts", 24, height - 24);
+      }
+
+      function formatYear(yearValue) {
+        if (yearValue < 1000) {
+          return `${Math.round(yearValue)} AD`;
+        }
+        return `${Math.round(yearValue)}`;
+      }
+
+      function describeTimelineWindow(blend) {
+        if (!blend.secondary) {
+          return {
+            anchorText: `Anchored at ${blend.primary.year} · ${blend.primary.label}`,
+            deltaHtml: "<strong>0 years</strong> from the selected anchor"
+          };
+        }
+
+        const lowerYear = Math.round(blend.primary.yearValue);
+        const upperYear = Math.round(blend.secondary.yearValue);
+        const lowerDelta = Math.round(currentYear - lowerYear);
+        const upperDelta = Math.round(upperYear - currentYear);
+
+        return {
+          anchorText: `Between ${blend.primary.year} · ${blend.primary.label} and ${blend.secondary.year} · ${blend.secondary.label}`,
+          deltaHtml: `<strong>${lowerDelta} years</strong> past ${blend.primary.year} and <strong>${upperDelta} years</strong> before ${blend.secondary.year}`
+        };
+      }
+
+      function syncEra(nextYear) {
+        currentYear = clampYear(Number(nextYear));
+        const blend = getEraBlend(currentYear);
+        const activeEra = eras[blend.primaryIndex];
+        index = blend.primaryIndex;
+        scrubber.value = String(Math.round(currentYear));
+        eraLabel.textContent = `${formatYear(currentYear)} · ${activeEra.label}`;
+        detailLabel.textContent = blend.secondary
+          ? `Transitioning from ${blend.primary.label} toward ${blend.secondary.label}`
+          : activeEra.detail;
+        yearReadout.textContent = `Year ${formatYear(currentYear)}`;
+        transitionLabel.textContent = blend.secondary
+          ? `${Math.round(blend.mix * 100)}% of the way from ${blend.primary.label} to ${blend.secondary.label}`
+          : `Anchored in ${activeEra.label}`;
+        transitionFill.style.width = `${blend.secondary ? Math.max(6, blend.mix * 100) : 100}%`;
+        const timelineWindow = describeTimelineWindow(blend);
+        anchorWindow.textContent = timelineWindow.anchorText;
+        yearDelta.innerHTML = timelineWindow.deltaHtml;
+        scrubber.setAttribute("aria-valuetext", `${formatYear(currentYear)} · ${timelineWindow.anchorText}`);
+        setButtonStates(blend);
+        updateEventList(mergeEvents(blend));
+        updateFact(resolveFactForBlend(blend));
+        draw();
+      }
+
+      function isPointInPolygon(x, y, points) {
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+          const [xi, yi] = points[i];
+          const [xj, yj] = points[j];
+          const intersects =
+            yi > y !== yj > y &&
+            x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-6) + xi;
+          if (intersects) inside = !inside;
+        }
+        return inside;
+      }
+
+      function resolveHit(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const x = clientX - rect.left;
+        const y = clientY - rect.top;
+        for (const target of hitTargets) {
+          if (target.type === "city") {
+            const dx = x - target.x;
+            const dy = y - target.y;
+            if (Math.hypot(dx, dy) <= target.radius) {
+              return target.fact;
+            }
+            continue;
+          }
+          if (target.type === "route") {
+            for (let pointIndex = 0; pointIndex < target.points.length - 1; pointIndex += 1) {
+              const [ax, ay] = target.points[pointIndex];
+              const [bx, by] = target.points[pointIndex + 1];
+              const dx = bx - ax;
+              const dy = by - ay;
+              const segmentLengthSq = dx * dx + dy * dy || 1;
+              const projection = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / segmentLengthSq));
+              const closestX = ax + projection * dx;
+              const closestY = ay + projection * dy;
+              if (Math.hypot(x - closestX, y - closestY) <= 12) {
+                return target.fact;
+              }
+            }
+            continue;
+          }
+          if (isPointInPolygon(x, y, target.points)) {
+            return target.fact;
+          }
+        }
+        return null;
+      }
+
+      function updateHoverState(clientX, clientY) {
+        const fact = resolveHit(clientX, clientY);
+        mapCard.classList.toggle("active-target", Boolean(fact));
+      }
+
+      function tick() {
+        dashPhase = (dashPhase + 0.75) % 24;
+        draw();
+        window.requestAnimationFrame(tick);
+      }
+
+      function buildPresets() {
+        eras.forEach((era, eraIndex) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "secondary";
+          button.textContent = `${era.year} · ${era.label}`;
+          button.addEventListener("click", () => syncEra(era.yearValue));
+          presetRow.appendChild(button);
+          presetButtons.push(button);
+        });
+      }
+
+      function buildTimelineMarkers() {
+        eras.forEach((era, eraIndex) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "secondary";
+          button.setAttribute("aria-label", `Jump to ${era.year} ${era.label}`);
+          button.innerHTML = `<span class="marker-year">${era.year}</span><span class="marker-label">${era.label}</span>`;
+          button.addEventListener("click", () => {
+            stopPlayback();
+            syncEra(era.yearValue);
+          });
+          timelineMarkers.appendChild(button);
+          markerButtons.push(button);
+        });
+      }
+
+      function stopPlayback() {
+        playing = false;
+        playButton.textContent = "Play";
+        if (playHandle) {
+          window.clearInterval(playHandle);
+          playHandle = null;
+        }
+      }
+
+      playButton.addEventListener("click", () => {
+        if (playing) {
+          stopPlayback();
+          return;
+        }
+        playing = true;
+        playButton.textContent = "Pause";
+        playHandle = window.setInterval(() => {
+          const nextYear = currentYear >= eras[eras.length - 1].yearValue ? eras[0].yearValue : Math.min(currentYear + 18, eras[eras.length - 1].yearValue);
+          syncEra(nextYear);
+        }, 120);
+      });
+
+      resetButton.addEventListener("click", () => {
+        stopPlayback();
+        syncEra(eras[0].yearValue);
+      });
+
+      factReset.addEventListener("click", () => {
+        updateFact(null);
+        draw();
+      });
+
+      scrubber.addEventListener("input", (event) => {
+        stopPlayback();
+        syncEra(event.target.value);
+      });
+
+      canvas.addEventListener("mousemove", (event) => {
+        updateHoverState(event.clientX, event.clientY);
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        mapCard.classList.remove("active-target");
+      });
+
+      canvas.addEventListener("click", (event) => {
+        const fact = resolveHit(event.clientX, event.clientY);
+        updateFact(fact);
+      });
+
+      canvas.addEventListener("touchstart", (event) => {
+        event.preventDefault();
+        const touch = event.touches[0];
+        if (!touch) return;
+        updateHoverState(touch.clientX, touch.clientY);
+        const fact = resolveHit(touch.clientX, touch.clientY);
+        updateFact(fact);
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", (event) => {
+        event.preventDefault();
+        const touch = event.touches[0];
+        if (!touch) return;
+        updateHoverState(touch.clientX, touch.clientY);
+      }, { passive: false });
+
+      canvas.addEventListener("touchend", () => {
+        mapCard.classList.remove("active-target");
+      });
+
+      window.addEventListener("keydown", (event) => {
+        const tagName = event.target && event.target.tagName ? event.target.tagName : "";
+        if (tagName === "INPUT" || tagName === "BUTTON" || event.metaKey || event.ctrlKey || event.altKey) {
+          return;
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          stopPlayback();
+          syncEra(Math.min(currentYear + 24, eras[eras.length - 1].yearValue));
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          stopPlayback();
+          syncEra(Math.max(currentYear - 24, eras[0].yearValue));
+          return;
+        }
+        if (event.key === "Home") {
+          event.preventDefault();
+          stopPlayback();
+          syncEra(eras[0].yearValue);
+          return;
+        }
+        if (event.key === "End") {
+          event.preventDefault();
+          stopPlayback();
+          syncEra(eras[eras.length - 1].yearValue);
+          return;
+        }
+        if (event.key === "PageDown") {
+          event.preventDefault();
+          stopPlayback();
+          const nextEra = eras.find((era) => era.yearValue > currentYear);
+          syncEra((nextEra || eras[eras.length - 1]).yearValue);
+          return;
+        }
+        if (event.key === "PageUp") {
+          event.preventDefault();
+          stopPlayback();
+          const previousEra = [...eras].reverse().find((era) => era.yearValue < currentYear);
+          syncEra((previousEra || eras[0]).yearValue);
+          return;
+        }
+        if (event.key === " ") {
+          event.preventDefault();
+          playButton.click();
+        }
+      });
+
+      buildPresets();
+      buildTimelineMarkers();
+      syncEra(eras[0].yearValue);
+      resizeCanvas();
+      window.requestAnimationFrame(tick);
+      window.addEventListener("resize", resizeCanvas);
+    </script>
+  </body>
+</html>

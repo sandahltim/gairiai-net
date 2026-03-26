@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Strange Attractor Symphony</title>
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --canvas-bg: #030308;
+        --panel-bg: rgba(8, 8, 15, 0.82);
+        --panel-border: rgba(120, 100, 255, 0.16);
+        --text-main: #c8c8e0;
+        --text-dim: #4e4e72;
+        --text-soft: rgba(200, 200, 224, 0.72);
+        --accent: #7860ff;
+        --accent-glow: rgba(120, 96, 255, 0.24);
+        --btn-bg: rgba(17, 17, 40, 0.92);
+        --btn-active: rgba(42, 32, 96, 0.96);
+        --danger: #ff7d9f;
+        --sheet-shadow: 0 -28px 80px rgba(0, 0, 0, 0.48);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at 18% 16%, rgba(120, 96, 255, 0.16), transparent 26%),
+          radial-gradient(circle at 82% 8%, rgba(255, 110, 70, 0.08), transparent 22%),
+          linear-gradient(180deg, #06060a 0%, #0a0a0f 45%, #05050a 100%);
+        color: var(--text-main);
+        font-family: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      button {
+        border: 0;
+        background: none;
+        cursor: pointer;
+      }
+
+      #app {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at center, rgba(56, 40, 128, 0.08), transparent 32%),
+          linear-gradient(180deg, rgba(3, 3, 8, 0.96), rgba(10, 10, 15, 0.98));
+      }
+
+      #glCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        background: var(--canvas-bg);
+        touch-action: none;
+      }
+
+      .panel {
+        position: absolute;
+        z-index: 4;
+        border: 1px solid var(--panel-border);
+        background: var(--panel-bg);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.38);
+      }
+
+      #hero {
+        top: 14px;
+        left: 14px;
+        width: min(340px, calc(100vw - 28px));
+        border-radius: 22px;
+        padding: 14px 15px 16px;
+      }
+
+      #eyebrow {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      #title {
+        margin-top: 8px;
+        font-size: clamp(1.85rem, 6vw, 2.75rem);
+        line-height: 0.94;
+        letter-spacing: 0.01em;
+      }
+
+      #summary {
+        margin-top: 10px;
+        max-width: 28ch;
+        font-size: 0.93rem;
+        line-height: 1.46;
+        color: var(--text-soft);
+      }
+
+      #heroStats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .stat {
+        min-height: 60px;
+        padding: 9px 10px;
+        border-radius: 16px;
+        border: 1px solid rgba(120, 96, 255, 0.18);
+        background: rgba(120, 96, 255, 0.08);
+      }
+
+      .stat-label {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      .stat-value {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.94rem;
+        font-weight: 700;
+        color: var(--text-main);
+      }
+
+      #topRight {
+        top: 14px;
+        right: 14px;
+        width: min(200px, calc(100vw - 28px));
+        border-radius: 20px;
+        padding: 12px 14px;
+      }
+
+      #attractorLabel {
+        font-size: 0.85rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      #paramReadout {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .readoutRow {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-family: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
+        font-size: 0.76rem;
+        color: var(--text-soft);
+      }
+
+      .readoutRow strong {
+        color: var(--text-main);
+      }
+
+      #scatterFloating {
+        position: absolute;
+        right: 16px;
+        bottom: calc(20px + var(--safe-bottom));
+        z-index: 7;
+        min-width: 132px;
+        min-height: 48px;
+        padding: 12px 16px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(255, 86, 126, 0.94), rgba(120, 96, 255, 0.94));
+        box-shadow:
+          0 16px 38px rgba(120, 96, 255, 0.22),
+          0 0 26px rgba(255, 86, 126, 0.28);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      #sheet {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 6;
+        padding: 10px 12px calc(12px + var(--safe-bottom));
+        background: linear-gradient(180deg, rgba(6, 6, 14, 0.8), rgba(8, 8, 14, 0.96));
+        border-top: 1px solid rgba(120, 96, 255, 0.14);
+        box-shadow: var(--sheet-shadow);
+        transform: translateY(calc(100% - 78px));
+        transition: transform 220ms ease;
+      }
+
+      #sheet[data-open="true"] {
+        transform: translateY(0);
+      }
+
+      #sheetHandle {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 54px;
+        padding: 0 4px;
+      }
+
+      #sheetGrabber {
+        width: 42px;
+        height: 5px;
+        border-radius: 999px;
+        background: rgba(200, 200, 224, 0.2);
+      }
+
+      #sheetTitle {
+        font-size: 0.8rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      #sheetHint {
+        margin-left: auto;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      #tabRow {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .tabBtn {
+        min-height: 44px;
+        padding: 10px 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(120, 96, 255, 0.16);
+        background: var(--btn-bg);
+        color: var(--text-soft);
+        font-weight: 600;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          color 160ms ease;
+      }
+
+      .tabBtn[data-active="true"] {
+        background: var(--btn-active);
+        border-color: rgba(120, 96, 255, 0.42);
+        color: var(--text-main);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), 0 0 28px rgba(120, 96, 255, 0.14);
+      }
+
+      #controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      #sliderDeck {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .sliderCard {
+        padding: 12px;
+        border-radius: 18px;
+        background: rgba(18, 18, 30, 0.9);
+        border: 1px solid rgba(120, 96, 255, 0.12);
+      }
+
+      .sliderTop {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 10px;
+        font-family: "IBM Plex Mono", "SFMono-Regular", "Cascadia Code", monospace;
+      }
+
+      .sliderTop span:first-child {
+        font-size: 0.8rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-dim);
+      }
+
+      .sliderTop span:last-child {
+        font-size: 0.95rem;
+        color: var(--text-main);
+      }
+
+      .sliderInput {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      #actionRow {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .actionBtn {
+        min-height: 48px;
+        padding: 12px 14px;
+        border-radius: 18px;
+        background: rgba(18, 18, 32, 0.94);
+        border: 1px solid rgba(120, 96, 255, 0.2);
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .actionBtn[data-active="true"] {
+        border-color: rgba(255, 125, 159, 0.42);
+        background: rgba(64, 24, 48, 0.96);
+        color: #ffd5e0;
+      }
+
+      #footerHint {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      #desktopScatterRow {
+        display: none;
+      }
+
+      @media (min-width: 860px) {
+        #sheet {
+          left: 0;
+          right: 0;
+          transform: translateY(0);
+          padding: 14px 18px calc(14px + var(--safe-bottom));
+        }
+
+        #sheetHandle {
+          min-height: auto;
+          padding: 0;
+          margin-bottom: 12px;
+        }
+
+        #sheetGrabber,
+        #sheetHint {
+          display: none;
+        }
+
+        #tabRow {
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        #controls {
+          display: grid;
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr);
+          gap: 16px;
+          align-items: start;
+        }
+
+        #sliderDeck {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        #desktopScatterRow {
+          display: grid;
+        }
+
+        #scatterFloating {
+          display: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        #heroStats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #topRight {
+          top: auto;
+          right: 14px;
+          bottom: 96px;
+          width: min(180px, calc(100vw - 28px));
+        }
+
+        #summary {
+          max-width: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="glCanvas" aria-label="WebGL view of the active strange attractor"></canvas>
+
+      <section id="hero" class="panel" aria-live="polite">
+        <span id="eyebrow">Chaos Explorer</span>
+        <div id="title">Strange Attractor Symphony</div>
+        <div id="summary">
+          Five famous dynamical systems, 5,000 simultaneous trajectories, and a dark-stage WebGL renderer
+          that turns deterministic equations into luminous weather.
+        </div>
+        <div id="heroStats">
+          <div class="stat">
+            <span class="stat-label">Particles</span>
+            <span id="particleCount" class="stat-value">5000</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">FPS</span>
+            <span id="fpsValue" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Mode</span>
+            <span id="modeValue" class="stat-value">Lorenz</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="topRight" class="panel">
+        <div id="attractorLabel">Active parameters</div>
+        <div id="paramReadout" aria-live="polite"></div>
+      </section>
+
+      <button id="scatterFloating" type="button" aria-label="Scatter all particles and let the attractor reform">
+        Scatter
+      </button>
+
+      <section id="sheet" data-open="false" aria-label="Attractor controls">
+        <button id="sheetHandle" type="button" aria-expanded="false" aria-controls="controls">
+          <div id="sheetGrabber" aria-hidden="true"></div>
+          <div id="sheetTitle">Attractor Controls</div>
+          <div id="sheetHint">Tap to expand</div>
+        </button>
+
+        <div id="controls">
+          <div>
+            <div id="tabRow" role="tablist" aria-label="Choose a strange attractor"></div>
+            <div id="sliderDeck"></div>
+          </div>
+
+          <div>
+            <div id="actionRow">
+              <button id="desktopScatter" class="actionBtn" type="button" aria-label="Scatter particles">
+                Scatter
+              </button>
+              <button id="freezeBtn" class="actionBtn" type="button" aria-pressed="false" aria-label="Freeze or resume the simulation">
+                Freeze
+              </button>
+            </div>
+            <div id="footerHint">
+              <span>Drag to rotate</span>
+              <span id="phaseLabel">Auto orbiting</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      (() => {
+        "use strict";
+
+        const canvas = document.getElementById("glCanvas");
+        const particleCountEl = document.getElementById("particleCount");
+        const fpsValueEl = document.getElementById("fpsValue");
+        const modeValueEl = document.getElementById("modeValue");
+        const paramReadoutEl = document.getElementById("paramReadout");
+        const tabRow = document.getElementById("tabRow");
+        const sliderDeck = document.getElementById("sliderDeck");
+        const desktopScatter = document.getElementById("desktopScatter");
+        const scatterFloating = document.getElementById("scatterFloating");
+        const freezeBtn = document.getElementById("freezeBtn");
+        const sheet = document.getElementById("sheet");
+        const sheetHandle = document.getElementById("sheetHandle");
+        const sheetHint = document.getElementById("sheetHint");
+        const phaseLabel = document.getElementById("phaseLabel");
+
+        const gl = canvas.getContext("webgl", {
+          antialias: true,
+          alpha: false,
+          premultipliedAlpha: false,
+        });
+
+        if (!gl) {
+          throw new Error("WebGL is required for Strange Attractor Symphony.");
+        }
+
+        const PARTICLE_COUNT = 5000;
+        const DIM_LIMIT = 200;
+        const BASE_DT = 0.005;
+        const MOBILE_BREAKPOINT = 860;
+
+        const ATTRACTORS = {
+          lorenz: {
+            label: "Lorenz",
+            description: "Butterfly convection rolls and sharp lobe switching.",
+            palette: [
+              [1.0, 0.38, 0.19],
+              [1.0, 0.69, 0.19],
+              [1.0, 0.98, 0.96],
+            ],
+            scale: 0.06,
+            pointSize: 2.8,
+            init: () => ({
+              x: 0.1 + jitter(0.018),
+              y: jitter(0.018),
+              z: jitter(0.018),
+            }),
+            params: {
+              sigma: { label: "Sigma", min: 1, max: 20, value: 10, step: 0.01, impact: 2 },
+              rho: { label: "Rho", min: 14, max: 50, value: 28, step: 0.01, impact: 1 },
+              beta: { label: "Beta", min: 0.5, max: 6, value: 8 / 3, step: 0.01, impact: 3 },
+            },
+            derivative(x, y, z, p, out) {
+              out[0] = p.sigma * (y - x);
+              out[1] = x * (p.rho - z) - y;
+              out[2] = x * y - p.beta * z;
+            },
+          },
+          rossler: {
+            label: "Rossler",
+            description: "A rolled spiral with calm drift and sudden extrusion.",
+            palette: [
+              [0.19, 0.63, 1.0],
+              [0.63, 0.19, 1.0],
+              [1.0, 0.19, 0.63],
+            ],
+            scale: 0.09,
+            pointSize: 2.7,
+            init: () => ({
+              x: 0.12 + jitter(0.04),
+              y: jitter(0.04),
+              z: jitter(0.04),
+            }),
+            params: {
+              c: { label: "C", min: 2, max: 8, value: 5.7, step: 0.01, impact: 1 },
+              a: { label: "A", min: 0.1, max: 0.5, value: 0.2, step: 0.005, impact: 2 },
+              b: { label: "B", min: 0.05, max: 0.5, value: 0.2, step: 0.005, impact: 3 },
+            },
+            derivative(x, y, z, p, out) {
+              out[0] = -(y + z);
+              out[1] = x + p.a * y;
+              out[2] = p.b + z * (x - p.c);
+            },
+          },
+          halvorsen: {
+            label: "Halvorsen",
+            description: "A harsher, alien shell carved out of repeated folds.",
+            palette: [
+              [0.19, 1.0, 0.56],
+              [0.19, 1.0, 1.0],
+              [1.0, 1.0, 1.0],
+            ],
+            scale: 0.08,
+            pointSize: 2.9,
+            init: () => ({
+              x: 1.0 + jitter(0.08),
+              y: jitter(0.08),
+              z: -1.0 + jitter(0.08),
+            }),
+            params: {
+              a: { label: "A", min: 1.3, max: 2.5, value: 1.89, step: 0.01, impact: 1 },
+            },
+            derivative(x, y, z, p, out) {
+              out[0] = -p.a * x - 4 * y - 4 * z - y * y;
+              out[1] = -p.a * y - 4 * z - 4 * x - z * z;
+              out[2] = -p.a * z - 4 * x - 4 * y - x * x;
+            },
+          },
+          thomas: {
+            label: "Thomas",
+            description: "Slow crystalline drift with nearly perfect symmetry.",
+            palette: [
+              [0.56, 0.38, 1.0],
+              [1.0, 0.38, 0.75],
+              [1.0, 0.82, 0.5],
+            ],
+            scale: 0.24,
+            pointSize: 2.6,
+            init: () => ({
+              x: 0.1 + jitter(0.18),
+              y: 0.1 + jitter(0.18),
+              z: 0.1 + jitter(0.18),
+            }),
+            params: {
+              b: { label: "B", min: 0.1, max: 0.3, value: 0.19, step: 0.001, impact: 1 },
+            },
+            derivative(x, y, z, p, out) {
+              out[0] = Math.sin(y) - p.b * x;
+              out[1] = Math.sin(z) - p.b * y;
+              out[2] = Math.sin(x) - p.b * z;
+            },
+          },
+          dadras: {
+            label: "Dadras",
+            description: "Plasma petals with hotter branching acceleration.",
+            palette: [
+              [1.0, 0.19, 0.38],
+              [1.0, 0.38, 0.0],
+              [1.0, 1.0, 0.19],
+            ],
+            scale: 0.08,
+            pointSize: 2.95,
+            init: () => ({
+              x: 0.1 + jitter(0.03),
+              y: 0.1 + jitter(0.03),
+              z: 0.1 + jitter(0.03),
+            }),
+            params: {
+              p: { label: "P", min: 2, max: 5, value: 3, step: 0.01, impact: 1 },
+              q: { label: "Q", min: 1, max: 4, value: 2.7, step: 0.01, impact: 2 },
+              r: { label: "R", min: 1, max: 3, value: 1.7, step: 0.01, impact: 3 },
+              s: { label: "S", min: 1, max: 3, value: 2, step: 0.01, impact: 4 },
+              e: { label: "E", min: 4, max: 12, value: 9, step: 0.01, impact: 5 },
+            },
+            derivative(x, y, z, p, out) {
+              out[0] = y - p.p * x + p.q * y * z;
+              out[1] = p.r * y - x * z + z;
+              out[2] = p.s * x * y - p.e * z;
+            },
+          },
+        };
+
+        const state = {
+          width: 0,
+          height: 0,
+          dpr: Math.min(window.devicePixelRatio || 1, 2),
+          activeKey: "lorenz",
+          currentKey: "lorenz",
+          theta: 0,
+          phi: Math.PI / 6,
+          thetaVelocity: 0.003,
+          autoRotateEnabled: true,
+          autoRotateResumeAt: 0,
+          drag: {
+            active: false,
+            pointerId: null,
+            x: 0,
+            y: 0,
+            theta: 0,
+            phi: 0,
+          },
+          frozen: false,
+          transition: {
+            active: false,
+            stage: "idle",
+            stageStart: 0,
+            pendingKey: null,
+            alphaMultiplier: 1,
+            paletteBlend: 1,
+          },
+          speedHistory: new Float32Array(100),
+          speedHistoryIndex: 0,
+          speedMax: 1,
+          fpsWindow: [],
+          lastFrameTime: 0,
+          isMobile: window.innerWidth < MOBILE_BREAKPOINT,
+          sheetOpen: window.innerWidth >= MOBILE_BREAKPOINT,
+          animationFrame: 0,
+        };
+
+        const particle = {
+          x: new Float32Array(PARTICLE_COUNT),
+          y: new Float32Array(PARTICLE_COUNT),
+          z: new Float32Array(PARTICLE_COUNT),
+          age: new Float32Array(PARTICLE_COUNT),
+          speed: new Float32Array(PARTICLE_COUNT),
+          positionData: new Float32Array(PARTICLE_COUNT * 3),
+          colorData: new Float32Array(PARTICLE_COUNT * 4),
+          sizeData: new Float32Array(PARTICLE_COUNT),
+        };
+
+        const currentParams = {};
+        const targetParams = {};
+        const displayParams = {};
+        const tempVecA = [0, 0, 0];
+        const tempVecB = [0, 0, 0];
+        const tempVecC = [0, 0, 0];
+        const tempVecD = [0, 0, 0];
+
+        let pointProgram = null;
+        let fadeProgram = null;
+        let pointLocations = null;
+        let fadeLocations = null;
+        let pointBuffers = null;
+        let fadeBuffer = null;
+        let tabButtons = [];
+        let sliderControls = [];
+
+        function jitter(amount) {
+          return (Math.random() * 2 - 1) * amount;
+        }
+
+        function lerp(a, b, t) {
+          return a + (b - a) * t;
+        }
+
+        function clamp(value, min, max) {
+          return Math.min(max, Math.max(min, value));
+        }
+
+        function smoothstep(min, max, value) {
+          const t = clamp((value - min) / (max - min), 0, 1);
+          return t * t * (3 - 2 * t);
+        }
+
+        function mixColor(palette, t) {
+          const limited = clamp(t, 0, 1);
+          const scaled = limited * (palette.length - 1);
+          const index = Math.min(palette.length - 2, Math.floor(scaled));
+          const localT = scaled - index;
+          const a = palette[index];
+          const b = palette[index + 1];
+          return [
+            lerp(a[0], b[0], localT),
+            lerp(a[1], b[1], localT),
+            lerp(a[2], b[2], localT),
+          ];
+        }
+
+        function createShader(type, source) {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            throw new Error(gl.getShaderInfoLog(shader) || "Unknown shader compile error");
+          }
+          return shader;
+        }
+
+        function createProgram(vertexSource, fragmentSource) {
+          const program = gl.createProgram();
+          const vertexShader = createShader(gl.VERTEX_SHADER, vertexSource);
+          const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentSource);
+          gl.attachShader(program, vertexShader);
+          gl.attachShader(program, fragmentShader);
+          gl.linkProgram(program);
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(program) || "Unknown program link error");
+          }
+          gl.deleteShader(vertexShader);
+          gl.deleteShader(fragmentShader);
+          return program;
+        }
+
+        function buildPrograms() {
+          pointProgram = createProgram(
+            `
+            attribute vec3 aPosition;
+            attribute vec4 aColor;
+            attribute float aSize;
+            varying vec4 vColor;
+            void main() {
+              gl_Position = vec4(aPosition, 1.0);
+              gl_PointSize = aSize;
+              vColor = aColor;
+            }
+          `,
+            `
+            precision mediump float;
+            varying vec4 vColor;
+            void main() {
+              vec2 coord = gl_PointCoord - vec2(0.5);
+              float dist = length(coord);
+              if (dist > 0.5) {
+                discard;
+              }
+              float glow = pow(1.0 - dist * 2.0, 1.8);
+              gl_FragColor = vec4(vColor.rgb, vColor.a * glow);
+            }
+          `,
+          );
+
+          fadeProgram = createProgram(
+            `
+            attribute vec2 aQuad;
+            void main() {
+              gl_Position = vec4(aQuad, 0.0, 1.0);
+            }
+          `,
+            `
+            precision mediump float;
+            uniform vec4 uFade;
+            void main() {
+              gl_FragColor = uFade;
+            }
+          `,
+          );
+
+          pointLocations = {
+            position: gl.getAttribLocation(pointProgram, "aPosition"),
+            color: gl.getAttribLocation(pointProgram, "aColor"),
+            size: gl.getAttribLocation(pointProgram, "aSize"),
+          };
+
+          fadeLocations = {
+            quad: gl.getAttribLocation(fadeProgram, "aQuad"),
+            fade: gl.getUniformLocation(fadeProgram, "uFade"),
+          };
+
+          pointBuffers = {
+            position: gl.createBuffer(),
+            color: gl.createBuffer(),
+            size: gl.createBuffer(),
+          };
+
+          fadeBuffer = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, fadeBuffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array([
+              -1, -1,
+              3, -1,
+              -1, 3,
+            ]),
+            gl.STATIC_DRAW,
+          );
+
+          gl.enable(gl.BLEND);
+        }
+
+        function setupParamsForKey(key) {
+          const definition = ATTRACTORS[key];
+          const keys = Object.keys(definition.params);
+          keys.forEach((paramKey) => {
+            const value = definition.params[paramKey].value;
+            currentParams[paramKey] = value;
+            targetParams[paramKey] = value;
+            displayParams[paramKey] = value;
+          });
+        }
+
+        function adoptDefinitionParams(key, preserveCurrent) {
+          const definition = ATTRACTORS[key];
+          const freshCurrent = {};
+          const freshTarget = {};
+          const freshDisplay = {};
+          Object.keys(definition.params).forEach((paramKey) => {
+            const fallback = definition.params[paramKey].value;
+            const current = preserveCurrent && currentParams[paramKey] !== undefined ? currentParams[paramKey] : fallback;
+            const target = preserveCurrent && targetParams[paramKey] !== undefined ? targetParams[paramKey] : fallback;
+            freshCurrent[paramKey] = current;
+            freshTarget[paramKey] = target;
+            freshDisplay[paramKey] = preserveCurrent && displayParams[paramKey] !== undefined ? displayParams[paramKey] : fallback;
+          });
+
+          Object.keys(currentParams).forEach((keyToDelete) => delete currentParams[keyToDelete]);
+          Object.keys(targetParams).forEach((keyToDelete) => delete targetParams[keyToDelete]);
+          Object.keys(displayParams).forEach((keyToDelete) => delete displayParams[keyToDelete]);
+
+          Object.assign(currentParams, freshCurrent);
+          Object.assign(targetParams, freshTarget);
+          Object.assign(displayParams, freshDisplay);
+        }
+
+        function initializeParticles(key, mode) {
+          const definition = ATTRACTORS[key];
+          for (let index = 0; index < PARTICLE_COUNT; index += 1) {
+            const seed = definition.init();
+            if (mode === "scatter") {
+              particle.x[index] = Math.random() * 60 - 30;
+              particle.y[index] = Math.random() * 60 - 30;
+              particle.z[index] = Math.random() * 60 - 30;
+            } else if (mode === "far") {
+              particle.x[index] = seed.x + jitter(4);
+              particle.y[index] = seed.y + jitter(4);
+              particle.z[index] = seed.z + jitter(4);
+            } else {
+              particle.x[index] = seed.x;
+              particle.y[index] = seed.y;
+              particle.z[index] = seed.z;
+            }
+            particle.age[index] = Math.random() * 220;
+            particle.speed[index] = 0;
+          }
+        }
+
+        function reseedParticle(index, key) {
+          const seed = ATTRACTORS[key].init();
+          particle.x[index] = seed.x + jitter(0.025);
+          particle.y[index] = seed.y + jitter(0.025);
+          particle.z[index] = seed.z + jitter(0.025);
+          particle.age[index] = 0;
+          particle.speed[index] = 0;
+        }
+
+        function derivativeForKey(key, x, y, z, params, out) {
+          ATTRACTORS[key].derivative(x, y, z, params, out);
+          return out;
+        }
+
+        function rk4Step(index, key, dt) {
+          const x = particle.x[index];
+          const y = particle.y[index];
+          const z = particle.z[index];
+
+          derivativeForKey(key, x, y, z, currentParams, tempVecA);
+          derivativeForKey(
+            key,
+            x + tempVecA[0] * dt * 0.5,
+            y + tempVecA[1] * dt * 0.5,
+            z + tempVecA[2] * dt * 0.5,
+            currentParams,
+            tempVecB,
+          );
+          derivativeForKey(
+            key,
+            x + tempVecB[0] * dt * 0.5,
+            y + tempVecB[1] * dt * 0.5,
+            z + tempVecB[2] * dt * 0.5,
+            currentParams,
+            tempVecC,
+          );
+          derivativeForKey(
+            key,
+            x + tempVecC[0] * dt,
+            y + tempVecC[1] * dt,
+            z + tempVecC[2] * dt,
+            currentParams,
+            tempVecD,
+          );
+
+          const dx = (tempVecA[0] + 2 * tempVecB[0] + 2 * tempVecC[0] + tempVecD[0]) * dt / 6;
+          const dy = (tempVecA[1] + 2 * tempVecB[1] + 2 * tempVecC[1] + tempVecD[1]) * dt / 6;
+          const dz = (tempVecA[2] + 2 * tempVecB[2] + 2 * tempVecC[2] + tempVecD[2]) * dt / 6;
+
+          particle.x[index] = x + dx;
+          particle.y[index] = y + dy;
+          particle.z[index] = z + dz;
+          particle.speed[index] = Math.sqrt(dx * dx + dy * dy + dz * dz) / Math.max(dt, 1e-6);
+          particle.age[index] += 1;
+        }
+
+        function blendParameters() {
+          const paramKeys = Object.keys(targetParams);
+          for (let index = 0; index < paramKeys.length; index += 1) {
+            const key = paramKeys[index];
+            currentParams[key] = lerp(currentParams[key], targetParams[key], 0.035);
+            displayParams[key] = lerp(displayParams[key], targetParams[key], 0.15);
+          }
+        }
+
+        function updateSpeedHistory(frameMax) {
+          state.speedHistory[state.speedHistoryIndex] = frameMax;
+          state.speedHistoryIndex = (state.speedHistoryIndex + 1) % state.speedHistory.length;
+          let runningMax = 0.1;
+          for (let index = 0; index < state.speedHistory.length; index += 1) {
+            runningMax = Math.max(runningMax, state.speedHistory[index]);
+          }
+          state.speedMax = runningMax;
+        }
+
+        function integrateParticles(deltaSeconds) {
+          if (state.frozen) {
+            return;
+          }
+
+          blendParameters();
+          const substeps = state.transition.active ? 1 : 2;
+          const scaledDt = BASE_DT * Math.min(deltaSeconds / (1 / 60), 1.4);
+          let frameMaxSpeed = 0;
+
+          for (let step = 0; step < substeps; step += 1) {
+            for (let index = 0; index < PARTICLE_COUNT; index += 1) {
+              rk4Step(index, state.currentKey, scaledDt);
+              const magnitude = Math.abs(particle.x[index]) + Math.abs(particle.y[index]) + Math.abs(particle.z[index]);
+              if (!Number.isFinite(magnitude) || magnitude > DIM_LIMIT) {
+                reseedParticle(index, state.currentKey);
+              }
+              frameMaxSpeed = Math.max(frameMaxSpeed, particle.speed[index]);
+            }
+          }
+
+          updateSpeedHistory(frameMaxSpeed);
+        }
+
+        function computeProjection() {
+          const definition = ATTRACTORS[state.currentKey];
+          const scale = definition.scale * Math.min(state.width, state.height);
+          const cosTheta = Math.cos(state.theta);
+          const sinTheta = Math.sin(state.theta);
+          const cosPhi = Math.cos(state.phi);
+          const sinPhi = Math.sin(state.phi);
+          const paletteBlend = state.transition.active ? state.transition.paletteBlend : 1;
+
+          for (let index = 0; index < PARTICLE_COUNT; index += 1) {
+            const x = particle.x[index];
+            const y = particle.y[index];
+            const z = particle.z[index];
+
+            const rx = x * cosTheta - y * sinTheta;
+            const ry = x * sinTheta * sinPhi + y * cosTheta * sinPhi + z * cosPhi;
+            const rz = x * sinTheta * cosPhi + y * cosTheta * cosPhi - z * sinPhi;
+
+            const depth = 1 / (1 + rz * 0.02 + 1.8);
+            const screenX = rx * scale * depth;
+            const screenY = ry * scale * depth;
+
+            const posIndex = index * 3;
+            particle.positionData[posIndex] = screenX / (state.width * 0.5);
+            particle.positionData[posIndex + 1] = -screenY / (state.height * 0.5);
+            particle.positionData[posIndex + 2] = clamp(depth, 0, 1);
+
+            const speedNormalized = clamp(particle.speed[index] / state.speedMax, 0, 1);
+            const agePulse = 0.5 + 0.5 * Math.sin(particle.age[index] * 0.035 + index * 0.001);
+            const color = mixColor(definition.palette, clamp(speedNormalized * 0.9 + agePulse * 0.2, 0, 1));
+            const alpha = (0.22 + speedNormalized * 0.64) * state.transition.alphaMultiplier;
+            const colorIndex = index * 4;
+            particle.colorData[colorIndex] = color[0] * paletteBlend;
+            particle.colorData[colorIndex + 1] = color[1] * paletteBlend;
+            particle.colorData[colorIndex + 2] = color[2] * paletteBlend;
+            particle.colorData[colorIndex + 3] = alpha;
+
+            const sizeBoost = definition.pointSize + speedNormalized * 2.4 + depth * 8;
+            particle.sizeData[index] = clamp(sizeBoost, 1.5, state.dpr * 8);
+          }
+        }
+
+        function drawFadeOverlay() {
+          gl.useProgram(fadeProgram);
+          gl.bindBuffer(gl.ARRAY_BUFFER, fadeBuffer);
+          gl.enableVertexAttribArray(fadeLocations.quad);
+          gl.vertexAttribPointer(fadeLocations.quad, 2, gl.FLOAT, false, 0, 0);
+          gl.disable(gl.DEPTH_TEST);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.uniform4f(
+            fadeLocations.fade,
+            0.02,
+            0.02,
+            0.04,
+            state.transition.active ? 0.11 : 0.08,
+          );
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+        }
+
+        function drawParticles() {
+          gl.useProgram(pointProgram);
+          gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffers.position);
+          gl.bufferData(gl.ARRAY_BUFFER, particle.positionData, gl.DYNAMIC_DRAW);
+          gl.enableVertexAttribArray(pointLocations.position);
+          gl.vertexAttribPointer(pointLocations.position, 3, gl.FLOAT, false, 0, 0);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffers.color);
+          gl.bufferData(gl.ARRAY_BUFFER, particle.colorData, gl.DYNAMIC_DRAW);
+          gl.enableVertexAttribArray(pointLocations.color);
+          gl.vertexAttribPointer(pointLocations.color, 4, gl.FLOAT, false, 0, 0);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, pointBuffers.size);
+          gl.bufferData(gl.ARRAY_BUFFER, particle.sizeData, gl.DYNAMIC_DRAW);
+          gl.enableVertexAttribArray(pointLocations.size);
+          gl.vertexAttribPointer(pointLocations.size, 1, gl.FLOAT, false, 0, 0);
+
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+          gl.drawArrays(gl.POINTS, 0, PARTICLE_COUNT);
+        }
+
+        function renderFrame(now) {
+          const time = now * 0.001;
+          if (!state.lastFrameTime) {
+            state.lastFrameTime = time;
+          }
+
+          const delta = clamp(time - state.lastFrameTime, 1 / 144, 0.05);
+          state.lastFrameTime = time;
+          state.animationFrame += 1;
+
+          updateFps(delta);
+          updateRotation(time, delta);
+          updateTransition(time);
+          integrateParticles(delta);
+          computeProjection();
+
+          if (state.animationFrame % 4 === 0) {
+            gl.disable(gl.BLEND);
+            gl.clearColor(0.02, 0.02, 0.04, 1);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
+
+          drawFadeOverlay();
+          drawParticles();
+
+          window.requestAnimationFrame(renderFrame);
+        }
+
+        function updateFps(delta) {
+          const fps = 1 / Math.max(delta, 1e-6);
+          state.fpsWindow.push(fps);
+          if (state.fpsWindow.length > 24) {
+            state.fpsWindow.shift();
+          }
+          let sum = 0;
+          for (let index = 0; index < state.fpsWindow.length; index += 1) {
+            sum += state.fpsWindow[index];
+          }
+          const average = sum / Math.max(state.fpsWindow.length, 1);
+          fpsValueEl.textContent = average.toFixed(0);
+        }
+
+        function updateRotation(time, delta) {
+          if (state.drag.active) {
+            phaseLabel.textContent = "Dragging orbit";
+            return;
+          }
+
+          if (!state.autoRotateEnabled && time >= state.autoRotateResumeAt) {
+            state.autoRotateEnabled = true;
+          }
+
+          if (state.autoRotateEnabled) {
+            state.theta += state.thetaVelocity * (delta * 60);
+            phaseLabel.textContent = state.transition.active ? "Phase shifting" : "Auto orbiting";
+          } else {
+            phaseLabel.textContent = "Manual orbit";
+          }
+        }
+
+        function updateTransition(time) {
+          if (!state.transition.active) {
+            state.transition.alphaMultiplier = 1;
+            state.transition.paletteBlend = 1;
+            return;
+          }
+
+          const elapsed = time - state.transition.stageStart;
+
+          if (state.transition.stage === "fade-out") {
+            state.transition.alphaMultiplier = 1 - smoothstep(0, 0.5, elapsed);
+            state.transition.paletteBlend = 1 - smoothstep(0, 0.5, elapsed) * 0.4;
+            if (elapsed >= 0.5) {
+              initializeParticles(state.transition.pendingKey, "scatter");
+              state.currentKey = state.transition.pendingKey;
+              adoptDefinitionParams(state.currentKey, false);
+              syncControls();
+              state.transition.stage = "reform";
+              state.transition.stageStart = time;
+            }
+            return;
+          }
+
+          if (state.transition.stage === "reform") {
+            state.transition.alphaMultiplier = 0.2 + smoothstep(0, 3.0, elapsed) * 0.8;
+            state.transition.paletteBlend = 0.5 + smoothstep(0, 2.0, elapsed) * 0.5;
+            if (elapsed >= 3.0) {
+              state.transition.active = false;
+              state.transition.stage = "idle";
+              state.transition.pendingKey = null;
+            }
+          }
+        }
+
+        function updateReadout() {
+          const definition = ATTRACTORS[state.currentKey];
+          modeValueEl.textContent = definition.label;
+          particleCountEl.textContent = String(PARTICLE_COUNT);
+
+          while (paramReadoutEl.firstChild) {
+            paramReadoutEl.removeChild(paramReadoutEl.firstChild);
+          }
+
+          Object.keys(definition.params).forEach((paramKey) => {
+            const row = document.createElement("div");
+            row.className = "readoutRow";
+
+            const keySpan = document.createElement("span");
+            keySpan.textContent = definition.params[paramKey].label;
+
+            const valueStrong = document.createElement("strong");
+            valueStrong.textContent = formatValue(displayParams[paramKey]);
+
+            row.appendChild(keySpan);
+            row.appendChild(valueStrong);
+            paramReadoutEl.appendChild(row);
+          });
+        }
+
+        function formatValue(value) {
+          if (Math.abs(value) >= 10) {
+            return value.toFixed(2);
+          }
+          if (Math.abs(value) >= 1) {
+            return value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+          }
+          return value.toFixed(3);
+        }
+
+        function buildTabs() {
+          tabButtons = [];
+          Object.keys(ATTRACTORS).forEach((key) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "tabBtn";
+            button.setAttribute("role", "tab");
+            button.setAttribute("aria-selected", key === state.currentKey ? "true" : "false");
+            button.dataset.key = key;
+            button.textContent = ATTRACTORS[key].label;
+            button.addEventListener("click", () => {
+              if (key !== state.currentKey && !state.transition.active) {
+                beginAttractorTransition(key);
+              }
+            });
+            tabRow.appendChild(button);
+            tabButtons.push(button);
+          });
+        }
+
+        function clearChildren(node) {
+          while (node.firstChild) {
+            node.removeChild(node.firstChild);
+          }
+        }
+
+        function buildSliders() {
+          clearChildren(sliderDeck);
+          sliderControls = [];
+          const definition = ATTRACTORS[state.currentKey];
+          const orderedKeys = Object.keys(definition.params).sort(
+            (a, b) => definition.params[a].impact - definition.params[b].impact,
+          );
+          const visibleKeys = state.isMobile ? orderedKeys.slice(0, Math.min(2, orderedKeys.length)) : orderedKeys;
+
+          visibleKeys.forEach((paramKey) => {
+            const config = definition.params[paramKey];
+            const card = document.createElement("label");
+            card.className = "sliderCard";
+            card.setAttribute("aria-label", `${definition.label} ${config.label} control`);
+
+            const top = document.createElement("div");
+            top.className = "sliderTop";
+
+            const name = document.createElement("span");
+            name.textContent = config.label;
+
+            const value = document.createElement("span");
+            value.textContent = formatValue(targetParams[paramKey]);
+
+            top.appendChild(name);
+            top.appendChild(value);
+
+            const input = document.createElement("input");
+            input.className = "sliderInput";
+            input.type = "range";
+            input.min = String(config.min);
+            input.max = String(config.max);
+            input.step = String(config.step);
+            input.value = String(targetParams[paramKey]);
+            input.setAttribute("aria-valuemin", String(config.min));
+            input.setAttribute("aria-valuemax", String(config.max));
+            input.setAttribute("aria-valuenow", String(targetParams[paramKey]));
+            input.addEventListener("input", () => {
+              const numeric = Number(input.value);
+              targetParams[paramKey] = numeric;
+              value.textContent = formatValue(numeric);
+              input.setAttribute("aria-valuenow", String(numeric));
+            });
+
+            card.appendChild(top);
+            card.appendChild(input);
+            sliderDeck.appendChild(card);
+            sliderControls.push({ key: paramKey, input, value });
+          });
+        }
+
+        function syncControls() {
+          tabButtons.forEach((button) => {
+            const isActive = button.dataset.key === state.currentKey;
+            button.dataset.active = isActive ? "true" : "false";
+            button.setAttribute("aria-selected", isActive ? "true" : "false");
+          });
+          buildSliders();
+          updateReadout();
+        }
+
+        function beginAttractorTransition(nextKey) {
+          state.activeKey = nextKey;
+          state.transition.active = true;
+          state.transition.stage = "fade-out";
+          state.transition.stageStart = performance.now() * 0.001;
+          state.transition.pendingKey = nextKey;
+          phaseLabel.textContent = `Switching to ${ATTRACTORS[nextKey].label}`;
+        }
+
+        function scatterParticles() {
+          initializeParticles(state.currentKey, "scatter");
+          phaseLabel.textContent = "Scatter event";
+        }
+
+        function setFrozen(frozen) {
+          state.frozen = frozen;
+          freezeBtn.dataset.active = frozen ? "true" : "false";
+          freezeBtn.setAttribute("aria-pressed", frozen ? "true" : "false");
+          freezeBtn.textContent = frozen ? "Resume" : "Freeze";
+          phaseLabel.textContent = frozen ? "Frozen frame" : "Auto orbiting";
+        }
+
+        function resizeCanvas() {
+          state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+          state.width = window.innerWidth;
+          state.height = window.innerHeight;
+          canvas.width = Math.floor(state.width * state.dpr);
+          canvas.height = Math.floor(state.height * state.dpr);
+          canvas.style.width = `${state.width}px`;
+          canvas.style.height = `${state.height}px`;
+          gl.viewport(0, 0, canvas.width, canvas.height);
+          state.isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+          if (!state.isMobile) {
+            state.sheetOpen = true;
+          }
+          updateSheetState();
+          buildSliders();
+        }
+
+        function updateSheetState() {
+          sheet.dataset.open = state.sheetOpen ? "true" : "false";
+          sheetHandle.setAttribute("aria-expanded", state.sheetOpen ? "true" : "false");
+          sheetHint.textContent = state.sheetOpen ? "Tap to collapse" : "Tap to expand";
+        }
+
+        function handlePointerDown(event) {
+          state.drag.active = true;
+          state.drag.pointerId = event.pointerId;
+          state.drag.x = event.clientX;
+          state.drag.y = event.clientY;
+          state.drag.theta = state.theta;
+          state.drag.phi = state.phi;
+          state.autoRotateEnabled = false;
+          canvas.setPointerCapture(event.pointerId);
+        }
+
+        function handlePointerMove(event) {
+          if (!state.drag.active || event.pointerId !== state.drag.pointerId) {
+            return;
+          }
+          const dx = event.clientX - state.drag.x;
+          const dy = event.clientY - state.drag.y;
+          state.theta = state.drag.theta + dx * 0.008;
+          state.phi = clamp(state.drag.phi + dy * 0.006, -Math.PI * 0.22, Math.PI * 0.48);
+        }
+
+        function handlePointerUp(event) {
+          if (!state.drag.active || event.pointerId !== state.drag.pointerId) {
+            return;
+          }
+          state.drag.active = false;
+          state.drag.pointerId = null;
+          state.autoRotateResumeAt = performance.now() * 0.001 + 3;
+          phaseLabel.textContent = "Manual orbit";
+        }
+
+        function wireEvents() {
+          desktopScatter.addEventListener("click", scatterParticles);
+          scatterFloating.addEventListener("click", scatterParticles);
+          freezeBtn.addEventListener("click", () => setFrozen(!state.frozen));
+          sheetHandle.addEventListener("click", () => {
+            if (window.innerWidth >= MOBILE_BREAKPOINT) {
+              return;
+            }
+            state.sheetOpen = !state.sheetOpen;
+            updateSheetState();
+          });
+          canvas.addEventListener("pointerdown", handlePointerDown);
+          canvas.addEventListener("pointermove", handlePointerMove);
+          canvas.addEventListener("pointerup", handlePointerUp);
+          canvas.addEventListener("pointercancel", handlePointerUp);
+          canvas.addEventListener("pointerleave", handlePointerUp);
+          window.addEventListener("resize", resizeCanvas);
+          window.addEventListener("keydown", (event) => {
+            if (event.code === "Space") {
+              event.preventDefault();
+              setFrozen(!state.frozen);
+            }
+            if (event.key.toLowerCase() === "s") {
+              scatterParticles();
+            }
+          });
+        }
+
+        function seedInitialState() {
+          adoptDefinitionParams("lorenz", false);
+          initializeParticles("lorenz", "seed");
+        }
+
+        function boot() {
+          buildPrograms();
+          seedInitialState();
+          buildTabs();
+          resizeCanvas();
+          syncControls();
+          wireEvents();
+          updateSheetState();
+          gl.clearColor(0.02, 0.02, 0.04, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          window.requestAnimationFrame(renderFrame);
+        }
+
+        boot();
+
+        window.setInterval(updateReadout, 120);
+      })();
+    </script>
+  </body>
+</html>
