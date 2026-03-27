@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Ray Portal</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --page: #0d0d1a;
+      --panel: #111122;
+      --panel-border: #1e1e3f;
+      --accent: #7c3aed;
+      --accent-strong: #6d28d9;
+      --accent-soft: #1a1040;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --track: #2a2a4a;
+      --thumb: #c084fc;
+      --code-bg: #0a0a18;
+      --code-gutter: #111122;
+      --error-bg: #2a0a0a;
+      --error-text: #ff6b6b;
+      --value: #86efac;
+      --operator: #f1a0c0;
+      --builtin: #60a5fa;
+      --comment: #4a4a6a;
+      --glow: rgba(124, 58, 237, 0.35);
+      --header-height: 68px;
+      color-scheme: dark;
+      font-family: "Inter", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(124, 58, 237, 0.15), transparent 28%),
+        radial-gradient(circle at 80% 0%, rgba(96, 165, 250, 0.08), transparent 22%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, rgba(13, 13, 26, 0.98), rgba(10, 10, 15, 0.98));
+    }
+
+    .header {
+      height: var(--header-height);
+      padding: 0 14px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(13, 13, 26, 0.95);
+      backdrop-filter: blur(14px);
+      position: relative;
+      z-index: 3;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background:
+        radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.18), transparent 38%),
+        radial-gradient(circle at center, rgba(124, 58, 237, 0.8), rgba(17, 17, 34, 0.4) 58%, rgba(17, 17, 34, 1) 72%);
+      box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.28), 0 0 26px rgba(124, 58, 237, 0.35);
+      flex: 0 0 auto;
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .segmented,
+    .resolution-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(17, 17, 34, 0.82);
+      border: 1px solid rgba(30, 30, 63, 0.95);
+    }
+
+    .pill-button,
+    .resolution-button,
+    .export-button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 999px;
+      padding: 0 14px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+
+    .pill-button:hover,
+    .resolution-button:hover,
+    .export-button:hover {
+      transform: translateY(-1px);
+    }
+
+    .pill-button.is-active,
+    .resolution-button.is-active {
+      background: rgba(124, 58, 237, 0.2);
+      color: var(--text);
+      box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.5);
+    }
+
+    .export-button {
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      color: #f8f3ff;
+      box-shadow: 0 12px 24px rgba(124, 58, 237, 0.22);
+    }
+
+    .export-button:hover {
+      background: linear-gradient(180deg, #8d49ff, var(--accent-strong));
+    }
+
+    .workspace {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      position: relative;
+    }
+
+    .control-panel {
+      background:
+        linear-gradient(180deg, rgba(26, 16, 64, 0.22), transparent 18%),
+        var(--panel);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 12px 12px 16px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.76rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .preset-strip {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+    }
+
+    .preset-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .preset-card {
+      min-width: 170px;
+      border: 1px solid rgba(30, 30, 63, 0.9);
+      border-left: 4px solid rgba(30, 30, 63, 0.9);
+      border-radius: 18px;
+      background: rgba(10, 10, 24, 0.76);
+      padding: 12px;
+      color: var(--muted);
+      text-align: left;
+      cursor: pointer;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, color 180ms ease;
+      scroll-snap-align: start;
+    }
+
+    .preset-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(124, 58, 237, 0.7);
+    }
+
+    .preset-card.is-active {
+      border-left-color: var(--accent);
+      background: linear-gradient(180deg, rgba(26, 16, 64, 0.95), rgba(17, 17, 34, 0.96));
+      color: var(--text);
+      box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.22), 0 16px 28px rgba(8, 8, 14, 0.42);
+    }
+
+    .preset-name {
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .preset-desc {
+      margin: 6px 0 0;
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .sliders {
+      display: grid;
+      gap: 12px;
+    }
+
+    .slider-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(30, 30, 63, 0.9);
+      background: rgba(10, 10, 24, 0.82);
+    }
+
+    .slider-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .slider-value {
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      color: var(--value);
+      font-size: 0.85rem;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 24px;
+      background: transparent;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--accent)) 0 / var(--fill, 50%) 100% no-repeat, var(--track);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--track);
+    }
+
+    input[type="range"]::-moz-range-progress {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 0;
+      margin-top: -6px;
+      background: var(--thumb);
+      box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 0;
+      background: var(--thumb);
+      box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.2);
+    }
+
+    .scene-panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      position: relative;
+    }
+
+    .scene-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      color: var(--muted);
+      border-bottom: 1px solid rgba(30, 30, 63, 0.75);
+      background: rgba(9, 9, 19, 0.8);
+    }
+
+    .scene-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .scene-name {
+      font-size: 0.96rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .scene-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-chip {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      background: rgba(26, 16, 64, 0.8);
+      color: #d8b4fe;
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .scene-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      background: rgba(6, 6, 12, 0.82);
+    }
+
+    .editor-panel {
+      display: none;
+      min-height: 0;
+      border-right: 1px solid var(--panel-border);
+      background: var(--code-bg);
+      position: relative;
+    }
+
+    .editor-panel.is-visible {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+
+    .editor-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(30, 30, 63, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(10, 10, 24, 0.9);
+    }
+
+    .editor-title {
+      margin: 0;
+      font-size: 0.84rem;
+      color: var(--text);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .editor-note {
+      font-size: 0.76rem;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    }
+
+    .error-banner {
+      display: none;
+      padding: 12px 14px;
+      background: var(--error-bg);
+      color: var(--error-text);
+      border-bottom: 1px solid rgba(255, 107, 107, 0.15);
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+    }
+
+    .error-banner.is-visible {
+      display: block;
+    }
+
+    .editor-shell {
+      min-height: 0;
+      position: relative;
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+    }
+
+    .gutter {
+      background: var(--code-gutter);
+      border-right: 1px solid rgba(30, 30, 63, 0.85);
+      padding: 14px 10px;
+      overflow: hidden;
+      color: var(--comment);
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      text-align: right;
+      user-select: none;
+    }
+
+    .editor-stage {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(124, 58, 237, 0.08), transparent 18%),
+        var(--code-bg);
+    }
+
+    .code-highlight,
+    .code-input {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      padding: 14px 16px;
+      overflow: auto;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      tab-size: 2;
+      white-space: pre;
+    }
+
+    .code-highlight {
+      pointer-events: none;
+      color: #cbd5e1;
+    }
+
+    .code-input {
+      resize: none;
+      border: 0;
+      outline: none;
+      color: transparent;
+      caret-color: #f8fafc;
+      background: transparent;
+      z-index: 1;
+    }
+
+    .token-keyword { color: #c084fc; }
+    .token-builtin { color: #60a5fa; }
+    .token-number { color: #86efac; }
+    .token-operator { color: #f1a0c0; }
+    .token-comment { color: #4a4a6a; }
+
+    .canvas-container {
+      position: relative;
+      min-height: 320px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at center, rgba(124, 58, 237, 0.06), transparent 42%),
+        #04040a;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .canvas-container.is-dragging {
+      cursor: grabbing;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hud {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hud-card {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(124, 58, 237, 0.18);
+      background: rgba(8, 8, 16, 0.68);
+      backdrop-filter: blur(10px);
+      max-width: min(360px, 100%);
+    }
+
+    .hud-kicker {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--muted);
+    }
+
+    .hud-text {
+      margin: 0;
+      color: var(--text);
+      line-height: 1.35;
+      font-size: 0.88rem;
+    }
+
+    .mobile-reveal {
+      display: none;
+      position: absolute;
+      right: 12px;
+      bottom: 128px;
+      z-index: 4;
+      min-height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(124, 58, 237, 0.35);
+      background: rgba(12, 12, 24, 0.92);
+      color: var(--text);
+      padding: 0 14px;
+      box-shadow: 0 16px 26px rgba(0, 0, 0, 0.35);
+    }
+
+    @media (min-width: 768px) {
+      .workspace {
+        grid-template-columns: minmax(280px, 30%) minmax(0, 70%);
+      }
+
+      .control-panel {
+        border-bottom: 0;
+        border-right: 1px solid var(--panel-border);
+        padding: 16px;
+      }
+
+      .preset-strip {
+        display: grid;
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        overflow-x: hidden;
+        max-height: 48vh;
+      }
+
+      .preset-card {
+        min-width: 0;
+      }
+
+      .scene-grid.is-edit-mode {
+        grid-template-columns: minmax(320px, 45%) minmax(0, 55%);
+      }
+    }
+
+    @media (max-width: 767px) {
+      body {
+        overflow: hidden;
+      }
+
+      .header {
+        grid-template-columns: 1fr;
+        height: auto;
+        padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 12px;
+      }
+
+      .header-actions {
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .brand {
+        align-items: flex-start;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+      }
+
+      .subtitle {
+        display: none;
+      }
+
+      .segmented {
+        display: none;
+      }
+
+      .workspace {
+        min-height: calc(100vh - var(--header-height));
+      }
+
+      .control-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-bottom: 0;
+        border-top: 1px solid var(--panel-border);
+        background: linear-gradient(180deg, rgba(17, 17, 34, 0.4), rgba(17, 17, 34, 0.92));
+        backdrop-filter: blur(18px);
+        transition: opacity 220ms ease, transform 220ms ease;
+      }
+
+      .control-panel.is-hidden {
+        opacity: 0;
+        transform: translateY(120%);
+        pointer-events: none;
+      }
+
+      .scene-panel {
+        min-height: calc(100vh - 140px);
+      }
+
+      .scene-topbar {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px;
+      }
+
+      .scene-labels {
+        min-width: 0;
+        flex: 1 1 180px;
+      }
+
+      .scene-hint {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+      }
+
+      .status-chip {
+        display: none;
+      }
+
+      .mobile-reveal {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .resolution-group {
+        flex: 1 1 auto;
+      }
+
+      .export-button {
+        padding: 0 12px;
+        font-size: 0.88rem;
+      }
+
+      .hud {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <div class="brand-copy">
+          <h1 class="title">Ray Portal</h1>
+          <p class="subtitle" id="headerSubtitle">Live SDF raymarcher for editing geometry in real time.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="segmented" role="tablist" aria-label="Mode switch">
+          <button class="pill-button is-active" id="exploreToggle" type="button" role="tab" aria-selected="true">Explore</button>
+          <button class="pill-button" id="editToggle" type="button" role="tab" aria-selected="false">Edit</button>
+        </div>
+        <div class="resolution-group" role="group" aria-label="Resolution scale">
+          <button class="resolution-button" type="button" data-scale="0.5">1/2×</button>
+          <button class="resolution-button is-active" type="button" data-scale="0.75">3/4×</button>
+          <button class="resolution-button" type="button" data-scale="1">1×</button>
+        </div>
+        <button class="export-button" id="exportButton" type="button" aria-label="Export current shader as standalone HTML">Export</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="control-panel" id="controlPanel">
+        <section class="panel-section">
+          <div class="section-label">
+            <span>Preset Strip</span>
+            <span id="presetCountLabel">8 worlds</span>
+          </div>
+          <div class="preset-strip" id="presetStrip" aria-label="Shader presets"></div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-label">
+            <span>Parameter Slabs</span>
+            <span id="fpsLabel">fps --</span>
+          </div>
+          <div class="sliders" id="sliderList"></div>
+        </section>
+      </aside>
+
+      <section class="scene-panel">
+        <div class="scene-topbar">
+          <div class="scene-labels">
+            <div class="scene-name" id="sceneName">Spiral Void</div>
+            <div class="scene-hint" id="sceneHint">Edit the math, reshape the universe.</div>
+          </div>
+          <div class="status-chip" id="statusChip">Shader ready</div>
+        </div>
+        <div class="scene-grid" id="sceneGrid">
+          <section class="editor-panel" id="editorPanel" aria-label="Shader editor">
+            <div class="editor-header">
+              <h2 class="editor-title">map(vec3 p)</h2>
+              <div class="editor-note">Live compile on pause · 300ms debounce</div>
+            </div>
+            <div class="error-banner" id="errorBanner" role="status" aria-live="polite"></div>
+            <div class="editor-shell">
+              <pre class="gutter" id="lineNumbers" aria-hidden="true"></pre>
+              <div class="editor-stage">
+                <pre class="code-highlight" id="codeHighlight" aria-hidden="true"></pre>
+                <textarea class="code-input" id="codeInput" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="GLSL map function editor"></textarea>
+              </div>
+            </div>
+          </section>
+          <div class="canvas-container" id="canvasContainer">
+            <canvas id="glCanvas" aria-label="Live raymarcher canvas"></canvas>
+            <div class="hud">
+              <div class="hud-card">
+                <div class="hud-kicker">Current World</div>
+                <p class="hud-text" id="hudDescription">Infinite spiraling rings rendered from repeated tunnel cells.</p>
+              </div>
+              <div class="hud-card">
+                <div class="hud-kicker">Camera</div>
+                <p class="hud-text" id="hudCamera">Drag to orbit · Scroll to zoom · Double-click to reset</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <button class="mobile-reveal" id="mobileReveal" type="button" aria-label="Show controls">Controls</button>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const FRAGMENT_TEMPLATE = `precision highp float;
+uniform vec2  u_resolution;
+uniform float u_time;
+uniform vec2  u_mouse;
+uniform vec4  u_params;
+uniform float u_zoom;
+
+float map(vec3 p) {
+__MAP_BODY__
+}
+
+vec3 calcNormal(vec3 p) {
+  const float e = 0.001;
+  return normalize(vec3(
+    map(p + vec3(e,0.0,0.0)) - map(p - vec3(e,0.0,0.0)),
+    map(p + vec3(0.0,e,0.0)) - map(p - vec3(0.0,e,0.0)),
+    map(p + vec3(0.0,0.0,e)) - map(p - vec3(0.0,0.0,e))
+  ));
+}
+
+float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float k) {
+  float res = 1.0;
+  float t = mint;
+  for (int i = 0; i < 24; i++) {
+    float h = map(ro + rd * t);
+    res = min(res, k * h / max(t, 0.001));
+    t += clamp(h, 0.01, 0.2);
+    if (res < 0.005 || t > maxt) break;
+  }
+  return clamp(res, 0.0, 1.0);
+}
+
+float calcAO(vec3 pos, vec3 nor) {
+  float occ = 0.0;
+  float sca = 1.0;
+  for (int i = 0; i < 5; i++) {
+    float h = 0.01 + 0.12 * float(i) / 4.0;
+    float d = map(pos + h * nor);
+    occ += (h - d) * sca;
+    sca *= 0.95;
+  }
+  return clamp(1.0 - 3.0 * occ, 0.0, 1.0);
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * u_resolution) / u_resolution.y;
+  float camAngle = u_time * 0.2 * u_params.x + (u_mouse.x - 0.5) * 6.28318;
+  float camElev = (u_mouse.y - 0.5) * 2.0;
+  float camDist = mix(1.5, 8.0, u_zoom);
+  vec3 ro = vec3(sin(camAngle) * camDist, 1.5 + camElev * 1.2, cos(camAngle) * camDist);
+  vec3 ww = normalize(vec3(0.0) - ro);
+  vec3 uu = normalize(cross(ww, vec3(0.0,1.0,0.0)));
+  vec3 vv = cross(uu, ww);
+  vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.5 * ww);
+
+  float t = 0.0;
+  float tmax = 20.0;
+  for (int i = 0; i < 128; i++) {
+    float h = map(ro + rd * t);
+    if (abs(h) < 0.0005 * max(t, 1.0) || t > tmax) break;
+    t += h;
+  }
+
+  vec3 col;
+  if (t < tmax) {
+    vec3 pos = ro + rd * t;
+    vec3 nor = calcNormal(pos);
+    vec3 lig = normalize(vec3(0.6, 0.7, -0.5));
+    float dif = clamp(dot(nor, lig), 0.0, 1.0);
+    float sha = softShadow(pos + nor * 0.01, lig, 0.02, 2.5, 8.0);
+    float ao = calcAO(pos, nor);
+    float spe = pow(clamp(dot(reflect(-lig, nor), -rd), 0.0, 1.0), 32.0);
+    col = vec3(0.1, 0.08, 0.15);
+    col += dif * sha * vec3(0.91, 0.87, 1.0);
+    col += spe * 0.8 * vec3(0.9, 0.7, 1.0);
+    col *= ao;
+    float fog = 1.0 - exp(-t * 0.04);
+    col = mix(col, vec3(0.03, 0.02, 0.07), fog);
+    float glowVal = exp(-abs(map(pos)) * 30.0) * u_params.w;
+    col += glowVal * vec3(0.6, 0.3, 1.0);
+  } else {
+    float grad = length(uv) * 0.3;
+    col = mix(vec3(0.02, 0.01, 0.05), vec3(0.07, 0.03, 0.15), grad);
+  }
+
+  col = col / (col + 0.5);
+  col = pow(col, vec3(0.4545));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+      const VERTEX_SHADER = `attribute vec2 a_position;
+void main() {
+  gl_Position = vec4(a_position, 0.0, 1.0);
+}`;
+
+      const PRESETS = [
+        {
+          id: "spiral-void",
+          name: "Spiral Void",
+          description: "Infinite spiraling rings rendered from repeated tunnel cells.",
+          hint: "Change k-style multipliers to multiply the tunnel rhythm.",
+          body: `// Infinite spiraling ring tunnel
+float angle = u_params.z * p.y * 0.5;
+float c = cos(angle), s = sin(angle);
+p.xz = mat2(c,-s,s,c) * p.xz;
+vec3 q = fract(p * 0.4) - 0.5;
+float d1 = length(q.xz) - 0.06;
+float d2 = abs(q.y) - 0.06;
+return max(d1, d2) * 2.2;`
+        },
+        {
+          id: "menger-sponge",
+          name: "Menger Sponge",
+          description: "A recursive cube field with carved negative space and portal depth.",
+          hint: "Fold count and scale changes make the sponge tear open.",
+          body: `// Recursive Menger sponge, 4 iterations via fold ops
+float d = 1e9;
+vec3 q = abs(p) - 1.0;
+d = length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+for (int i = 0; i < 4; i++) {
+  float s = pow(3.0, float(i + 1));
+  vec3 r = abs(mod(p * s, 6.0) - 3.0);
+  float c2 = (max(r.x, max(r.y, r.z)) - 1.0) / s;
+  d = max(d, -c2);
+}
+return d * 0.4;`
+        },
+        {
+          id: "gyroid-surface",
+          name: "Gyroid",
+          description: "A triply periodic minimal surface that reads like engineered alien foam.",
+          hint: "Fold shifts density. Twist changes the visual turbulence.",
+          body: `// Triply-periodic minimal surface
+float scale = 1.5 + u_params.y * 0.4;
+vec3 q = p * scale;
+return (sin(q.x)*cos(q.y) + sin(q.y)*cos(q.z) + sin(q.z)*cos(q.x)) / scale * 0.6;`
+        },
+        {
+          id: "crystal-cave",
+          name: "Crystal Cave",
+          description: "A mirrored fold lattice that feels mined from impossible geometry.",
+          hint: "Fold depth tightens the crystal facets fast.",
+          body: `// IFS crystal lattice with fold operations
+vec3 q = p;
+for (int i = 0; i < 5; i++) {
+  q = abs(q);
+  if (q.x < q.y) q.xy = q.yx;
+  if (q.x < q.z) q.xz = q.zx;
+  if (q.y < q.z) q.yz = q.zy;
+  q = q * 2.0 - vec3(1.3, 0.9, 0.7);
+}
+return length(q) * pow(0.5, float(int(u_params.y) + 3)) - 0.02;`
+        },
+        {
+          id: "mobius-rings",
+          name: "Möbius Rings",
+          description: "Paired torus bands phase through one another with twisted symmetry.",
+          hint: "Twist is the main chaos dial here.",
+          body: `// Spiraling twisted torus family
+float phi = atan(p.z, p.x);
+float r = length(p.xz);
+float twist = phi * clamp(u_params.z, -3.14, 3.14) * 0.5;
+vec2 q = vec2(r - 1.5, p.y - 0.3 * sin(twist));
+float d1 = length(q) - 0.10;
+vec2 q2 = vec2(r - 1.5, p.y + 0.3 * sin(twist + 3.14159));
+float d2 = length(q2) - 0.10;
+return min(d1, d2);`
+        },
+        {
+          id: "apollonian-spheres",
+          name: "IFS Spheres",
+          description: "A packed sphere field that compounds into recursive orbital shells.",
+          hint: "This one rewards aggressive zoom and glow.",
+          body: `// Apollonian sphere packing (IFS)
+vec4 q = vec4(p, 1.0);
+for (int i = 0; i < 8; i++) {
+  q.xyz = 2.0 * clamp(q.xyz, -1.0, 1.0) - q.xyz;
+  float r2 = dot(q.xyz, q.xyz);
+  float k = max(1.1 / r2, 1.0);
+  q *= k;
+}
+return (length(q.xz) - 0.4) / q.w;`
+        },
+        {
+          id: "mandelbulb",
+          name: "Mandelbulb",
+          description: "A power-eight bulb with layered folds and a high-contrast glow shell.",
+          hint: "Try slower orbit and higher glow for screenshots.",
+          body: `// Mandelbulb distance estimator
+vec3 w = p;
+float m = dot(w, w);
+float dz = 1.0;
+for (int i = 0; i < 6; i++) {
+  dz = 8.0 * pow(sqrt(m), 7.0) * dz + 1.0;
+  float r = length(w);
+  float b = 8.0 * acos(clamp(w.y / max(r, 0.0001), -1.0, 1.0));
+  float a = 8.0 * atan(w.x, w.z);
+  w = p + pow(r, 8.0) * vec3(sin(b)*sin(a), cos(b), sin(b)*cos(a));
+  m = dot(w, w);
+  if (m > 256.0) break;
+}
+return 0.25 * log(max(m, 0.0001)) * sqrt(m) / dz;`
+        },
+        {
+          id: "torus-knot",
+          name: "Torus Knot",
+          description: "An approximate 3,5 torus knot swept as a glowing impossible cable.",
+          hint: "Edit the frequency constants to mutate the knot family.",
+          body: `// Approximate (3,5) torus knot via swept circle
+float phi = atan(p.z, p.x);
+float r = length(p.xz);
+float knotR = 0.4 * cos(5.0 * phi);
+float knotH = 0.4 * sin(3.0 * phi);
+vec2 q = vec2(r - 1.3 - knotR, p.y - knotH);
+return length(q) - 0.08;`
+        }
+      ];
+
+      const SLIDERS = [
+        { key: "speed", label: "Speed", index: 0, min: 0.0, max: 2.0, step: 0.01, value: 0.5, digits: 2 },
+        { key: "fold", label: "Fold", index: 1, min: 0.0, max: 5.0, step: 0.1, value: 2.0, digits: 1 },
+        { key: "twist", label: "Twist", index: 2, min: -3.14, max: 3.14, step: 0.01, value: 1.0, digits: 2 },
+        { key: "glow", label: "Glow", index: 3, min: 0.0, max: 1.0, step: 0.01, value: 0.4, digits: 2 }
+      ];
+
+      const BUILTIN_NAMES = new Set([
+        "sin", "cos", "length", "abs", "clamp", "fract", "mod", "pow", "min", "max", "atan",
+        "mix", "normalize", "cross", "dot", "sqrt", "exp", "log", "reflect", "vec2", "vec3", "vec4",
+        "mat2", "float", "int"
+      ]);
+
+      const KEYWORDS = new Set([
+        "float", "vec2", "vec3", "vec4", "return", "for", "if", "int", "mat2", "break"
+      ]);
+
+      const state = {
+        activePresetIndex: 0,
+        isEditMode: false,
+        isMobile: window.matchMedia("(max-width: 767px)").matches,
+        resolutionScale: 0.75,
+        params: new Float32Array(SLIDERS.map((slider) => slider.value)),
+        mouseNorm: { x: 0.5, y: 0.5 },
+        orbitBase: { x: 0.0, y: 0.0 },
+        orbitDrag: { x: 0.0, y: 0.0 },
+        zoom: 0.58,
+        dragging: false,
+        editBody: PRESETS[0].body,
+        lastGoodBody: PRESETS[0].body,
+        compileTimer: 0,
+        idleTimer: 0,
+        lastFrameTime: performance.now(),
+        frameCounter: 0,
+        fpsTime: performance.now(),
+        fpsValue: 0
+      };
+
+      const elements = {
+        presetStrip: document.getElementById("presetStrip"),
+        sliderList: document.getElementById("sliderList"),
+        presetCountLabel: document.getElementById("presetCountLabel"),
+        sceneName: document.getElementById("sceneName"),
+        sceneHint: document.getElementById("sceneHint"),
+        hudDescription: document.getElementById("hudDescription"),
+        statusChip: document.getElementById("statusChip"),
+        headerSubtitle: document.getElementById("headerSubtitle"),
+        hudCamera: document.getElementById("hudCamera"),
+        sceneGrid: document.getElementById("sceneGrid"),
+        editorPanel: document.getElementById("editorPanel"),
+        errorBanner: document.getElementById("errorBanner"),
+        codeHighlight: document.getElementById("codeHighlight"),
+        codeInput: document.getElementById("codeInput"),
+        lineNumbers: document.getElementById("lineNumbers"),
+        exploreToggle: document.getElementById("exploreToggle"),
+        editToggle: document.getElementById("editToggle"),
+        exportButton: document.getElementById("exportButton"),
+        canvasContainer: document.getElementById("canvasContainer"),
+        canvas: document.getElementById("glCanvas"),
+        controlPanel: document.getElementById("controlPanel"),
+        mobileReveal: document.getElementById("mobileReveal"),
+        fpsLabel: document.getElementById("fpsLabel")
+      };
+
+      const gl = elements.canvas.getContext("webgl", {
+        antialias: false,
+        depth: false,
+        stencil: false,
+        preserveDrawingBuffer: false
+      });
+
+      if (!gl) {
+        elements.statusChip.textContent = "WebGL unavailable";
+        return;
+      }
+
+      const runtime = {
+        program: null,
+        attribPosition: -1,
+        uniformResolution: null,
+        uniformTime: null,
+        uniformMouse: null,
+        uniformParams: null,
+        uniformZoom: null,
+        buffer: null
+      };
+
+      function setStatus(text, mode) {
+        elements.statusChip.textContent = text;
+        if (mode === "error") {
+          elements.statusChip.style.color = "#ffb4b4";
+          elements.statusChip.style.borderColor = "rgba(255, 107, 107, 0.28)";
+          elements.statusChip.style.background = "rgba(42, 10, 10, 0.9)";
+          return;
+        }
+        elements.statusChip.style.color = "#d8b4fe";
+        elements.statusChip.style.borderColor = "rgba(124, 58, 237, 0.2)";
+        elements.statusChip.style.background = "rgba(26, 16, 64, 0.8)";
+      }
+
+      function buildShaderSource(mapBody) {
+        return FRAGMENT_TEMPLATE.replace("__MAP_BODY__", mapBody);
+      }
+
+      function compileShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const log = gl.getShaderInfoLog(shader) || "Shader compile failed.";
+          gl.deleteShader(shader);
+          throw new Error(log.trim());
+        }
+        return shader;
+      }
+
+      function createProgram(fragmentSource) {
+        const vertexShader = compileShader(gl.VERTEX_SHADER, VERTEX_SHADER);
+        const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+        const program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        gl.deleteShader(vertexShader);
+        gl.deleteShader(fragmentShader);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const log = gl.getProgramInfoLog(program) || "Program link failed.";
+          gl.deleteProgram(program);
+          throw new Error(log.trim());
+        }
+        return program;
+      }
+
+      function useProgramFromBody(mapBody) {
+        const program = createProgram(buildShaderSource(mapBody));
+        if (runtime.program) {
+          gl.deleteProgram(runtime.program);
+        }
+        runtime.program = program;
+        runtime.attribPosition = gl.getAttribLocation(program, "a_position");
+        runtime.uniformResolution = gl.getUniformLocation(program, "u_resolution");
+        runtime.uniformTime = gl.getUniformLocation(program, "u_time");
+        runtime.uniformMouse = gl.getUniformLocation(program, "u_mouse");
+        runtime.uniformParams = gl.getUniformLocation(program, "u_params");
+        runtime.uniformZoom = gl.getUniformLocation(program, "u_zoom");
+        gl.useProgram(program);
+      }
+
+      function ensureBuffer() {
+        if (runtime.buffer) {
+          return;
+        }
+        runtime.buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, runtime.buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+          -1,  1,
+           1, -1,
+           1,  1
+        ]), gl.STATIC_DRAW);
+      }
+
+      function applyProgramAndReport(mapBody, sourceLabel) {
+        try {
+          useProgramFromBody(mapBody);
+          state.lastGoodBody = mapBody;
+          elements.errorBanner.textContent = "";
+          elements.errorBanner.classList.remove("is-visible");
+          setStatus(sourceLabel || "Shader ready");
+          return true;
+        } catch (error) {
+          elements.errorBanner.textContent = error.message;
+          elements.errorBanner.classList.add("is-visible");
+          setStatus("Compile error", "error");
+          return false;
+        }
+      }
+
+      function syncSceneCopy() {
+        const preset = PRESETS[state.activePresetIndex];
+        elements.sceneName.textContent = preset.name;
+        elements.sceneHint.textContent = preset.hint;
+        elements.hudDescription.textContent = preset.description;
+        elements.headerSubtitle.textContent = preset.description;
+      }
+
+      function formatValue(slider, value) {
+        return Number(value).toFixed(slider.digits);
+      }
+
+      function updateSliderFill(input, slider) {
+        const ratio = ((Number(input.value) - slider.min) / (slider.max - slider.min)) * 100;
+        input.style.setProperty("--fill", ratio.toFixed(2) + "%");
+      }
+
+      function createTextSpan(text, className) {
+        const span = document.createElement("span");
+        if (className) {
+          span.className = className;
+        }
+        span.textContent = text;
+        return span;
+      }
+
+      function appendSyntaxLine(target, line) {
+        let index = 0;
+        while (index < line.length) {
+          const rest = line.slice(index);
+          if (rest.startsWith("//")) {
+            target.appendChild(createTextSpan(rest, "token-comment"));
+            index = line.length;
+            continue;
+          }
+
+          const numberMatch = rest.match(/^-?\d+(?:\.\d+)?/);
+          if (numberMatch) {
+            target.appendChild(createTextSpan(numberMatch[0], "token-number"));
+            index += numberMatch[0].length;
+            continue;
+          }
+
+          const identMatch = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
+          if (identMatch) {
+            const word = identMatch[0];
+            let className = "";
+            if (KEYWORDS.has(word)) {
+              className = "token-keyword";
+            } else if (BUILTIN_NAMES.has(word)) {
+              className = "token-builtin";
+            }
+            target.appendChild(createTextSpan(word, className));
+            index += word.length;
+            continue;
+          }
+
+          const operatorMatch = rest.match(/^[+\-*/=.,()[\]{}<>]/);
+          if (operatorMatch) {
+            target.appendChild(createTextSpan(operatorMatch[0], "token-operator"));
+            index += operatorMatch[0].length;
+            continue;
+          }
+
+          target.appendChild(document.createTextNode(rest.charAt(0)));
+          index += 1;
+        }
+      }
+
+      function renderCodeView(body) {
+        elements.codeHighlight.replaceChildren();
+        elements.lineNumbers.replaceChildren();
+        const lines = body.split("\n");
+
+        lines.forEach(function (line, idx) {
+          appendSyntaxLine(elements.codeHighlight, line);
+          if (idx < lines.length - 1) {
+            elements.codeHighlight.appendChild(document.createTextNode("\n"));
+          }
+          elements.lineNumbers.appendChild(document.createTextNode(String(idx + 1)));
+          if (idx < lines.length - 1) {
+            elements.lineNumbers.appendChild(document.createTextNode("\n"));
+          }
+        });
+      }
+
+      function syncEditorScroll() {
+        elements.codeHighlight.scrollTop = elements.codeInput.scrollTop;
+        elements.codeHighlight.scrollLeft = elements.codeInput.scrollLeft;
+        elements.lineNumbers.scrollTop = elements.codeInput.scrollTop;
+      }
+
+      function setEditorBody(body) {
+        state.editBody = body;
+        elements.codeInput.value = body;
+        renderCodeView(body);
+        syncEditorScroll();
+      }
+
+      function scheduleCompile() {
+        window.clearTimeout(state.compileTimer);
+        state.compileTimer = window.setTimeout(function () {
+          const nextBody = elements.codeInput.value;
+          renderCodeView(nextBody);
+          state.editBody = nextBody;
+          const ok = applyProgramAndReport(nextBody, "Shader hot-swapped");
+          if (!ok && runtime.program) {
+            gl.useProgram(runtime.program);
+          }
+        }, 300);
+      }
+
+      function portalTransition(newPresetFn) {
+        const overlay = document.createElement("canvas");
+        overlay.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10";
+        elements.canvasContainer.appendChild(overlay);
+
+        const rect = elements.canvasContainer.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+        overlay.width = Math.max(2, Math.floor(rect.width * dpr));
+        overlay.height = Math.max(2, Math.floor(rect.height * dpr));
+        const ctx = overlay.getContext("2d");
+        ctx.scale(dpr, dpr);
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const maxR = Math.hypot(cx, cy) * 1.1;
+        const start = performance.now();
+
+        function easeInOutCubic(t) {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        }
+
+        let swapped = false;
+        function frame(now) {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / 400, 1);
+          const phase = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+          const radius = easeInOutCubic(phase) * maxR;
+
+          ctx.clearRect(0, 0, rect.width, rect.height);
+          const gradient = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
+          gradient.addColorStop(0, "rgba(124, 58, 237, 0.96)");
+          gradient.addColorStop(0.35, "rgba(124, 58, 237, 0.76)");
+          gradient.addColorStop(1, "rgba(124, 58, 237, 0.0)");
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (progress >= 0.5 && !swapped) {
+            newPresetFn();
+            swapped = true;
+          }
+
+          if (progress < 1) {
+            requestAnimationFrame(frame);
+          } else {
+            overlay.remove();
+          }
+        }
+
+        requestAnimationFrame(frame);
+      }
+
+      function updatePresetCards() {
+        Array.from(elements.presetStrip.children).forEach(function (node, index) {
+          node.classList.toggle("is-active", index === state.activePresetIndex);
+          node.setAttribute("aria-pressed", index === state.activePresetIndex ? "true" : "false");
+        });
+      }
+
+      function activatePreset(index, withTransition) {
+        if (index === state.activePresetIndex && !withTransition) {
+          return;
+        }
+
+        function swap() {
+          state.activePresetIndex = index;
+          const preset = PRESETS[index];
+          setEditorBody(preset.body);
+          applyProgramAndReport(preset.body, "Preset loaded");
+          syncSceneCopy();
+          updatePresetCards();
+          setStatus("Portal stabilized");
+        }
+
+        if (withTransition) {
+          setStatus("Opening portal");
+          portalTransition(swap);
+        } else {
+          swap();
+        }
+      }
+
+      function createPresetCards() {
+        PRESETS.forEach(function (preset, index) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "preset-card";
+          button.setAttribute("aria-label", "Load preset " + preset.name);
+
+          const name = document.createElement("p");
+          name.className = "preset-name";
+          name.textContent = preset.name;
+
+          const desc = document.createElement("p");
+          desc.className = "preset-desc";
+          desc.textContent = preset.description;
+
+          button.appendChild(name);
+          button.appendChild(desc);
+          button.addEventListener("click", function () {
+            activatePreset(index, true);
+            registerActivity();
+          });
+          elements.presetStrip.appendChild(button);
+        });
+        elements.presetCountLabel.textContent = PRESETS.length + " worlds";
+        updatePresetCards();
+      }
+
+      function createSliderControls() {
+        SLIDERS.forEach(function (slider) {
+          const wrapper = document.createElement("label");
+          wrapper.className = "slider-card";
+          wrapper.setAttribute("aria-label", slider.label + " control");
+
+          const head = document.createElement("div");
+          head.className = "slider-head";
+
+          const labelText = document.createElement("span");
+          labelText.textContent = slider.label;
+
+          const valueText = document.createElement("span");
+          valueText.className = "slider-value";
+          valueText.textContent = formatValue(slider, slider.value);
+
+          head.appendChild(labelText);
+          head.appendChild(valueText);
+
+          const input = document.createElement("input");
+          input.type = "range";
+          input.min = String(slider.min);
+          input.max = String(slider.max);
+          input.step = String(slider.step);
+          input.value = String(slider.value);
+          input.setAttribute("aria-label", slider.label);
+          updateSliderFill(input, slider);
+
+          input.addEventListener("input", function () {
+            const value = Number(input.value);
+            state.params[slider.index] = value;
+            valueText.textContent = formatValue(slider, value);
+            updateSliderFill(input, slider);
+            registerActivity();
+          });
+
+          wrapper.appendChild(head);
+          wrapper.appendChild(input);
+          elements.sliderList.appendChild(wrapper);
+        });
+      }
+
+      function setMode(editMode) {
+        state.isEditMode = editMode && !state.isMobile;
+        elements.editorPanel.classList.toggle("is-visible", state.isEditMode);
+        elements.sceneGrid.classList.toggle("is-edit-mode", state.isEditMode);
+        elements.exploreToggle.classList.toggle("is-active", !state.isEditMode);
+        elements.editToggle.classList.toggle("is-active", state.isEditMode);
+        elements.exploreToggle.setAttribute("aria-selected", state.isEditMode ? "false" : "true");
+        elements.editToggle.setAttribute("aria-selected", state.isEditMode ? "true" : "false");
+        setStatus(state.isEditMode ? "Edit mode live" : "Explore mode live");
+      }
+
+      function onViewportChange() {
+        const mobile = window.matchMedia("(max-width: 767px)").matches;
+        state.isMobile = mobile;
+        if (mobile) {
+          setMode(false);
+          elements.editToggle.disabled = true;
+          elements.editToggle.textContent = "Edit";
+          elements.editToggle.title = "Edit mode is desktop-only";
+          registerActivity();
+        } else {
+          elements.editToggle.disabled = false;
+          elements.editToggle.title = "";
+        }
+        resizeCanvas();
+      }
+
+      function resizeCanvas() {
+        const rect = elements.canvasContainer.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * state.resolutionScale;
+        const width = Math.max(2, Math.floor(rect.width * dpr));
+        const height = Math.max(2, Math.floor(rect.height * dpr));
+        if (elements.canvas.width !== width || elements.canvas.height !== height) {
+          elements.canvas.width = width;
+          elements.canvas.height = height;
+        }
+        gl.viewport(0, 0, elements.canvas.width, elements.canvas.height);
+      }
+
+      function updateMouseUniforms() {
+        const x = 0.5 + state.orbitBase.x + state.orbitDrag.x;
+        const y = 0.5 + state.orbitBase.y + state.orbitDrag.y;
+        state.mouseNorm.x = Math.max(0.0, Math.min(1.0, x));
+        state.mouseNorm.y = Math.max(0.0, Math.min(1.0, y));
+      }
+
+      function resetCamera() {
+        state.orbitBase.x = 0.0;
+        state.orbitBase.y = 0.0;
+        state.orbitDrag.x = 0.0;
+        state.orbitDrag.y = 0.0;
+        state.zoom = 0.58;
+        updateMouseUniforms();
+        setStatus("Camera reset");
+      }
+
+      function attachCanvasInteractions() {
+        let pointerId = null;
+        let start = null;
+
+        elements.canvasContainer.addEventListener("pointerdown", function (event) {
+          pointerId = event.pointerId;
+          start = { x: event.clientX, y: event.clientY, baseX: state.orbitBase.x, baseY: state.orbitBase.y };
+          state.dragging = true;
+          elements.canvasContainer.classList.add("is-dragging");
+          elements.canvasContainer.setPointerCapture(pointerId);
+          registerActivity();
+        });
+
+        elements.canvasContainer.addEventListener("pointermove", function (event) {
+          if (!state.dragging || !start || event.pointerId !== pointerId) {
+            return;
+          }
+          const rect = elements.canvasContainer.getBoundingClientRect();
+          const dx = (event.clientX - start.x) / Math.max(rect.width, 1);
+          const dy = (event.clientY - start.y) / Math.max(rect.height, 1);
+          state.orbitDrag.x = dx;
+          state.orbitDrag.y = -dy;
+          updateMouseUniforms();
+          registerActivity();
+        });
+
+        function releasePointer(event) {
+          if (!state.dragging || event.pointerId !== pointerId) {
+            return;
+          }
+          state.orbitBase.x += state.orbitDrag.x;
+          state.orbitBase.y += state.orbitDrag.y;
+          state.orbitDrag.x = 0.0;
+          state.orbitDrag.y = 0.0;
+          updateMouseUniforms();
+          state.dragging = false;
+          start = null;
+          elements.canvasContainer.classList.remove("is-dragging");
+          elements.canvasContainer.releasePointerCapture(pointerId);
+          pointerId = null;
+        }
+
+        elements.canvasContainer.addEventListener("pointerup", releasePointer);
+        elements.canvasContainer.addEventListener("pointercancel", releasePointer);
+
+        elements.canvasContainer.addEventListener("wheel", function (event) {
+          event.preventDefault();
+          state.zoom = Math.max(0.0, Math.min(1.0, state.zoom + event.deltaY * 0.0007));
+          registerActivity();
+        }, { passive: false });
+
+        elements.canvasContainer.addEventListener("dblclick", function () {
+          resetCamera();
+          registerActivity();
+        });
+      }
+
+      function createResolutionButtons() {
+        document.querySelectorAll(".resolution-button").forEach(function (button) {
+          button.addEventListener("click", function () {
+            state.resolutionScale = Number(button.dataset.scale);
+            document.querySelectorAll(".resolution-button").forEach(function (node) {
+              node.classList.toggle("is-active", node === button);
+            });
+            resizeCanvas();
+            setStatus("Resolution " + button.textContent);
+            registerActivity();
+          });
+        });
+      }
+
+      function registerActivity() {
+        if (!state.isMobile) {
+          return;
+        }
+        elements.controlPanel.classList.remove("is-hidden");
+        window.clearTimeout(state.idleTimer);
+        state.idleTimer = window.setTimeout(function () {
+          elements.controlPanel.classList.add("is-hidden");
+        }, 3000);
+      }
+
+      function exportHTML() {
+        const bodySource = state.editBody;
+        const standalone = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ray Portal Export</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0a0a0f; overflow: hidden; }
+    canvas { width: 100%; height: 100%; display: block; }
+    .badge {
+      position: fixed;
+      left: 16px;
+      top: 16px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(124,58,237,0.3);
+      background: rgba(13,13,26,0.78);
+      color: #e2e8f0;
+      font: 12px/1.2 monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div class="badge">Ray Portal Export</div>
+  <script>
+    const fragmentTemplate = ${JSON.stringify(FRAGMENT_TEMPLATE)};
+    const vertexShader = ${JSON.stringify(VERTEX_SHADER)};
+    const mapBody = ${JSON.stringify(bodySource)};
+    const canvas = document.getElementById("c");
+    const gl = canvas.getContext("webgl", { antialias: false });
+    const source = fragmentTemplate.replace("__MAP_BODY__", mapBody);
+    function makeShader(type, src) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, src);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error(gl.getShaderInfoLog(shader) || "compile failed");
+      }
+      return shader;
+    }
+    function makeProgram() {
+      const vs = makeShader(gl.VERTEX_SHADER, vertexShader);
+      const fs = makeShader(gl.FRAGMENT_SHADER, source);
+      const program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(program) || "link failed");
+      }
+      return program;
+    }
+    const program = makeProgram();
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]), gl.STATIC_DRAW);
+    const pos = gl.getAttribLocation(program, "a_position");
+    const uResolution = gl.getUniformLocation(program, "u_resolution");
+    const uTime = gl.getUniformLocation(program, "u_time");
+    const uMouse = gl.getUniformLocation(program, "u_mouse");
+    const uParams = gl.getUniformLocation(program, "u_params");
+    const uZoom = gl.getUniformLocation(program, "u_zoom");
+    const params = new Float32Array([0.5, 2.0, 1.0, 0.4]);
+    function resize() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.max(2, Math.floor(window.innerWidth * dpr));
+      canvas.height = Math.max(2, Math.floor(window.innerHeight * dpr));
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    function frame(now) {
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(pos);
+      gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(uResolution, canvas.width, canvas.height);
+      gl.uniform1f(uTime, now * 0.001);
+      gl.uniform2f(uMouse, 0.5, 0.5);
+      gl.uniform4fv(uParams, params);
+      gl.uniform1f(uZoom, 0.42);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(frame);
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    requestAnimationFrame(frame);
+  <\/script>
+</body>
+</html>`;
+
+        const blob = new Blob([standalone], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "ray-portal-export.html";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.setTimeout(function () {
+          URL.revokeObjectURL(url);
+        }, 2000);
+        setStatus("Standalone exported");
+      }
+
+      function renderFrame(now) {
+        state.frameCounter += 1;
+        if (now - state.fpsTime >= 500) {
+          state.fpsValue = state.frameCounter * 1000 / (now - state.fpsTime);
+          state.frameCounter = 0;
+          state.fpsTime = now;
+          elements.fpsLabel.textContent = "fps " + Math.round(state.fpsValue);
+        }
+
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        if (runtime.program) {
+          gl.useProgram(runtime.program);
+          gl.bindBuffer(gl.ARRAY_BUFFER, runtime.buffer);
+          gl.enableVertexAttribArray(runtime.attribPosition);
+          gl.vertexAttribPointer(runtime.attribPosition, 2, gl.FLOAT, false, 0, 0);
+          gl.uniform2f(runtime.uniformResolution, elements.canvas.width, elements.canvas.height);
+          gl.uniform1f(runtime.uniformTime, now * 0.001);
+          gl.uniform2f(runtime.uniformMouse, state.mouseNorm.x, state.mouseNorm.y);
+          gl.uniform4fv(runtime.uniformParams, state.params);
+          gl.uniform1f(runtime.uniformZoom, state.zoom);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+        requestAnimationFrame(renderFrame);
+      }
+
+      function boot() {
+        ensureBuffer();
+        createPresetCards();
+        createSliderControls();
+        createResolutionButtons();
+        attachCanvasInteractions();
+
+        elements.codeInput.addEventListener("input", function () {
+          renderCodeView(elements.codeInput.value);
+          scheduleCompile();
+          registerActivity();
+        });
+        elements.codeInput.addEventListener("scroll", syncEditorScroll);
+
+        elements.exploreToggle.addEventListener("click", function () {
+          setMode(false);
+        });
+        elements.editToggle.addEventListener("click", function () {
+          if (state.isMobile) {
+            setStatus("Edit mode is desktop-only");
+            return;
+          }
+          setMode(true);
+        });
+
+        elements.exportButton.addEventListener("click", function () {
+          exportHTML();
+          registerActivity();
+        });
+
+        elements.mobileReveal.addEventListener("click", function () {
+          registerActivity();
+        });
+
+        window.addEventListener("resize", function () {
+          onViewportChange();
+          syncEditorScroll();
+        });
+
+        syncSceneCopy();
+        setEditorBody(PRESETS[0].body);
+        if (!applyProgramAndReport(PRESETS[0].body, "Shader ready")) {
+          return;
+        }
+        updateMouseUniforms();
+        onViewportChange();
+        requestAnimationFrame(renderFrame);
+        registerActivity();
+      }
+
+      boot();
+    }());
+  </script>
+</body>
+</html>

@@ -261,8 +261,67 @@
         gap: 10px;
       }
 
+      .transport-loop {
+        margin-top: 0.85rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid rgba(162, 230, 255, 0.08);
+      }
+
+      .transport-loop-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        margin-bottom: 0.55rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .transport-loop-head strong {
+        color: var(--accent-hot);
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
+      }
+
+      .transport-loop-buttons {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .transport-loop-status {
+        margin-top: 0.65rem;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
       .transport button {
         padding-inline: 0.7rem;
+      }
+
+      .transport-scrub {
+        margin-top: 0.85rem;
+      }
+
+      .transport-scrub-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+        margin-bottom: 0.45rem;
+        color: var(--muted);
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .transport-scrub-head strong {
+        color: var(--accent);
+        font-size: 0.9rem;
+        letter-spacing: 0.04em;
       }
 
       .transport-insight {
@@ -275,6 +334,20 @@
         display: block;
         margin-top: 0.25rem;
         color: var(--accent-hot);
+      }
+
+      .transport-preview {
+        margin-top: 0.7rem;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .transport-preview strong {
+        display: block;
+        margin-top: 0.22rem;
+        color: var(--text);
+        font-size: 0.9rem;
       }
 
       .primary {
@@ -416,6 +489,10 @@
         }
 
         .transport-buttons {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .transport-loop-buttons {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
@@ -582,9 +659,45 @@
             <button id="jumpForwardChunkButton" class="secondary">Ahead 25%</button>
             <button id="jumpEndButton" class="secondary">To end</button>
           </div>
+          <div class="transport-loop">
+            <div class="transport-loop-head">
+              <span>Phrase loop</span>
+              <strong id="loopRegionBadge">Full scan</strong>
+            </div>
+            <div class="transport-loop-buttons">
+              <button id="markLoopStartButton" class="secondary">Set A</button>
+              <button id="markLoopEndButton" class="secondary">Set B</button>
+              <button id="toggleLoopRegionButton" class="secondary">Loop region off</button>
+              <button id="clearLoopRegionButton" class="secondary">Clear A/B</button>
+            </div>
+            <div id="loopRegionStatus" class="transport-loop-status">
+              Mark two transport points to rehearse or record a smaller phrase instead of the full scan.
+            </div>
+          </div>
+          <div class="transport-scrub">
+            <div class="transport-scrub-head">
+              <span>Direct scrub</span>
+              <strong id="transportPercent">0%</strong>
+            </div>
+            <input
+              id="transportSlider"
+              type="range"
+              min="0"
+              max="1000"
+              value="0"
+              step="1"
+              aria-label="Direct scan scrubber"
+            />
+          </div>
           <div class="transport-insight">
             <small>Current scan insight</small>
             <strong id="transportInsight">Raw value 0.50 with a calm contour.</strong>
+          </div>
+          <div class="transport-preview">
+            <small>Waveform hover preview</small>
+            <strong id="transportPreview">
+              Draw mode edits the source directly. Switch modes to preview jump targets from the main waveform.
+            </strong>
           </div>
         </div>
 
@@ -638,7 +751,16 @@
       const focusValue = document.getElementById("focusValue");
       const recordValue = document.getElementById("recordValue");
       const transportValue = document.getElementById("transportValue");
+      const transportSlider = document.getElementById("transportSlider");
+      const transportPercent = document.getElementById("transportPercent");
       const transportInsight = document.getElementById("transportInsight");
+      const transportPreview = document.getElementById("transportPreview");
+      const loopRegionBadge = document.getElementById("loopRegionBadge");
+      const loopRegionStatus = document.getElementById("loopRegionStatus");
+      const markLoopStartButton = document.getElementById("markLoopStartButton");
+      const markLoopEndButton = document.getElementById("markLoopEndButton");
+      const toggleLoopRegionButton = document.getElementById("toggleLoopRegionButton");
+      const clearLoopRegionButton = document.getElementById("clearLoopRegionButton");
       const jumpStartButton = document.getElementById("jumpStartButton");
       const jumpBackChunkButton = document.getElementById("jumpBackChunkButton");
       const stepBackButton = document.getElementById("stepBackButton");
@@ -693,11 +815,15 @@
         recordChunks: [],
         recording: false,
         loopEnabled: true,
+        loopRegionStart: null,
+        loopRegionEnd: null,
+        loopRegionActive: false,
         sourceLabel: "Free draw waveform",
         functionError: "",
         datasetKey: "weather",
         scanDirection: "forward",
         directionForward: true,
+        hoverPlayhead: null,
       };
 
       let audioContext;
@@ -766,10 +892,112 @@
 
       function resetScan() {
         state.directionForward = state.scanDirection !== "reverse";
-        state.playhead = state.scanDirection === "reverse" ? SAMPLE_COUNT - 1 : 0;
+        const loopRange = getLoopRegionBounds();
+        state.playhead = state.scanDirection === "reverse" ? loopRange.endIndex : loopRange.startIndex;
         state.phase = 0;
         state.meter = 0;
         state.lastValue = state.samples[Math.round(state.playhead)] ?? 0.5;
+      }
+
+      function hasLoopRegionSelection() {
+        return state.loopRegionStart != null && state.loopRegionEnd != null;
+      }
+
+      function getLoopRegionBounds() {
+        if (!state.loopRegionActive || !hasLoopRegionSelection()) {
+          return { startIndex: 0, endIndex: SAMPLE_COUNT - 1 };
+        }
+        return {
+          startIndex: clamp(Math.min(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1),
+          endIndex: clamp(Math.max(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1),
+        };
+      }
+
+      function hasUsableLoopRegion() {
+        if (!hasLoopRegionSelection()) {
+          return false;
+        }
+        const startIndex = clamp(Math.min(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1);
+        const endIndex = clamp(Math.max(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1);
+        return endIndex - startIndex >= 2;
+      }
+
+      function updateLoopRegionUI() {
+        const hasSelection = hasLoopRegionSelection();
+        const usable = hasUsableLoopRegion();
+        const startIndex = hasSelection
+          ? clamp(Math.min(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1)
+          : 0;
+        const endIndex = hasSelection
+          ? clamp(Math.max(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1)
+          : SAMPLE_COUNT - 1;
+
+        if (!hasSelection) {
+          loopRegionBadge.textContent = "Full scan";
+          loopRegionStatus.textContent =
+            "Mark two transport points to rehearse or record a smaller phrase instead of the full scan.";
+        } else if (!usable) {
+          loopRegionBadge.textContent = "Region too small";
+          loopRegionStatus.textContent =
+            "Move A and B farther apart so the loop spans at least three sample positions.";
+        } else {
+          const startPercent = Math.round((startIndex / Math.max(1, SAMPLE_COUNT - 1)) * 100);
+          const endPercent = Math.round((endIndex / Math.max(1, SAMPLE_COUNT - 1)) * 100);
+          loopRegionBadge.textContent = state.loopRegionActive
+            ? `A ${startPercent}% to B ${endPercent}%`
+            : `A/B ready`;
+          loopRegionStatus.textContent = state.loopRegionActive
+            ? `Phrase loop is active. Transport, playback, and step controls stay between ${startPercent}% and ${endPercent}% of the scan.`
+            : `A/B markers are ready at ${startPercent}% and ${endPercent}%. Turn region looping on to confine playback to that phrase.`;
+        }
+
+        toggleLoopRegionButton.disabled = !usable;
+        toggleLoopRegionButton.textContent = state.loopRegionActive ? "Loop region on" : "Loop region off";
+        clearLoopRegionButton.disabled = !hasSelection;
+      }
+
+      function clampPlayheadToLoopRegion() {
+        const bounds = getLoopRegionBounds();
+        state.playhead = clamp(state.playhead, bounds.startIndex, bounds.endIndex);
+      }
+
+      function captureLoopRegionPoint(which) {
+        const point = clamp(Math.round(state.playhead), 0, SAMPLE_COUNT - 1);
+        if (which === "start") {
+          state.loopRegionStart = point;
+          setStatus("Loop A marked");
+        } else {
+          state.loopRegionEnd = point;
+          setStatus("Loop B marked");
+        }
+        if (state.loopRegionActive && !hasUsableLoopRegion()) {
+          state.loopRegionActive = false;
+        }
+        clampPlayheadToLoopRegion();
+        syncPlayheadValue();
+        updateLoopRegionUI();
+      }
+
+      function clearLoopRegion() {
+        state.loopRegionStart = null;
+        state.loopRegionEnd = null;
+        state.loopRegionActive = false;
+        updateLoopRegionUI();
+        setStatus("Loop region cleared");
+      }
+
+      function toggleLoopRegion() {
+        if (!hasUsableLoopRegion()) {
+          state.loopRegionActive = false;
+          updateLoopRegionUI();
+          setStatus("Set a wider loop region first");
+          return;
+        }
+        state.loopRegionActive = !state.loopRegionActive;
+        clampPlayheadToLoopRegion();
+        syncPlayheadValue();
+        updateLoopRegionUI();
+        setStatus(state.loopRegionActive ? "Loop region active" : "Loop region disabled");
       }
 
       function regenerateFunctionSamples() {
@@ -894,32 +1122,52 @@
         state.lastValue = state.samples[playheadIndex] ?? state.lastValue;
       }
 
-      function describeCurrentStep() {
-        const sampleIndex = clamp(Math.round(state.playhead), 0, SAMPLE_COUNT - 1);
-        const value = state.samples[sampleIndex] ?? 0.5;
-        const nextValue = state.samples[Math.min(SAMPLE_COUNT - 1, sampleIndex + 1)] ?? value;
+      function describeSample(sampleIndex) {
+        const clampedIndex = clamp(sampleIndex, 0, SAMPLE_COUNT - 1);
+        const value = state.samples[clampedIndex] ?? 0.5;
+        const nextValue = state.samples[Math.min(SAMPLE_COUNT - 1, clampedIndex + 1)] ?? value;
         const derivative = nextValue - value;
         const motion =
           Math.abs(derivative) < 0.01 ? "calm contour" : derivative > 0 ? "rising edge" : "falling edge";
 
         if (state.mode === "dataset") {
           const dataset = datasets[state.datasetKey] || datasets.weather;
-          const step = getCurrentSourceStep();
-          const rawValue = dataset.values[step.index];
-          return `${dataset.label} · step ${step.index + 1}/${step.total} · ${rawValue} ${dataset.unit} with a ${motion}.`;
+          const ratio = clamp(clampedIndex / Math.max(1, SAMPLE_COUNT - 1), 0, 1);
+          const total = dataset.values.length;
+          const stepIndex = Math.round(ratio * Math.max(0, total - 1));
+          const rawValue = dataset.values[stepIndex];
+          return `${dataset.label} · step ${stepIndex + 1}/${total} · ${rawValue} ${dataset.unit} with a ${motion}.`;
         }
 
         if (state.mode === "function") {
-          const x = lerp(-Math.PI, Math.PI, sampleIndex / Math.max(1, SAMPLE_COUNT - 1));
+          const x = lerp(-Math.PI, Math.PI, clampedIndex / Math.max(1, SAMPLE_COUNT - 1));
           return `x=${x.toFixed(2)} rad · normalized value ${value.toFixed(2)} with a ${motion}.`;
         }
 
-        return `Draw step ${getCurrentSourceStep().index + 1}/${getCurrentSourceStep().total} · normalized value ${value.toFixed(2)} with a ${motion}.`;
+        const total = getSourceStepCount();
+        const ratio = clamp(clampedIndex / Math.max(1, SAMPLE_COUNT - 1), 0, 1);
+        const stepIndex = Math.round(ratio * Math.max(0, total - 1));
+        return `Draw step ${stepIndex + 1}/${total} · normalized value ${value.toFixed(2)} with a ${motion}.`;
+      }
+
+      function describeCurrentStep() {
+        return describeSample(Math.round(state.playhead));
+      }
+
+      function describeHoverStep() {
+        if (state.mode === "draw") {
+          return "Draw mode edits the source directly. Switch modes to preview jump targets from the main waveform.";
+        }
+        if (state.hoverPlayhead == null) {
+          return "Hover the main waveform to preview a jump target before dragging or clicking.";
+        }
+        return `Preview · ${describeSample(Math.round(state.hoverPlayhead))}`;
       }
 
       function setTransportPosition(targetRatio, label) {
         const ratio = clamp(targetRatio, 0, 1);
-        state.playhead = ratio * (SAMPLE_COUNT - 1);
+        const bounds = getLoopRegionBounds();
+        state.playhead = clamp(ratio * (SAMPLE_COUNT - 1), bounds.startIndex, bounds.endIndex);
         syncPlayheadValue();
         if (state.mode === "dataset") {
           setDatasetPlayheadFocus();
@@ -944,23 +1192,24 @@
       }
 
       function stepPlayhead(stepAmount) {
+        const bounds = getLoopRegionBounds();
         if (state.scanDirection === "pingpong") {
           state.playhead += stepAmount * (state.directionForward ? 1 : -1);
-          if (state.playhead >= SAMPLE_COUNT - 1) {
+          if (state.playhead >= bounds.endIndex) {
             if (state.loopEnabled) {
-              state.playhead = SAMPLE_COUNT - 1;
+              state.playhead = bounds.endIndex;
               state.directionForward = false;
             } else {
-              state.playhead = SAMPLE_COUNT - 1;
+              state.playhead = bounds.endIndex;
               return false;
             }
           }
-          if (state.playhead <= 0) {
+          if (state.playhead <= bounds.startIndex) {
             if (state.loopEnabled) {
-              state.playhead = 0;
+              state.playhead = bounds.startIndex;
               state.directionForward = true;
             } else {
-              state.playhead = 0;
+              state.playhead = bounds.startIndex;
               return false;
             }
           }
@@ -969,20 +1218,21 @@
 
         const directionMultiplier = state.scanDirection === "reverse" ? -1 : 1;
         state.playhead += stepAmount * directionMultiplier;
-        if (state.playhead >= SAMPLE_COUNT) {
+        const span = Math.max(1, bounds.endIndex - bounds.startIndex + 1);
+        if (state.playhead > bounds.endIndex) {
           if (state.loopEnabled) {
-            state.playhead -= SAMPLE_COUNT;
+            state.playhead -= span;
             return true;
           }
-          state.playhead = SAMPLE_COUNT - 1;
+          state.playhead = bounds.endIndex;
           return false;
         }
-        if (state.playhead < 0) {
+        if (state.playhead < bounds.startIndex) {
           if (state.loopEnabled) {
-            state.playhead += SAMPLE_COUNT;
+            state.playhead += span;
             return true;
           }
-          state.playhead = 0;
+          state.playhead = bounds.startIndex;
           return false;
         }
         return true;
@@ -992,6 +1242,23 @@
         const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         const midi = Math.round(69 + 12 * Math.log2(Math.max(freq, 1) / 440));
         return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
+      }
+
+      function needsScanResetBeforePlayback() {
+        const bounds = getLoopRegionBounds();
+        if (state.loopEnabled) {
+          return false;
+        }
+        if (state.scanDirection === "reverse") {
+          return state.playhead <= bounds.startIndex;
+        }
+        if (state.scanDirection === "pingpong") {
+          return (
+            (state.directionForward && state.playhead >= bounds.endIndex) ||
+            (!state.directionForward && state.playhead <= bounds.startIndex)
+          );
+        }
+        return state.playhead >= bounds.endIndex;
       }
 
       async function ensureAudio() {
@@ -1066,7 +1333,7 @@
         if (audioContext.state === "suspended") {
           await audioContext.resume();
         }
-        if (!state.playing && state.playhead >= SAMPLE_COUNT - 1) {
+        if (!state.playing && needsScanResetBeforePlayback()) {
           resetScan();
         }
         state.playing = !state.playing;
@@ -1122,7 +1389,12 @@
         recordValue.className = state.recording ? "recording" : "";
         transportValue.textContent =
           focus.index === 0 ? "Start of scan" : focus.index === focus.total - 1 ? "End of scan" : `Step ${focus.index + 1} in focus`;
+        const transportRatio = clamp(state.playhead / Math.max(1, SAMPLE_COUNT - 1), 0, 1);
+        transportSlider.value = String(Math.round(transportRatio * 1000));
+        transportPercent.textContent = `${Math.round(transportRatio * 100)}%`;
         transportInsight.textContent = describeCurrentStep();
+        transportPreview.textContent = describeHoverStep();
+        updateLoopRegionUI();
       }
 
       function sampleToY(value, height) {
@@ -1213,6 +1485,48 @@
         vctx.arc(scanX, scanY, radius * 2.1, 0, Math.PI * 2);
         vctx.fill();
 
+        if (hasUsableLoopRegion()) {
+          const startIndex = clamp(Math.min(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1);
+          const endIndex = clamp(Math.max(state.loopRegionStart, state.loopRegionEnd), 0, SAMPLE_COUNT - 1);
+          const startX = (startIndex / Math.max(1, SAMPLE_COUNT - 1)) * width;
+          const endX = (endIndex / Math.max(1, SAMPLE_COUNT - 1)) * width;
+          vctx.fillStyle = state.loopRegionActive ? "rgba(255, 209, 102, 0.15)" : "rgba(255, 209, 102, 0.08)";
+          vctx.fillRect(startX, 0, Math.max(2, endX - startX), height);
+          vctx.strokeStyle = "rgba(255, 209, 102, 0.65)";
+          vctx.lineWidth = 1.5;
+          vctx.setLineDash([8, 6]);
+          vctx.beginPath();
+          vctx.moveTo(startX, 10);
+          vctx.lineTo(startX, height - 10);
+          vctx.moveTo(endX, 10);
+          vctx.lineTo(endX, height - 10);
+          vctx.stroke();
+          vctx.setLineDash([]);
+          vctx.fillStyle = "rgba(255, 209, 102, 0.92)";
+          vctx.font = "600 12px Avenir Next, sans-serif";
+          vctx.fillText("A", startX + 6, 22);
+          vctx.fillText("B", endX + 6, 22);
+        }
+
+        if (state.mode !== "draw" && state.hoverPlayhead != null) {
+          const hoverIndex = clamp(Math.round(state.hoverPlayhead), 0, SAMPLE_COUNT - 1);
+          const hoverRatio = hoverIndex / Math.max(1, SAMPLE_COUNT - 1);
+          const hoverX = hoverRatio * width;
+          const hoverY = sampleToY(state.samples[hoverIndex] ?? state.lastValue, height);
+          vctx.strokeStyle = "rgba(255, 209, 102, 0.45)";
+          vctx.lineWidth = 1.5;
+          vctx.setLineDash([6, 6]);
+          vctx.beginPath();
+          vctx.moveTo(hoverX, 12);
+          vctx.lineTo(hoverX, height - 12);
+          vctx.stroke();
+          vctx.setLineDash([]);
+          vctx.fillStyle = "rgba(255, 209, 102, 0.92)";
+          vctx.beginPath();
+          vctx.arc(hoverX, hoverY, 6, 0, Math.PI * 2);
+          vctx.fill();
+        }
+
         for (let i = 0; i < VISUAL_POINTS; i += 1) {
           const t = ((state.playhead + i * 2.4) % SAMPLE_COUNT) / SAMPLE_COUNT;
           const x = t * width;
@@ -1295,8 +1609,24 @@
         setStatus("Waveform forged");
       }
 
+      function scrubTransportFromClientX(clientX) {
+        const rect = visualizer.getBoundingClientRect();
+        const x = clamp(clientX - rect.left, 0, rect.width);
+        const ratio = rect.width ? x / rect.width : 0;
+        setTransportPosition(ratio, "Scan head moved from waveform");
+      }
+
+      function previewTransportFromClientX(clientX) {
+        const rect = visualizer.getBoundingClientRect();
+        const x = clamp(clientX - rect.left, 0, rect.width);
+        const ratio = rect.width ? x / rect.width : 0;
+        state.hoverPlayhead = ratio * (SAMPLE_COUNT - 1);
+      }
+
       visualizer.addEventListener("pointerdown", (event) => {
         if (state.mode !== "draw") {
+          previewTransportFromClientX(event.clientX);
+          scrubTransportFromClientX(event.clientX);
           return;
         }
         state.dragging = true;
@@ -1307,7 +1637,14 @@
       });
 
       visualizer.addEventListener("pointermove", (event) => {
-        if (!state.dragging || state.mode !== "draw") {
+        if (state.mode !== "draw") {
+          previewTransportFromClientX(event.clientX);
+          if ((event.buttons & 1) === 1) {
+            scrubTransportFromClientX(event.clientX);
+          }
+          return;
+        }
+        if (!state.dragging) {
           return;
         }
         writeAt(event.clientX, event.clientY);
@@ -1319,6 +1656,7 @@
 
       visualizer.addEventListener("pointerleave", () => {
         state.dragging = false;
+        state.hoverPlayhead = null;
       });
 
       playButton.addEventListener("click", togglePlayback);
@@ -1326,6 +1664,18 @@
         state.loopEnabled = !state.loopEnabled;
         loopButton.textContent = state.loopEnabled ? "Loop on" : "Loop off";
         setStatus(state.loopEnabled ? "Looping enabled" : "One-shot enabled");
+      });
+      markLoopStartButton.addEventListener("click", () => {
+        captureLoopRegionPoint("start");
+      });
+      markLoopEndButton.addEventListener("click", () => {
+        captureLoopRegionPoint("end");
+      });
+      toggleLoopRegionButton.addEventListener("click", () => {
+        toggleLoopRegion();
+      });
+      clearLoopRegionButton.addEventListener("click", () => {
+        clearLoopRegion();
       });
       clearButton.addEventListener("click", () => {
         state.samples = new Array(SAMPLE_COUNT).fill(0.5);
@@ -1362,6 +1712,10 @@
       });
       jumpEndButton.addEventListener("click", () => {
         setTransportPosition(1, "Jumped to scan end");
+      });
+      transportSlider.addEventListener("input", () => {
+        const ratio = Number(transportSlider.value) / 1000;
+        setTransportPosition(ratio, "Scrubbed through scan");
       });
 
       functionInput.addEventListener("change", regenerateFunctionSamples);
@@ -1471,6 +1825,7 @@
       resizeCanvas(visualizer);
       resizeCanvas(scopeCanvas);
       updateModeUI();
+      updateLoopRegionUI();
       updateStats();
       animate();
     </script>
