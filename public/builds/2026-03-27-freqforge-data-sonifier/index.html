@@ -1474,7 +1474,9 @@
         vctx.stroke();
         vctx.shadowBlur = 0;
 
-        const scanX = (state.playhead / SAMPLE_COUNT) * width;
+        const sampleSpan = Math.max(1, SAMPLE_COUNT - 1);
+        const scanRatio = clamp(state.playhead / sampleSpan, 0, 1);
+        const scanX = scanRatio * width;
         const scanY = sampleToY(state.lastValue, height);
         const radius = 14 + state.meter * 36;
         const glow = vctx.createRadialGradient(scanX, scanY, 0, scanX, scanY, radius * 2.2);
@@ -1528,7 +1530,7 @@
         }
 
         for (let i = 0; i < VISUAL_POINTS; i += 1) {
-          const t = ((state.playhead + i * 2.4) % SAMPLE_COUNT) / SAMPLE_COUNT;
+          const t = ((scanRatio * sampleSpan + i * 2.4) % sampleSpan) / sampleSpan;
           const x = t * width;
           const idx = Math.floor(t * (state.samples.length - 1));
           const value = state.samples[idx];
