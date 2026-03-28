@@ -240,6 +240,7 @@
         justify-content: space-between;
         gap: 12px;
         align-items: center;
+        flex-wrap: wrap;
       }
 
       .control-value {
@@ -574,6 +575,8 @@
             <button id="sweepButton" type="button">Start Sweep</button>
             <button id="audioButton" type="button">Enable Audio</button>
             <button id="disturbButton" type="button">Disturb Plate</button>
+            <button id="pauseButton" type="button">Pause Motion</button>
+            <button id="resetButton" type="button">Reset Grains</button>
           </div>
         </div>
 
@@ -650,6 +653,8 @@
       const sweepButton = document.getElementById("sweepButton");
       const audioButton = document.getElementById("audioButton");
       const disturbButton = document.getElementById("disturbButton");
+      const pauseButton = document.getElementById("pauseButton");
+      const resetButton = document.getElementById("resetButton");
 
       const modeStat = document.getElementById("modeStat");
       const frequencyStat = document.getElementById("frequencyStat");
@@ -685,7 +690,9 @@
         disturbPulse: 0,
         autoSweep: false,
         sweepWidth: Number(sweepSlider.value),
-        sweepPhase: 0
+        sweepPhase: 0,
+        paused: false,
+        fps: 60
       };
 
       function clamp(value, min, max) {
@@ -797,6 +804,7 @@
       function resetParticles() {
         state.particles = Array.from({ length: PARTICLE_COUNT }, (_, index) => spawnParticle(index % 7));
         particleStat.textContent = `${PARTICLE_COUNT} grains`;
+        probeReadout.textContent = "Grain field reseeded. Move over the plate to inspect local amplitude and flow.";
       }
 
       function sampleField(x, y) {
@@ -1182,7 +1190,7 @@
         }
 
         performanceReadout.innerHTML =
-          `<strong>Precompute ready.</strong> 9 modes × ${FIELD_SIZE}² cells cached. Pointer amplitude ${state.probeEnergy.toFixed(3)}. Disturbance ${Math.round(disturbance * 100)}%.`;
+          `<strong>Precompute ready.</strong> 9 modes × ${FIELD_SIZE}² cells cached. ${state.paused ? "Motion paused." : `${Math.round(state.fps)} FPS.`} Pointer amplitude ${state.probeEnergy.toFixed(3)}. Disturbance ${Math.round(disturbance * 100)}%.`;
       }
 
       function roundRect(context, x, y, width, height, radius) {
@@ -1230,6 +1238,7 @@
       function animate(timestamp) {
         const deltaSeconds = Math.min(0.04, (timestamp - state.lastTime) / 1000 || 0.016);
         state.lastTime = timestamp;
+        state.fps += ((1 / Math.max(deltaSeconds, 0.001)) - state.fps) * 0.08;
         if (state.autoSweep) {
           state.sweepPhase += deltaSeconds * 0.8;
           const base = MODES[state.activeMode].baseHz;
@@ -1238,7 +1247,9 @@
           updateFrequencyReadout();
           updateAudioFrequency();
         }
-        updateParticles(deltaSeconds);
+        if (!state.paused) {
+          updateParticles(deltaSeconds);
+        }
         drawPlate(timestamp);
         requestAnimationFrame(animate);
       }
@@ -1286,6 +1297,19 @@
       disturbButton.addEventListener("click", async () => {
         await ensureAudio();
         disturb(1.8);
+      });
+      pauseButton.addEventListener("click", () => {
+        state.paused = !state.paused;
+        pauseButton.textContent = state.paused ? "Resume Motion" : "Pause Motion";
+        probeReadout.textContent = state.paused
+          ? "Motion paused. Drag sliders or probe the plate to inspect the live resonance field."
+          : "Motion resumed. Move over the plate to inspect local amplitude and flow.";
+      });
+      resetButton.addEventListener("click", () => {
+        resetParticles();
+        if (state.paused) {
+          probeReadout.textContent = "Grain field reseeded while paused. Resume motion to watch the pattern settle.";
+        }
       });
 
       canvas.addEventListener("pointermove", pointerToPlate);
