@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chladni Resonance Explorer</title>
+    <style>
+      :root {
+        --bg: #0c1117;
+        --bg-deep: #040609;
+        --panel: rgba(14, 19, 26, 0.86);
+        --panel-soft: rgba(18, 25, 34, 0.78);
+        --line: rgba(210, 228, 255, 0.14);
+        --text: #f6f8ff;
+        --muted: #9eb3c9;
+        --accent: #8ad3ff;
+        --accent-hot: #ffd27a;
+        --accent-plate: #f1ede1;
+        --danger: #ff8c70;
+        --good: #91efb6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(138, 211, 255, 0.1), transparent 32%),
+          radial-gradient(circle at 85% 18%, rgba(255, 210, 122, 0.12), transparent 28%),
+          linear-gradient(180deg, #0c1117 0%, #06080c 100%);
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+      }
+
+      body {
+        padding: 18px;
+      }
+
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      button,
+      input[type="range"] {
+        accent-color: var(--accent);
+      }
+
+      button {
+        border: 1px solid rgba(210, 228, 255, 0.14);
+        border-radius: 999px;
+        background: rgba(10, 15, 20, 0.86);
+        padding: 0.8rem 1rem;
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease;
+      }
+
+      button:hover,
+      button:focus-visible {
+        outline: none;
+        transform: translateY(-1px);
+        border-color: rgba(138, 211, 255, 0.55);
+        background: rgba(15, 23, 30, 0.95);
+      }
+
+      .shell {
+        width: min(1320px, 100%);
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(300px, 420px);
+        gap: 18px;
+      }
+
+      .hero,
+      .panel {
+        border: 1px solid rgba(210, 228, 255, 0.1);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(18px);
+      }
+
+      .hero {
+        padding: 18px;
+      }
+
+      .panel {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin-bottom: 10px;
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 4.25rem);
+        line-height: 0.96;
+      }
+
+      .lede {
+        max-width: 58rem;
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .hero-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-start;
+        margin-bottom: 18px;
+      }
+
+      .hero-stats {
+        min-width: 250px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .stat-card,
+      .panel-card {
+        border-radius: 22px;
+        border: 1px solid rgba(210, 228, 255, 0.08);
+        background: var(--panel-soft);
+        padding: 14px 16px;
+      }
+
+      .stat-label,
+      .panel-title,
+      .section-label {
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--muted);
+      }
+
+      .stat-value {
+        margin-top: 6px;
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+
+      .plate-shell {
+        position: relative;
+        border-radius: 28px;
+        overflow: hidden;
+        border: 1px solid rgba(210, 228, 255, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%),
+          linear-gradient(180deg, #06080c 0%, #101923 100%);
+      }
+
+      canvas {
+        width: 100%;
+        display: block;
+      }
+
+      #plateCanvas {
+        aspect-ratio: 1.08;
+        touch-action: none;
+      }
+
+      .transport {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        padding-top: 14px;
+      }
+
+      .transport .pill {
+        min-width: 0;
+        flex: 1 1 160px;
+        border-radius: 999px;
+        border: 1px solid rgba(210, 228, 255, 0.08);
+        background: rgba(8, 12, 17, 0.88);
+        padding: 0.8rem 1rem;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .mode-button {
+        position: relative;
+        padding: 0.8rem;
+        text-align: left;
+      }
+
+      .mode-button.active {
+        border-color: rgba(138, 211, 255, 0.56);
+        background: rgba(19, 33, 45, 0.96);
+        box-shadow: inset 0 0 0 1px rgba(138, 211, 255, 0.18);
+      }
+
+      .mode-button span {
+        display: block;
+      }
+
+      .mode-name {
+        font-weight: 700;
+      }
+
+      .mode-meta {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .control-group {
+        display: grid;
+        gap: 8px;
+      }
+
+      .control-head,
+      .panel-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .control-value {
+        color: var(--accent-hot);
+        font-weight: 700;
+      }
+
+      input[type="range"] {
+        width: 100%;
+      }
+
+      .legend {
+        display: grid;
+        gap: 10px;
+      }
+
+      .resonance-ladder {
+        position: relative;
+        display: grid;
+        gap: 10px;
+      }
+
+      .ladder-track {
+        position: relative;
+        height: 62px;
+        border-radius: 18px;
+        border: 1px solid rgba(210, 228, 255, 0.08);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(7, 12, 18, 0.24)),
+          rgba(8, 12, 17, 0.9);
+        overflow: hidden;
+      }
+
+      .ladder-track::before {
+        content: "";
+        position: absolute;
+        inset: 12px 14px 18px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(138, 211, 255, 0.14), rgba(255, 210, 122, 0.18));
+      }
+
+      .ladder-marker {
+        position: absolute;
+        top: 10px;
+        transform: translateX(-50%);
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        min-width: 52px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+        opacity: 0.58;
+        transition: opacity 180ms ease, transform 180ms ease;
+      }
+
+      .ladder-marker::before {
+        content: "";
+        width: 2px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(245, 239, 226, 0.44);
+      }
+
+      .ladder-marker strong {
+        font-size: 0.76rem;
+        letter-spacing: 0.04em;
+      }
+
+      .ladder-marker span {
+        color: var(--muted);
+        font-size: 0.68rem;
+      }
+
+      .ladder-marker:hover,
+      .ladder-marker:focus-visible {
+        opacity: 0.9;
+        transform: translateX(-50%) translateY(-2px);
+        outline: none;
+      }
+
+      .ladder-marker.nearest {
+        opacity: 0.9;
+      }
+
+      .ladder-marker.active::before {
+        background: rgba(255, 210, 122, 0.95);
+        box-shadow: 0 0 16px rgba(255, 210, 122, 0.42);
+      }
+
+      .ladder-marker.nearest::before {
+        background: rgba(138, 211, 255, 0.92);
+        box-shadow: 0 0 14px rgba(138, 211, 255, 0.34);
+      }
+
+      .ladder-playhead {
+        position: absolute;
+        top: 6px;
+        bottom: 8px;
+        width: 3px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, rgba(138, 211, 255, 0.92), rgba(255, 210, 122, 0.92));
+        box-shadow: 0 0 18px rgba(138, 211, 255, 0.4);
+        transform: translateX(-50%);
+      }
+
+      .ladder-playhead::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -1px;
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid rgba(255, 245, 214, 0.92);
+        background: rgba(8, 12, 17, 0.95);
+        transform: translate(-50%, 50%);
+      }
+
+      .legend-item {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .swatch {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        margin-top: 2px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .status {
+        font-size: 0.96rem;
+        line-height: 1.45;
+      }
+
+      .status strong {
+        color: var(--accent);
+      }
+
+      .status-warn strong {
+        color: var(--danger);
+      }
+
+      .plate-shake {
+        animation: plate-shake 520ms cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      @keyframes plate-shake {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0);
+        }
+        18% {
+          transform: translate3d(-8px, 4px, 0) rotate(-0.6deg);
+        }
+        42% {
+          transform: translate3d(9px, -3px, 0) rotate(0.5deg);
+        }
+        65% {
+          transform: translate3d(-4px, 3px, 0) rotate(-0.22deg);
+        }
+        82% {
+          transform: translate3d(3px, -2px, 0) rotate(0.14deg);
+        }
+      }
+
+      @media (max-width: 1080px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-top {
+          flex-direction: column;
+        }
+
+        .hero-stats {
+          width: 100%;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        }
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 12px;
+        }
+
+        .hero,
+        .panel {
+          border-radius: 22px;
+          padding: 14px;
+        }
+
+        .mode-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .transport {
+          gap: 8px;
+        }
+
+        .panel-row {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .panel-row button {
+          min-width: 0;
+          padding-inline: 0.55rem;
+          font-size: 0.88rem;
+        }
+
+        .ladder-track {
+          height: 74px;
+        }
+
+        .ladder-marker {
+          top: 8px;
+          min-width: 0;
+          gap: 3px;
+        }
+
+        .ladder-marker strong {
+          font-size: 0.64rem;
+        }
+
+        .ladder-marker span {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <div class="kicker">Physics Visualization / Musical Instrument Simulator</div>
+            <h1>Chladni Resonance Explorer</h1>
+            <p class="lede">
+              Vibrate a virtual metal plate, watch grains race toward nodal lines, and hear each standing-wave mode as a
+              restrained sine tone. The fields are precomputed up front, so the motion stays clean even with a dense particle
+              cloud settling into the geometry.
+            </p>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-card">
+              <div class="stat-label">Active Mode</div>
+              <div class="stat-value" id="modeStat">Lotus 3:5</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Resonance</div>
+              <div class="stat-value" id="frequencyStat">246 Hz</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Particle Count</div>
+              <div class="stat-value" id="particleStat">1600 grains</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="plateShell" class="plate-shell">
+          <canvas id="plateCanvas" width="960" height="880" aria-label="Interactive Chladni plate"></canvas>
+        </div>
+
+        <div class="transport">
+          <div class="pill">
+            <div class="section-label">Field Readout</div>
+            <div id="fieldReadout">Nodes settling into mode 3:5 with a cool detune offset.</div>
+          </div>
+          <div class="pill">
+            <div class="section-label">Pointer Probe</div>
+            <div id="probeReadout">Move over the plate to inspect local amplitude and flow.</div>
+          </div>
+          <div class="pill">
+            <div class="section-label">Audio</div>
+            <div id="audioReadout">Tap any preset or the disturb control to start the oscillator.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-card">
+          <div class="panel-title">Mode Presets</div>
+          <p class="muted">
+            Each preset swaps in a 512×512 displacement field built once at load time. Particles drift down the local amplitude
+            gradient until the nodal lines glow with sand-like density.
+          </p>
+          <div class="mode-grid" id="modeGrid"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Resonance Controls</div>
+          <div class="control-group">
+            <div class="control-head">
+              <span>Excitation Frequency</span>
+              <span class="control-value" id="frequencyValue">246 Hz</span>
+            </div>
+            <input id="frequencySlider" type="range" min="120" max="780" step="1" value="246" />
+          </div>
+          <div class="control-group">
+            <div class="control-head">
+              <span>Particle Drag</span>
+              <span class="control-value" id="dragValue">0.936</span>
+            </div>
+            <input id="dragSlider" type="range" min="0.88" max="0.97" step="0.001" value="0.936" />
+          </div>
+          <div class="control-group">
+            <div class="control-head">
+              <span>Gradient Pull</span>
+              <span class="control-value" id="pullValue">0.0032</span>
+            </div>
+            <input id="pullSlider" type="range" min="0.001" max="0.008" step="0.0001" value="0.0032" />
+          </div>
+          <div class="control-group">
+            <div class="control-head">
+              <span>Sweep Width</span>
+              <span class="control-value" id="sweepValue">42 Hz</span>
+            </div>
+            <input id="sweepSlider" type="range" min="0" max="120" step="1" value="42" />
+          </div>
+          <div class="panel-row">
+            <button id="sweepButton" type="button">Start Sweep</button>
+            <button id="audioButton" type="button">Enable Audio</button>
+            <button id="disturbButton" type="button">Disturb Plate</button>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Resonance Ladder</div>
+          <div class="resonance-ladder">
+            <div class="ladder-track" id="ladderTrack">
+              <div class="ladder-playhead" id="ladderPlayhead"></div>
+            </div>
+            <div class="status" id="ladderReadout">
+              <strong>Centered on Lotus 3:5.</strong> The live slider is sitting at the first modal anchor.
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Mode Insight</div>
+          <div class="status" id="modeInsight">
+            <strong>Lotus 3:5</strong> balances broad petals with narrow interference seams, so the particles settle in loops
+            before tightening into crisp cross-lattices.
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Legend</div>
+          <div class="legend">
+            <div class="legend-item">
+              <div class="swatch" style="background:#f6f2de"></div>
+              <div><strong>Plate wash</strong><br /><span class="muted">Low-amplitude regions stay calm and luminous.</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="swatch" style="background:#ffd27a"></div>
+              <div><strong>Active grains</strong><br /><span class="muted">The particle cloud concentrates where standing waves cancel.</span></div>
+            </div>
+            <div class="legend-item">
+              <div class="swatch" style="background:#8ad3ff"></div>
+              <div><strong>Flow vectors</strong><br /><span class="muted">Pointer probes show the local gradient direction across the plate.</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Performance</div>
+          <div class="status" id="performanceReadout">
+            <strong>Precompute ready.</strong> Nine plate modes cached as signed displacement plus x/y gradient fields.
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      const MODES = [
+        { label: "Lotus 3:5", m: 3, n: 5, baseHz: 246, color: "#ffd27a", insight: "Broad petals and medium seams create a readable opener with drifting loops." },
+        { label: "Crosswind 2:6", m: 2, n: 6, baseHz: 182, color: "#f6d88d", insight: "Vertical channels dominate first, then diagonal knots appear in the centers." },
+        { label: "Halo 4:7", m: 4, n: 7, baseHz: 311, color: "#9edaff", insight: "A denser outer ring pattern with quick falloff into bright central nodes." },
+        { label: "Vault 5:8", m: 5, n: 8, baseHz: 370, color: "#d6bcff", insight: "High-frequency vault arches produce tight grain braids across the plate." },
+        { label: "Prism 3:9", m: 3, n: 9, baseHz: 428, color: "#bdf7d0", insight: "Symmetric bands split into fine ribs, especially near the top and bottom edge." },
+        { label: "Tide 6:7", m: 6, n: 7, baseHz: 488, color: "#ffbfa3", insight: "Near-neighbor mode numbers create a woven stripe interference field." },
+        { label: "Arc 4:10", m: 4, n: 10, baseHz: 540, color: "#ffd1f0", insight: "Long edge arcs stay readable while narrow seam fans sweep through the center." },
+        { label: "Crown 7:9", m: 7, n: 9, baseHz: 620, color: "#d4f0ff", insight: "This mode creates compact bead-like node islands around a sharp inner crown." },
+        { label: "Nova 8:11", m: 8, n: 11, baseHz: 702, color: "#ffe4a1", insight: "Fast shimmer and dense nodal dust make the highest preset feel almost granular." }
+      ];
+
+      const FIELD_SIZE = 512;
+      const PARTICLE_COUNT = 1600;
+      const canvas = document.getElementById("plateCanvas");
+      const ctx = canvas.getContext("2d");
+      const plateShell = document.getElementById("plateShell");
+      const modeGrid = document.getElementById("modeGrid");
+      const frequencySlider = document.getElementById("frequencySlider");
+      const dragSlider = document.getElementById("dragSlider");
+      const pullSlider = document.getElementById("pullSlider");
+      const sweepSlider = document.getElementById("sweepSlider");
+      const sweepButton = document.getElementById("sweepButton");
+      const audioButton = document.getElementById("audioButton");
+      const disturbButton = document.getElementById("disturbButton");
+
+      const modeStat = document.getElementById("modeStat");
+      const frequencyStat = document.getElementById("frequencyStat");
+      const particleStat = document.getElementById("particleStat");
+      const frequencyValue = document.getElementById("frequencyValue");
+      const dragValue = document.getElementById("dragValue");
+      const pullValue = document.getElementById("pullValue");
+      const sweepValue = document.getElementById("sweepValue");
+      const fieldReadout = document.getElementById("fieldReadout");
+      const probeReadout = document.getElementById("probeReadout");
+      const audioReadout = document.getElementById("audioReadout");
+      const modeInsight = document.getElementById("modeInsight");
+      const performanceReadout = document.getElementById("performanceReadout");
+      const ladderTrack = document.getElementById("ladderTrack");
+      const ladderPlayhead = document.getElementById("ladderPlayhead");
+      const ladderReadout = document.getElementById("ladderReadout");
+
+      const state = {
+        activeMode: 0,
+        frequency: MODES[0].baseHz,
+        drag: Number(dragSlider.value),
+        pull: Number(pullSlider.value),
+        viewWidth: canvas.width,
+        viewHeight: canvas.height,
+        particles: [],
+        pointer: { active: false, x: 0.5, y: 0.5 },
+        audioEnabled: false,
+        audioCtx: null,
+        oscillator: null,
+        gainNode: null,
+        lastTime: performance.now(),
+        probeEnergy: 0,
+        disturbPulse: 0,
+        autoSweep: false,
+        sweepWidth: Number(sweepSlider.value),
+        sweepPhase: 0
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function createModeButton(mode, index) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "mode-button";
+        button.innerHTML = `
+          <span class="mode-name">${mode.label}</span>
+          <span class="mode-meta">m=${mode.m}, n=${mode.n} · ${mode.baseHz} Hz</span>
+        `;
+        button.addEventListener("click", () => {
+          activateMode(index);
+          ensureAudio();
+        });
+        modeGrid.appendChild(button);
+        mode.button = button;
+      }
+
+      function createLadderMarker(mode, index) {
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = "ladder-marker";
+        marker.innerHTML = `
+          <strong>${mode.m}:${mode.n}</strong>
+          <span>${mode.baseHz} Hz</span>
+        `;
+        marker.title = `Jump to ${mode.label}`;
+        marker.setAttribute("aria-label", `Jump to ${mode.label} at ${mode.baseHz} hertz`);
+        const range = Number(frequencySlider.max) - Number(frequencySlider.min);
+        const offset = ((mode.baseHz - Number(frequencySlider.min)) / range) * 100;
+        marker.style.left = `${offset}%`;
+        marker.addEventListener("click", async () => {
+          activateMode(index);
+          await ensureAudio();
+        });
+        ladderTrack.appendChild(marker);
+        mode.marker = marker;
+      }
+
+      function buildField(mode) {
+        const field = new Float32Array(FIELD_SIZE * FIELD_SIZE);
+        const gradientX = new Float32Array(FIELD_SIZE * FIELD_SIZE);
+        const gradientY = new Float32Array(FIELD_SIZE * FIELD_SIZE);
+        const preview = document.createElement("canvas");
+        preview.width = FIELD_SIZE;
+        preview.height = FIELD_SIZE;
+        const previewCtx = preview.getContext("2d");
+        const image = previewCtx.createImageData(FIELD_SIZE, FIELD_SIZE);
+        let peak = 0;
+        const m = mode.m * Math.PI;
+        const n = mode.n * Math.PI;
+
+        for (let y = 0; y < FIELD_SIZE; y += 1) {
+          const py = (y / (FIELD_SIZE - 1)) * 2 - 1;
+          for (let x = 0; x < FIELD_SIZE; x += 1) {
+            const px = (x / (FIELD_SIZE - 1)) * 2 - 1;
+            const i = y * FIELD_SIZE + x;
+            const a = Math.cos(m * px) * Math.cos(n * py);
+            const b = Math.cos(n * px) * Math.cos(m * py);
+            const signed = a - b;
+            const absSigned = Math.abs(signed);
+            peak = Math.max(peak, absSigned);
+            field[i] = signed;
+
+            const dfdx = -m * Math.sin(m * px) * Math.cos(n * py) + n * Math.sin(n * px) * Math.cos(m * py);
+            const dfdy = -n * Math.cos(m * px) * Math.sin(n * py) + m * Math.cos(n * px) * Math.sin(m * py);
+            const sign = signed >= 0 ? 1 : -1;
+            gradientX[i] = dfdx * sign;
+            gradientY[i] = dfdy * sign;
+          }
+        }
+
+        for (let y = 0; y < FIELD_SIZE; y += 1) {
+          for (let x = 0; x < FIELD_SIZE; x += 1) {
+            const i = y * FIELD_SIZE + x;
+            const amplitude = Math.abs(field[i]) / (peak || 1);
+            const grain = 1 - amplitude;
+            const dataIndex = i * 4;
+            const tint = grain * 0.8 + 0.2;
+            image.data[dataIndex] = 222 + grain * 18;
+            image.data[dataIndex + 1] = 214 + grain * 16;
+            image.data[dataIndex + 2] = 198 + tint * 20;
+            image.data[dataIndex + 3] = 38 + amplitude * 82;
+          }
+        }
+
+        previewCtx.putImageData(image, 0, 0);
+        mode.field = field;
+        mode.gradientX = gradientX;
+        mode.gradientY = gradientY;
+        mode.preview = preview;
+        mode.peak = peak || 1;
+      }
+
+      function spawnParticle(seedOffset = 0) {
+        return {
+          x: Math.random(),
+          y: Math.random(),
+          vx: (Math.random() - 0.5) * 0.004 * (1 + seedOffset * 0.03),
+          vy: (Math.random() - 0.5) * 0.004 * (1 + seedOffset * 0.03),
+          life: Math.random() * 600 + 300
+        };
+      }
+
+      function resetParticles() {
+        state.particles = Array.from({ length: PARTICLE_COUNT }, (_, index) => spawnParticle(index % 7));
+        particleStat.textContent = `${PARTICLE_COUNT} grains`;
+      }
+
+      function sampleField(x, y) {
+        const fx = clamp(Math.round(x * (FIELD_SIZE - 1)), 0, FIELD_SIZE - 1);
+        const fy = clamp(Math.round(y * (FIELD_SIZE - 1)), 0, FIELD_SIZE - 1);
+        const idx = fy * FIELD_SIZE + fx;
+        const blend = getBlendProfile();
+        const lower = blend.lower;
+        const upper = blend.upper;
+        const mix = blend.mix;
+        const inverse = 1 - mix;
+        const signed = lower.field[idx] * inverse + upper.field[idx] * mix;
+        const gx = lower.gradientX[idx] * inverse + upper.gradientX[idx] * mix;
+        const gy = lower.gradientY[idx] * inverse + upper.gradientY[idx] * mix;
+        const lowerAmplitude = Math.abs(lower.field[idx]) / lower.peak;
+        const upperAmplitude = Math.abs(upper.field[idx]) / upper.peak;
+        const amplitude = lowerAmplitude * inverse + upperAmplitude * mix;
+        return {
+          signed,
+          amplitude,
+          gx,
+          gy
+        };
+      }
+
+      function getBlendProfile() {
+        let lower = MODES[0];
+        let upper = MODES[MODES.length - 1];
+
+        if (state.frequency <= MODES[0].baseHz) {
+          return { lower, upper: lower, mix: 0 };
+        }
+
+        if (state.frequency >= MODES[MODES.length - 1].baseHz) {
+          return { lower: upper, upper, mix: 0 };
+        }
+
+        for (let index = 0; index < MODES.length - 1; index += 1) {
+          const current = MODES[index];
+          const next = MODES[index + 1];
+          if (state.frequency >= current.baseHz && state.frequency <= next.baseHz) {
+            lower = current;
+            upper = next;
+            const span = next.baseHz - current.baseHz || 1;
+            return {
+              lower,
+              upper,
+              mix: clamp((state.frequency - current.baseHz) / span, 0, 1)
+            };
+          }
+        }
+
+        return { lower: MODES[state.activeMode], upper: MODES[state.activeMode], mix: 0 };
+      }
+
+      function activateMode(index) {
+        state.activeMode = index;
+        const mode = MODES[index];
+        state.frequency = mode.baseHz;
+        state.sweepPhase = 0;
+        frequencySlider.value = String(mode.baseHz);
+        MODES.forEach((entry, entryIndex) => {
+          entry.button.classList.toggle("active", entryIndex === index);
+        });
+        modeStat.textContent = mode.label;
+        fieldReadout.textContent = `Nodes settling into mode ${mode.m}:${mode.n} with a ${state.frequency < mode.baseHz ? "cool" : "centered"} detune offset.`;
+        modeInsight.innerHTML = `<strong>${mode.label}</strong> ${mode.insight}`;
+        updateFrequencyReadout();
+        updateAudioFrequency();
+        disturb(1.4);
+      }
+
+      function updateFrequencyReadout() {
+        const value = `${Math.round(state.frequency)} Hz`;
+        frequencyValue.textContent = value;
+        frequencyStat.textContent = value;
+        const base = MODES[state.activeMode].baseHz;
+        const delta = Math.round(state.frequency - base);
+        const detune = delta === 0 ? "locked to the mode center" : `${delta > 0 ? "+" : ""}${delta} Hz detune`;
+        const sweepLabel = state.autoSweep ? ` Sweep active within +/-${Math.round(state.sweepWidth)} Hz.` : "";
+        fieldReadout.textContent = `Nodes settling into mode ${MODES[state.activeMode].m}:${MODES[state.activeMode].n}, ${detune}.${sweepLabel}`;
+        updateLadderReadout();
+      }
+
+      function updateLadderReadout() {
+        const blend = getBlendProfile();
+        const min = Number(frequencySlider.min);
+        const max = Number(frequencySlider.max);
+        const range = max - min;
+        const position = ((state.frequency - min) / range) * 100;
+        ladderPlayhead.style.left = `${clamp(position, 0, 100)}%`;
+
+        let nearestMode = MODES[0];
+        let nearestDistance = Math.abs(state.frequency - nearestMode.baseHz);
+        for (const mode of MODES) {
+          const distance = Math.abs(state.frequency - mode.baseHz);
+          if (distance < nearestDistance) {
+            nearestMode = mode;
+            nearestDistance = distance;
+          }
+        }
+
+        let secondaryMode = null;
+        let secondaryDistance = Number.POSITIVE_INFINITY;
+        for (const mode of MODES) {
+          const distance = Math.abs(state.frequency - mode.baseHz);
+          const ratio = clamp(1 - distance / 150, 0.22, 1);
+          mode.marker.style.opacity = ratio.toFixed(2);
+          mode.marker.classList.toggle("active", mode === MODES[state.activeMode]);
+          mode.marker.classList.toggle("nearest", mode === nearestMode);
+          mode.marker.setAttribute("aria-pressed", mode === MODES[state.activeMode] ? "true" : "false");
+          if (mode !== nearestMode && distance < secondaryDistance) {
+            secondaryMode = mode;
+            secondaryDistance = distance;
+          }
+        }
+
+        const direction = state.frequency >= nearestMode.baseHz ? "above" : "below";
+        const distanceText =
+          nearestDistance < 1
+            ? "sitting exactly on its anchor"
+            : `${Math.round(nearestDistance)} Hz ${direction} ${nearestMode.label}`;
+        const neighborText =
+          secondaryMode && secondaryDistance < 90
+            ? ` Blending toward ${secondaryMode.label} as the slider crosses the family ladder.`
+            : "";
+        const crossfadeText =
+          blend.lower === blend.upper
+            ? ""
+            : ` Crossfading ${Math.round((1 - blend.mix) * 100)}% ${blend.lower.label} / ${Math.round(blend.mix * 100)}% ${blend.upper.label}.`;
+        ladderReadout.innerHTML = `<strong>Nearest anchor: ${nearestMode.label}.</strong> The live slider is ${distanceText}.${neighborText}${crossfadeText}`;
+      }
+
+      async function ensureAudio() {
+        if (state.audioCtx) {
+          if (state.audioCtx.state === "suspended") {
+            await state.audioCtx.resume();
+          }
+          state.audioEnabled = true;
+          audioButton.textContent = "Audio Enabled";
+          audioReadout.textContent = "Sine oscillator follows the current resonance slider with a modest gain envelope.";
+          return;
+        }
+
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          oscillator.type = "sine";
+          gainNode.gain.value = 0.04;
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          oscillator.start();
+          state.audioCtx = audioCtx;
+          state.oscillator = oscillator;
+          state.gainNode = gainNode;
+          state.audioEnabled = true;
+          updateAudioFrequency();
+          audioButton.textContent = "Audio Enabled";
+          audioReadout.textContent = "Sine oscillator follows the current resonance slider with a modest gain envelope.";
+        } catch (error) {
+          audioReadout.textContent = `Audio unavailable in this browser: ${error.message}`;
+        }
+      }
+
+      function updateAudioFrequency() {
+        if (!state.oscillator || !state.audioCtx) {
+          return;
+        }
+        const now = state.audioCtx.currentTime;
+        state.oscillator.frequency.cancelScheduledValues(now);
+        state.oscillator.frequency.linearRampToValueAtTime(state.frequency, now + 0.12);
+      }
+
+      function toggleSweep(forceState) {
+        state.autoSweep = typeof forceState === "boolean" ? forceState : !state.autoSweep;
+        sweepButton.textContent = state.autoSweep ? "Stop Sweep" : "Start Sweep";
+        audioReadout.textContent = state.autoSweep
+          ? "Sine oscillator is sweeping around the active mode center with a modest gain envelope."
+          : "Sine oscillator follows the current resonance slider with a modest gain envelope.";
+        if (!state.autoSweep) {
+          state.frequency = MODES[state.activeMode].baseHz;
+          frequencySlider.value = String(Math.round(state.frequency));
+          updateFrequencyReadout();
+          updateAudioFrequency();
+        } else {
+          updateFrequencyReadout();
+        }
+      }
+
+      function disturb(multiplier = 1) {
+        state.disturbPulse = Math.max(state.disturbPulse, multiplier * 0.72);
+        state.particles.forEach((particle) => {
+          particle.vx += (Math.random() - 0.5) * 0.035 * multiplier;
+          particle.vy += (Math.random() - 0.5) * 0.035 * multiplier;
+          particle.life = Math.random() * 600 + 300;
+        });
+        if (state.gainNode && state.audioCtx) {
+          const now = state.audioCtx.currentTime;
+          const accent = 0.038 + multiplier * 0.012;
+          state.gainNode.gain.cancelScheduledValues(now);
+          state.gainNode.gain.setValueAtTime(Math.max(0.03, state.gainNode.gain.value), now);
+          state.gainNode.gain.linearRampToValueAtTime(accent, now + 0.03);
+          state.gainNode.gain.exponentialRampToValueAtTime(0.04, now + 0.26);
+        }
+        audioReadout.textContent = "Plate struck. The field loosens, the grains scatter, and the sine tone blooms before settling back.";
+        plateShell.classList.remove("plate-shake");
+        void plateShell.offsetWidth;
+        plateShell.classList.add("plate-shake");
+        setTimeout(() => plateShell.classList.remove("plate-shake"), 560);
+      }
+
+      function updateParticles(deltaSeconds) {
+        const deltaScale = Math.min(2.4, deltaSeconds * 60);
+        const probe = sampleField(state.pointer.x, state.pointer.y);
+        state.probeEnergy = probe.amplitude;
+        state.disturbPulse = Math.max(0, state.disturbPulse - deltaSeconds * 1.55);
+        const effectivePull = Math.max(0.00028, state.pull * (1 - state.disturbPulse * 0.58));
+        const jitter = 0.0008 + state.disturbPulse * 0.0034;
+
+        for (let i = 0; i < state.particles.length; i += 1) {
+          const particle = state.particles[i];
+          const sample = sampleField(particle.x, particle.y);
+          particle.vx += (-sample.gx * effectivePull + (Math.random() - 0.5) * jitter) * deltaScale;
+          particle.vy += (-sample.gy * effectivePull + (Math.random() - 0.5) * jitter) * deltaScale;
+          particle.vx *= state.drag;
+          particle.vy *= state.drag;
+          particle.x += particle.vx * deltaScale;
+          particle.y += particle.vy * deltaScale;
+          particle.life -= deltaScale;
+
+          if (particle.x <= 0 || particle.x >= 1) {
+            particle.x = clamp(particle.x, 0, 1);
+            particle.vx *= -0.72;
+          }
+
+          if (particle.y <= 0 || particle.y >= 1) {
+            particle.y = clamp(particle.y, 0, 1);
+            particle.vy *= -0.72;
+          }
+
+          if (particle.life <= 0 || !Number.isFinite(particle.x) || !Number.isFinite(particle.y)) {
+            state.particles[i] = spawnParticle(i % 9);
+          }
+        }
+      }
+
+      function drawPlate(timestamp) {
+        const width = state.viewWidth;
+        const height = state.viewHeight;
+        const mode = MODES[state.activeMode];
+        const blend = getBlendProfile();
+        const blendMix = blend.mix;
+        const detuneRatio = clamp(Math.abs(state.frequency - mode.baseHz) / 180, 0, 1);
+        const shimmer = 0.5 + 0.5 * Math.sin(timestamp * 0.0007);
+        const disturbance = clamp(state.disturbPulse, 0, 1);
+        const outerPad = width * 0.08;
+        const plateWidth = width - outerPad * 2;
+        const plateHeight = height - outerPad * 1.9;
+        const plateX = outerPad;
+        const plateY = outerPad * 0.9;
+
+        ctx.clearRect(0, 0, width, height);
+
+        const ambient = ctx.createLinearGradient(0, 0, width, height);
+        ambient.addColorStop(0, "#071017");
+        ambient.addColorStop(1, "#0d1822");
+        ctx.fillStyle = ambient;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.shadowColor = "rgba(0, 0, 0, 0.38)";
+        ctx.shadowBlur = 40;
+        ctx.fillStyle = "rgba(245, 239, 226, 0.03)";
+        roundRect(ctx, plateX, plateY, plateWidth, plateHeight, 28);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        roundRect(ctx, plateX, plateY, plateWidth, plateHeight, 28);
+        ctx.clip();
+        ctx.globalAlpha = 0.85 * (1 - blendMix);
+        ctx.drawImage(blend.lower.preview, plateX, plateY, plateWidth, plateHeight);
+        if (blend.upper !== blend.lower && blendMix > 0.001) {
+          ctx.globalAlpha = 0.85 * blendMix;
+          ctx.drawImage(blend.upper.preview, plateX, plateY, plateWidth, plateHeight);
+        }
+
+        const wash = ctx.createRadialGradient(
+          plateX + plateWidth * 0.5,
+          plateY + plateHeight * 0.48,
+          plateWidth * 0.1,
+          plateX + plateWidth * 0.5,
+          plateY + plateHeight * 0.48,
+          plateWidth * 0.7
+        );
+        wash.addColorStop(0, `rgba(255, 243, 204, ${0.08 + shimmer * 0.05})`);
+        wash.addColorStop(1, "rgba(255, 243, 204, 0)");
+        ctx.fillStyle = wash;
+        ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+
+        if (disturbance > 0.001) {
+          const shock = ctx.createRadialGradient(
+            plateX + plateWidth * 0.5,
+            plateY + plateHeight * 0.5,
+            plateWidth * 0.06,
+            plateX + plateWidth * 0.5,
+            plateY + plateHeight * 0.5,
+            plateWidth * 0.82
+          );
+          shock.addColorStop(0, `rgba(255, 226, 168, ${0.1 + disturbance * 0.22})`);
+          shock.addColorStop(1, "rgba(255, 226, 168, 0)");
+          ctx.fillStyle = shock;
+          ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+        }
+
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgba(138, 211, 255, ${0.09 + detuneRatio * 0.22})`;
+        for (let i = 1; i < 8; i += 1) {
+          const x = plateX + (plateWidth / 8) * i;
+          ctx.beginPath();
+          ctx.moveTo(x, plateY + 10);
+          ctx.lineTo(x, plateY + plateHeight - 10);
+          ctx.stroke();
+        }
+        for (let i = 1; i < 7; i += 1) {
+          const y = plateY + (plateHeight / 7) * i;
+          ctx.beginPath();
+          ctx.moveTo(plateX + 10, y);
+          ctx.lineTo(plateX + plateWidth - 10, y);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = hexToRgba(mode.color, 0.84);
+        ctx.shadowColor = hexToRgba(mode.color, 0.28);
+        ctx.shadowBlur = 14;
+        for (const particle of state.particles) {
+          const px = plateX + particle.x * plateWidth;
+          const py = plateY + particle.y * plateHeight;
+          const radius = 0.7 + Math.abs(particle.vx + particle.vy) * 280;
+          ctx.beginPath();
+          ctx.arc(px, py, clamp(radius, 0.7, 2.4), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (state.pointer.active) {
+          const px = plateX + state.pointer.x * plateWidth;
+          const py = plateY + state.pointer.y * plateHeight;
+          const sample = sampleField(state.pointer.x, state.pointer.y);
+          const flowScale = 18 + sample.amplitude * 22;
+
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = "rgba(138, 211, 255, 0.88)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(px, py, 11 + sample.amplitude * 12, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px - sample.gx * flowScale, py - sample.gy * flowScale);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = "rgba(245, 239, 226, 0.18)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, plateX, plateY, plateWidth, plateHeight, 28);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(245, 239, 226, 0.86)";
+        ctx.font = "600 15px Avenir Next, Segoe UI, sans-serif";
+        ctx.fillText("Standing-wave plate", plateX + 18, plateY + 28);
+        ctx.fillText(`Mode ${mode.m}:${mode.n}`, plateX + 18, plateY + plateHeight - 18);
+        if (blend.upper !== blend.lower && blendMix > 0.001) {
+          ctx.font = "600 13px Avenir Next, Segoe UI, sans-serif";
+          ctx.fillStyle = "rgba(245, 239, 226, 0.7)";
+          ctx.fillText(
+            `Interpolating ${blend.lower.m}:${blend.lower.n} -> ${blend.upper.m}:${blend.upper.n}`,
+            plateX + 18,
+            plateY + 48
+          );
+        }
+
+        performanceReadout.innerHTML =
+          `<strong>Precompute ready.</strong> 9 modes × ${FIELD_SIZE}² cells cached. Pointer amplitude ${state.probeEnergy.toFixed(3)}. Disturbance ${Math.round(disturbance * 100)}%.`;
+      }
+
+      function roundRect(context, x, y, width, height, radius) {
+        context.beginPath();
+        context.moveTo(x + radius, y);
+        context.arcTo(x + width, y, x + width, y + height, radius);
+        context.arcTo(x + width, y + height, x, y + height, radius);
+        context.arcTo(x, y + height, x, y, radius);
+        context.arcTo(x, y, x + width, y, radius);
+        context.closePath();
+      }
+
+      function hexToRgba(hex, alpha) {
+        const clean = hex.replace("#", "");
+        const value = Number.parseInt(clean, 16);
+        const r = (value >> 16) & 255;
+        const g = (value >> 8) & 255;
+        const b = value & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const deviceRatio = Math.min(window.devicePixelRatio || 1, 2);
+        state.viewWidth = Math.round(rect.width);
+        state.viewHeight = Math.round(rect.width * 0.92);
+        canvas.width = Math.round(state.viewWidth * deviceRatio);
+        canvas.height = Math.round(state.viewHeight * deviceRatio);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(deviceRatio, deviceRatio);
+      }
+
+      function pointerToPlate(event) {
+        const rect = canvas.getBoundingClientRect();
+        const x = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+        const y = clamp((event.clientY - rect.top) / rect.height, 0, 1);
+        state.pointer.active = true;
+        state.pointer.x = x;
+        state.pointer.y = y;
+        const sample = sampleField(x, y);
+        probeReadout.textContent =
+          `Amplitude ${sample.amplitude.toFixed(3)} · flow (${sample.gx.toFixed(2)}, ${sample.gy.toFixed(2)}) at ${Math.round(x * 100)}%, ${Math.round(y * 100)}%.`;
+      }
+
+      function animate(timestamp) {
+        const deltaSeconds = Math.min(0.04, (timestamp - state.lastTime) / 1000 || 0.016);
+        state.lastTime = timestamp;
+        if (state.autoSweep) {
+          state.sweepPhase += deltaSeconds * 0.8;
+          const base = MODES[state.activeMode].baseHz;
+          state.frequency = clamp(base + Math.sin(state.sweepPhase) * state.sweepWidth, Number(frequencySlider.min), Number(frequencySlider.max));
+          frequencySlider.value = String(Math.round(state.frequency));
+          updateFrequencyReadout();
+          updateAudioFrequency();
+        }
+        updateParticles(deltaSeconds);
+        drawPlate(timestamp);
+        requestAnimationFrame(animate);
+      }
+
+      MODES.forEach((mode, index) => {
+        createModeButton(mode, index);
+        createLadderMarker(mode, index);
+        buildField(mode);
+      });
+
+      resetParticles();
+      activateMode(0);
+      updateFrequencyReadout();
+
+      frequencySlider.addEventListener("input", () => {
+        state.frequency = Number(frequencySlider.value);
+        updateFrequencyReadout();
+        updateAudioFrequency();
+      });
+
+      dragSlider.addEventListener("input", () => {
+        state.drag = Number(dragSlider.value);
+        dragValue.textContent = state.drag.toFixed(3);
+      });
+
+      pullSlider.addEventListener("input", () => {
+        state.pull = Number(pullSlider.value);
+        pullValue.textContent = state.pull.toFixed(4);
+      });
+
+      sweepSlider.addEventListener("input", () => {
+        state.sweepWidth = Number(sweepSlider.value);
+        sweepValue.textContent = `${Math.round(state.sweepWidth)} Hz`;
+        if (state.autoSweep) {
+          updateFrequencyReadout();
+        }
+      });
+
+      sweepButton.addEventListener("click", async () => {
+        await ensureAudio();
+        toggleSweep();
+      });
+
+      audioButton.addEventListener("click", ensureAudio);
+      disturbButton.addEventListener("click", async () => {
+        await ensureAudio();
+        disturb(1.8);
+      });
+
+      canvas.addEventListener("pointermove", pointerToPlate);
+      canvas.addEventListener("pointerdown", async (event) => {
+        pointerToPlate(event);
+        await ensureAudio();
+        disturb(1.1);
+      });
+      canvas.addEventListener("pointerleave", () => {
+        state.pointer.active = false;
+        probeReadout.textContent = "Move over the plate to inspect local amplitude and flow.";
+      });
+
+      frequencySlider.addEventListener("pointerdown", () => {
+        if (state.autoSweep) {
+          toggleSweep(false);
+        }
+      });
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>
