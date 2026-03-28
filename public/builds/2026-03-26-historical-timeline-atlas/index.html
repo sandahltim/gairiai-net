@@ -413,6 +413,8 @@
 
         #app {
           min-height: 100svh;
+          gap: 12px;
+          padding: 12px;
         }
 
         .masthead,
@@ -422,14 +424,36 @@
 
         .masthead {
           align-items: start;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 22px;
+        }
+
+        .masthead p {
+          display: none;
         }
 
         .meta {
-          text-align: left;
+          display: none;
+        }
+
+        h1 {
+          margin: 4px 0 0;
+          font-size: clamp(2.05rem, 10vw, 2.9rem);
         }
 
         .map-card {
-          min-height: 58svh;
+          min-height: 56svh;
+          border-radius: 26px;
+        }
+
+        .overlay {
+          inset: 14px;
+        }
+
+        .chip {
+          padding: 7px 10px;
+          font-size: 0.82rem;
         }
 
         .viewport {
@@ -439,9 +463,10 @@
         .factsheet {
           position: relative;
           z-index: 2;
-          margin: -54px 12px 0;
-          border-radius: 28px 28px 0 0;
-          max-height: 34svh;
+          margin: -18px 10px 0;
+          padding: 16px;
+          border-radius: 24px 24px 0 0;
+          max-height: 18svh;
           overflow: auto;
           background: rgba(247, 237, 213, 0.94);
           box-shadow: 0 -10px 32px rgba(51, 31, 11, 0.12);
@@ -452,10 +477,25 @@
           bottom: 0;
           z-index: 3;
           margin-top: -6px;
+          padding: 12px 14px 14px;
+          gap: 10px;
         }
 
         .timeline-markers {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+          scroll-snap-type: x proximity;
+        }
+
+        .timeline-markers button {
+          flex: 0 0 min(220px, 72vw);
+          scroll-snap-align: start;
+        }
+
+        .transition-meter {
+          min-width: 100%;
         }
       }
     </style>
