@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Emergent Swarm Lab</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --panel: rgba(16, 18, 28, 0.82);
+      --panel-solid: #10121c;
+      --text: #e4e4ed;
+      --muted: #96a0b8;
+      --line: rgba(255, 255, 255, 0.12);
+      --accent: #7c9cff;
+      --pink: #ff5c9f;
+      --gold: #ffcf6b;
+      --danger: #ff6767;
+      --good: #87f7c0;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      --radius: 18px;
+      --touch: 46px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+    }
+
+    #viewport {
+      position: relative;
+      min-width: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(124,156,255,0.08), transparent 35%),
+        radial-gradient(circle at 80% 15%, rgba(255,92,159,0.08), transparent 28%),
+        radial-gradient(circle at 50% 100%, rgba(0,255,160,0.06), transparent 40%),
+        #0a0a0f;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    #hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .glass {
+      background: linear-gradient(180deg, rgba(18, 21, 34, 0.88), rgba(10, 12, 20, 0.78));
+      border: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+
+    #titleCard {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      padding: 14px 16px;
+      max-width: min(420px, calc(100vw - 32px));
+    }
+
+    #titleCard h1 {
+      margin: 0 0 6px;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    #titleCard p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.4;
+    }
+
+    #statsBar {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      padding: 10px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--muted);
+      max-width: calc(100vw - 32px);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .statValue {
+      color: var(--text);
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
+    #presetRail {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      max-width: min(680px, calc(100vw - 32px));
+      pointer-events: auto;
+    }
+
+    .pill, button, select, input[type="range"] {
+      pointer-events: auto;
+    }
+
+    .pill, .miniButton, .modeButton, .panelButton {
+      min-height: var(--touch);
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(13, 15, 24, 0.72);
+      color: var(--text);
+      padding: 10px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .pill:hover, .miniButton:hover, .modeButton:hover, .panelButton:hover,
+    .pill:focus-visible, .miniButton:focus-visible, .modeButton:focus-visible, .panelButton:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.2);
+      outline: none;
+    }
+
+    .pill.active {
+      background: linear-gradient(180deg, rgba(124,156,255,0.32), rgba(124,156,255,0.14));
+      border-color: rgba(124,156,255,0.65);
+      box-shadow: 0 10px 24px rgba(124,156,255,0.2);
+    }
+
+    #panel {
+      border-left: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(180deg, rgba(12, 14, 24, 0.94), rgba(9, 10, 18, 0.98));
+      min-height: 100vh;
+      padding: 18px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #panel h2 {
+      margin: 0;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .section {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .sectionHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sectionHeader span {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .sliderRow {
+      display: grid;
+      gap: 6px;
+    }
+
+    .sliderLabel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .sliderLabel strong { color: var(--text); }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      background: transparent;
+      min-height: 32px;
+    }
+
+    .buttonGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .buttonGrid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .modeButton.active,
+    .miniButton.active,
+    .panelButton.active {
+      background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.08));
+      border-color: rgba(255,255,255,0.26);
+    }
+
+    .danger.active {
+      background: linear-gradient(180deg, rgba(255, 103, 103, 0.34), rgba(255, 103, 103, 0.12));
+      border-color: rgba(255, 103, 103, 0.72);
+    }
+
+    .gold.active {
+      background: linear-gradient(180deg, rgba(255, 207, 107, 0.34), rgba(255, 207, 107, 0.12));
+      border-color: rgba(255, 207, 107, 0.72);
+    }
+
+    .blue.active {
+      background: linear-gradient(180deg, rgba(108, 152, 255, 0.34), rgba(108, 152, 255, 0.12));
+      border-color: rgba(108, 152, 255, 0.72);
+    }
+
+    select {
+      width: 100%;
+      min-height: var(--touch);
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(13, 15, 24, 0.78);
+      color: var(--text);
+      font-size: 0.92rem;
+    }
+
+    #statusLine {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    #toast {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%) translateY(18px);
+      bottom: 86px;
+      padding: 12px 16px;
+      font-size: 0.86rem;
+      color: var(--text);
+      opacity: 0;
+      transition: opacity 180ms ease, transform 180ms ease;
+      pointer-events: none;
+      max-width: min(420px, calc(100vw - 24px));
+      text-align: center;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    #mobileDrawerToggle {
+      display: none;
+    }
+
+    #legend {
+      display: grid;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .legendRow {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .legendDot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      display: inline-block;
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    @media (max-width: 900px) {
+      body {
+        display: block;
+      }
+      #panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        min-height: 0;
+        height: min(62vh, 560px);
+        border-left: none;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        border-top-left-radius: 22px;
+        border-top-right-radius: 22px;
+        transform: translateY(calc(100% - 88px));
+        transition: transform 220ms ease;
+        z-index: 12;
+        padding-top: 62px;
+      }
+      body.drawer-open #panel {
+        transform: translateY(0);
+      }
+      #mobileDrawerToggle {
+        display: flex;
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        z-index: 13;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+      }
+      #presetRail {
+        bottom: 92px;
+        max-width: calc(100vw - 32px);
+      }
+      #titleCard {
+        max-width: calc(100vw - 32px);
+      }
+      #statsBar {
+        left: 16px;
+        right: auto;
+        top: auto;
+        bottom: 152px;
+        justify-content: flex-start;
+      }
+      #toast { bottom: 164px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="viewport">
+    <canvas id="labCanvas" aria-label="Emergent Swarm Lab simulation canvas"></canvas>
+    <div id="hud">
+      <section id="titleCard" class="glass" aria-label="Project overview">
+        <h1>Emergent Swarm Lab</h1>
+        <p>Move through a living flock. Tiny rule changes reshape the entire organism. Drag to become a predator, magnet, or pure disruption field.</p>
+      </section>
+      <div id="statsBar" class="glass" aria-live="polite">
+        <span>FPS <strong class="statValue" id="fpsValue">0</strong></span>
+        <span>Agents <strong class="statValue" id="countValue">0</strong></span>
+        <span>Neighbors <strong class="statValue" id="neighborsValue">0</strong></span>
+        <span>Mode <strong class="statValue" id="modeValue">Predator</strong></span>
+      </div>
+      <div id="presetRail" aria-label="Preset selector"></div>
+      <div id="toast" class="glass" aria-live="polite"></div>
+    </div>
+  </main>
+
+  <button id="mobileDrawerToggle" class="glass miniButton" type="button" aria-expanded="false" aria-controls="panel">
+    <span>Controls</span>
+    <span id="drawerStateLabel">Expand</span>
+  </button>
+
+  <aside id="panel" aria-label="Simulation controls"></aside>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const html = document.documentElement;
+    const body = document.body;
+    const canvas = document.getElementById('labCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    const panel = document.getElementById('panel');
+    const presetRail = document.getElementById('presetRail');
+    const toast = document.getElementById('toast');
+    const mobileDrawerToggle = document.getElementById('mobileDrawerToggle');
+    const drawerStateLabel = document.getElementById('drawerStateLabel');
+
+    const fpsValue = document.getElementById('fpsValue');
+    const countValue = document.getElementById('countValue');
+    const neighborsValue = document.getElementById('neighborsValue');
+    const modeValue = document.getElementById('modeValue');
+
+    const TWO_PI = Math.PI * 2;
+    const GOLDEN = 2.399963229728653;
+    const MAX_OBSTACLES = 5;
+
+    const pointer = {
+      x: 0,
+      y: 0,
+      active: false,
+      inside: false,
+      justTapped: false,
+      modePulse: 0,
+      touchCount: 0,
+      lastTapTime: 0,
+      longPressTimer: 0,
+      draggingObstacleId: null,
+      dragStartX: 0,
+      dragStartY: 0,
+      lastX: 0,
+      lastY: 0,
+      pinchDistance: 0,
+      pinchCenterX: 0,
+      pinchCenterY: 0,
+      targetBoost: 0,
+      placementPreview: null
+    };
+
+    const state = {
+      width: 0,
+      height: 0,
+      dpr: 1,
+      animationId: 0,
+      lastTime: 0,
+      fps: 0,
+      fpsSmoothed: 60,
+      fpsDropTimer: 0,
+      frameCount: 0,
+      paused: false,
+      showTrails: false,
+      screenshotRequested: false,
+      seed: Math.floor(Math.random() * 1e9),
+      mobile: window.matchMedia('(max-width: 900px)').matches,
+      colorMode: 'velocity',
+      mouseMode: 'predator',
+      preset: 'murmuration',
+      flock: [],
+      grid: new Map(),
+      cellSize: 60,
+      neighborStats: 0,
+      timeAccumulator: 0,
+      obstacles: [],
+      selectedColorMode: 'velocity',
+      trailsAutoCapped: false,
+      focusPulse: 0,
+      debugToastTimer: 0,
+      statsUpdateTimer: 0,
+      controls: null,
+      drawerOpen: false
+    };
+
+    const defaultParams = {
+      preset: 'murmuration',
+      count: 800,
+      separationWeight: 1.5,
+      alignmentWeight: 1.0,
+      cohesionWeight: 1.0,
+      visionRadius: 60,
+      maxSpeed: 2.5,
+      mouseMode: 'predator',
+      showTrails: false,
+      colorMode: 'velocity'
+    };
+
+    const presetDefinitions = {
+      murmuration: {
+        key: 'murmuration',
+        label: 'Murmuration',
+        railLabel: 'MURM',
+        count: 800,
+        separationWeight: 1.15,
+        alignmentWeight: 1.55,
+        cohesionWeight: 1.1,
+        visionRadius: 68,
+        maxSpeed: 2.5,
+        mouseMode: 'predator',
+        colorMode: 'velocity',
+        description: 'High alignment. The flock draws long pressure waves and folds like starlings.'
+      },
+      fish: {
+        key: 'fish',
+        label: 'Fish School',
+        railLabel: 'FISH',
+        count: 600,
+        separationWeight: 1.0,
+        alignmentWeight: 1.2,
+        cohesionWeight: 2.0,
+        visionRadius: 54,
+        maxSpeed: 1.8,
+        mouseMode: 'attractor',
+        colorMode: 'group',
+        description: 'Dense rotation with strong cohesion. The school bends like one body.'
+      },
+      predator: {
+        key: 'predator',
+        label: 'Predator Chase',
+        railLabel: 'PRED',
+        count: 500,
+        separationWeight: 2.5,
+        alignmentWeight: 0.95,
+        cohesionWeight: 0.8,
+        visionRadius: 64,
+        maxSpeed: 3.0,
+        mouseMode: 'predator',
+        colorMode: 'heading',
+        description: 'Fast breakups and frantic regroups. The cursor becomes panic.'
+      },
+      chaos: {
+        key: 'chaos',
+        label: 'Wild Chaos',
+        railLabel: 'CHAOS',
+        count: 1000,
+        separationWeight: 0.9,
+        alignmentWeight: 0.55,
+        cohesionWeight: 0.45,
+        visionRadius: 42,
+        maxSpeed: 4.0,
+        mouseMode: 'repeller',
+        colorMode: 'mono',
+        description: 'Nearly raw particle turbulence with occasional temporary vortices.'
+      }
+    };
+
+    const modeLabels = {
+      predator: 'Predator',
+      attractor: 'Attractor',
+      repeller: 'Repeller'
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function smoothstep(edge0, edge1, x) {
+      const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+      return t * t * (3 - 2 * t);
+    }
+
+    function fract(v) {
+      return v - Math.floor(v);
+    }
+
+    function hash2(x, y, seed) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + seed * 0.0001) * 43758.5453123;
+      return fract(n);
+    }
+
+    function makeGroupColor(index) {
+      const angle = index * GOLDEN;
+      const hue = Math.floor((angle * 180 / Math.PI) % 360);
+      return `hsl(${hue} 88% 64%)`;
+    }
+
+    function magnitude(x, y) {
+      return Math.sqrt(x * x + y * y);
+    }
+
+    function resizeCanvas() {
+      state.mobile = window.matchMedia('(max-width: 900px)').matches;
+      state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      state.width = Math.max(1, Math.floor(rect.width));
+      state.height = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(state.width * state.dpr);
+      canvas.height = Math.floor(state.height * state.dpr);
+      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+      if (state.flock.length) {
+        for (const boid of state.flock) {
+          boid.x = clamp(boid.x, 0, state.width);
+          boid.y = clamp(boid.y, 0, state.height);
+        }
+      }
+    }
+
+    function showToast(message, ms = 1800) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(state.debugToastTimer);
+      state.debugToastTimer = window.setTimeout(() => {
+        toast.classList.remove('show');
+      }, ms);
+    }
+
+    function setDrawerOpen(open) {
+      state.drawerOpen = open;
+      body.classList.toggle('drawer-open', open);
+      mobileDrawerToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      drawerStateLabel.textContent = open ? 'Collapse' : 'Expand';
+    }
+
+    function createElement(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (typeof text === 'string') node.textContent = text;
+      return node;
+    }
+
+    function buildUI() {
+      panel.textContent = '';
+      presetRail.textContent = '';
+
+      const summarySection = createElement('section', 'section glass');
+      const summaryHeader = createElement('div', 'sectionHeader');
+      summaryHeader.appendChild(createElement('h2', '', 'Preset'));
+      const summaryHint = createElement('span', '', 'Rule palette');
+      summaryHeader.appendChild(summaryHint);
+      summarySection.appendChild(summaryHeader);
+      const summaryText = createElement('div', '', presetDefinitions[state.controls.preset].description);
+      summaryText.id = 'statusLine';
+      summarySection.appendChild(summaryText);
+      panel.appendChild(summarySection);
+
+      const presets = Object.values(presetDefinitions);
+      for (const preset of presets) {
+        const pill = createElement('button', 'pill' + (preset.key === state.controls.preset ? ' active' : ''), preset.railLabel);
+        pill.type = 'button';
+        pill.setAttribute('aria-label', preset.label);
+        pill.addEventListener('click', () => applyPreset(preset.key, true));
+        presetRail.appendChild(pill);
+      }
+
+      const slidersSection = createElement('section', 'section glass');
+      const slidersHeader = createElement('div', 'sectionHeader');
+      slidersHeader.appendChild(createElement('h2', '', 'Swarm'));
+      slidersHeader.appendChild(createElement('span', '', 'Dynamic rules'));
+      slidersSection.appendChild(slidersHeader);
+
+      const sliderDefs = [
+        { key: 'count', label: 'Boids', min: 200, max: 1000, step: 10 },
+        { key: 'separationWeight', label: 'Separation', min: 0.5, max: 3.0, step: 0.05 },
+        { key: 'alignmentWeight', label: 'Alignment', min: 0.5, max: 3.0, step: 0.05 },
+        { key: 'cohesionWeight', label: 'Cohesion', min: 0.5, max: 3.0, step: 0.05 },
+        { key: 'visionRadius', label: 'Vision', min: 30, max: 120, step: 1 },
+        { key: 'maxSpeed', label: 'Speed', min: 1.0, max: 5.0, step: 0.1 }
+      ];
+
+      for (const def of sliderDefs) {
+        const row = createElement('div', 'sliderRow');
+        const label = createElement('label', 'sliderLabel');
+        const left = createElement('strong', '', def.label);
+        const right = createElement('span', '', formatControlValue(def.key, state.controls[def.key]));
+        right.id = `value-${def.key}`;
+        label.appendChild(left);
+        label.appendChild(right);
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = String(def.min);
+        input.max = String(def.max);
+        input.step = String(def.step);
+        input.value = String(state.controls[def.key]);
+        input.setAttribute('aria-label', def.label);
+        input.addEventListener('input', () => {
+          const next = def.key === 'count' || def.key === 'visionRadius' ? Number.parseInt(input.value, 10) : Number.parseFloat(input.value);
+          setControl(def.key, next, true);
+        });
+        row.appendChild(label);
+        row.appendChild(input);
+        slidersSection.appendChild(row);
+      }
+      panel.appendChild(slidersSection);
+
+      const modeSection = createElement('section', 'section glass');
+      const modeHeader = createElement('div', 'sectionHeader');
+      modeHeader.appendChild(createElement('h2', '', 'Mouse Mode'));
+      modeHeader.appendChild(createElement('span', '', 'P / A / R'));
+      modeSection.appendChild(modeHeader);
+      const modeGrid = createElement('div', 'buttonGrid three');
+      [['predator', 'Predator', 'danger'], ['attractor', 'Attractor', 'gold'], ['repeller', 'Repeller', 'blue']].forEach(([key, label, klass]) => {
+        const button = createElement('button', `modeButton ${klass}` + (state.controls.mouseMode === key ? ' active' : ''), label);
+        button.type = 'button';
+        button.addEventListener('click', () => setMouseMode(key));
+        modeGrid.appendChild(button);
+      });
+      modeSection.appendChild(modeGrid);
+      panel.appendChild(modeSection);
+
+      const visualSection = createElement('section', 'section glass');
+      const visualHeader = createElement('div', 'sectionHeader');
+      visualHeader.appendChild(createElement('h2', '', 'Visuals'));
+      visualHeader.appendChild(createElement('span', '', 'T for trails'));
+      visualSection.appendChild(visualHeader);
+      const visualGrid = createElement('div', 'buttonGrid');
+      const trailsButton = createElement('button', 'panelButton' + (state.controls.showTrails ? ' active' : ''), state.controls.showTrails ? 'Trails ON' : 'Trails OFF');
+      trailsButton.type = 'button';
+      trailsButton.addEventListener('click', () => toggleTrails());
+      visualGrid.appendChild(trailsButton);
+      const pauseButton = createElement('button', 'panelButton' + (state.paused ? ' active' : ''), state.paused ? 'Resume' : 'Pause');
+      pauseButton.type = 'button';
+      pauseButton.addEventListener('click', () => {
+        state.paused = !state.paused;
+        buildUI();
+        showToast(state.paused ? 'Simulation paused' : 'Simulation resumed');
+      });
+      visualGrid.appendChild(pauseButton);
+      visualSection.appendChild(visualGrid);
+
+      const colorGrid = createElement('div', 'buttonGrid');
+      [['velocity', 'Velocity'], ['heading', 'Heading'], ['group', 'Group'], ['mono', 'Mono']].forEach(([key, label]) => {
+        const button = createElement('button', 'miniButton' + (state.controls.colorMode === key ? ' active' : ''), label);
+        button.type = 'button';
+        button.addEventListener('click', () => setColorMode(key));
+        colorGrid.appendChild(button);
+      });
+      visualSection.appendChild(colorGrid);
+      panel.appendChild(visualSection);
+
+      const obstacleSection = createElement('section', 'section glass');
+      const obstacleHeader = createElement('div', 'sectionHeader');
+      obstacleHeader.appendChild(createElement('h2', '', 'Obstacles'));
+      obstacleHeader.appendChild(createElement('span', '', `${state.obstacles.length}/${MAX_OBSTACLES}`));
+      obstacleSection.appendChild(obstacleHeader);
+      const obstacleHint = createElement('div', '', 'Click and drag on the canvas to place a stone field. Double tap or right-click an obstacle to remove it.');
+      obstacleHint.id = 'statusLine';
+      obstacleSection.appendChild(obstacleHint);
+      const obstacleButtons = createElement('div', 'buttonGrid');
+      const resetButton = createElement('button', 'panelButton', 'Reset Field');
+      resetButton.type = 'button';
+      resetButton.addEventListener('click', () => {
+        state.obstacles.length = 0;
+        respawnBoids();
+        buildUI();
+        showToast('Obstacle field cleared');
+      });
+      obstacleButtons.appendChild(resetButton);
+      const screenshotButton = createElement('button', 'panelButton', 'Screenshot');
+      screenshotButton.type = 'button';
+      screenshotButton.addEventListener('click', requestScreenshot);
+      obstacleButtons.appendChild(screenshotButton);
+      obstacleSection.appendChild(obstacleButtons);
+      panel.appendChild(obstacleSection);
+
+      const legendSection = createElement('section', 'section glass');
+      const legendHeader = createElement('div', 'sectionHeader');
+      legendHeader.appendChild(createElement('h2', '', 'Interaction'));
+      legendHeader.appendChild(createElement('span', '', state.mobile ? 'Touch ready' : 'Desktop ready'));
+      legendSection.appendChild(legendHeader);
+      const legend = createElement('div', '');
+      legend.id = 'legend';
+      const legendRows = [
+        ['rgba(255, 96, 96, 1)', 'Predator: scatter the flock'],
+        ['rgba(255, 207, 107, 1)', 'Attractor: pull the group into a knot'],
+        ['rgba(108, 152, 255, 1)', 'Repeller: radial disruption with no hunting instinct']
+      ];
+      for (const [color, text] of legendRows) {
+        const row = createElement('div', 'legendRow');
+        const dot = createElement('span', 'legendDot');
+        dot.style.background = color;
+        row.appendChild(dot);
+        row.appendChild(createElement('span', '', text));
+        legend.appendChild(row);
+      }
+      const support = createElement('div', '', state.mobile
+        ? 'One finger controls the field. Two-finger tap cycles mode. Long press adds an obstacle.'
+        : 'Keyboard: 1-4 presets · P/A/R modes · T trails · Space pause · S screenshot.');
+      support.id = 'statusLine';
+      legendSection.appendChild(legend);
+      legendSection.appendChild(support);
+      panel.appendChild(legendSection);
+    }
+
+    function formatControlValue(key, value) {
+      if (key === 'count') return String(value);
+      if (key === 'visionRadius') return `${value}px`;
+      return value.toFixed(2);
+    }
+
+    function setControl(key, value, rebuildFlock) {
+      state.controls[key] = value;
+      if (key === 'visionRadius') state.cellSize = Math.max(24, value);
+      const display = document.getElementById(`value-${key}`);
+      if (display) display.textContent = formatControlValue(key, value);
+      if (key === 'count' && rebuildFlock) {
+        syncBoidCount();
+      }
+      if (rebuildFlock && (key === 'visionRadius')) {
+        // grid size updates next frame; no full respawn needed
+      }
+      countValue.textContent = String(state.controls.count);
+    }
+
+    function syncBoidCount() {
+      const current = state.flock.length;
+      const desired = state.controls.count;
+      if (desired > current) {
+        for (let i = current; i < desired; i += 1) {
+          state.flock.push(createBoid(i));
+        }
+      } else if (desired < current) {
+        state.flock.length = desired;
+      }
+      countValue.textContent = String(desired);
+    }
+
+    function createBoid(index) {
+      const angle = hash2(index + 11, state.seed % 1013, state.seed) * TWO_PI;
+      const speed = lerp(0.8, state.controls.maxSpeed, hash2(index + 91, state.seed % 577, state.seed));
+      return {
+        id: index,
+        x: hash2(index + 1, 17, state.seed) * state.width,
+        y: hash2(index + 2, 23, state.seed) * state.height,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        ax: 0,
+        ay: 0,
+        size: lerp(4.5, 7.5, hash2(index + 8, 81, state.seed)),
+        color: makeGroupColor(index),
+        flockId: index % 12,
+        pulse: hash2(index + 41, 3, state.seed),
+        energy: 0
+      };
+    }
+
+    function respawnBoids() {
+      state.flock = [];
+      for (let i = 0; i < state.controls.count; i += 1) {
+        state.flock.push(createBoid(i));
+      }
+      countValue.textContent = String(state.controls.count);
+    }
+
+    function applyPreset(key, resetObstacles) {
+      const preset = presetDefinitions[key];
+      if (!preset) return;
+      state.preset = key;
+      state.controls.preset = key;
+      state.controls.count = preset.count;
+      state.controls.separationWeight = preset.separationWeight;
+      state.controls.alignmentWeight = preset.alignmentWeight;
+      state.controls.cohesionWeight = preset.cohesionWeight;
+      state.controls.visionRadius = preset.visionRadius;
+      state.controls.maxSpeed = preset.maxSpeed;
+      state.controls.mouseMode = preset.mouseMode;
+      state.controls.colorMode = preset.colorMode;
+      state.cellSize = preset.visionRadius;
+      if (resetObstacles) {
+        state.obstacles.length = 0;
+      }
+      respawnBoids();
+      buildUI();
+      modeValue.textContent = modeLabels[state.controls.mouseMode];
+      showToast(`${preset.label} loaded`);
+    }
+
+    function toggleTrails() {
+      state.controls.showTrails = !state.controls.showTrails;
+      if (state.controls.showTrails && state.controls.count > 500) {
+        state.controls.count = 500;
+        state.trailsAutoCapped = true;
+        syncBoidCount();
+        showToast('Trails enabled — boids capped to 500 for smooth motion', 2200);
+      }
+      buildUI();
+    }
+
+    function setMouseMode(mode) {
+      state.controls.mouseMode = mode;
+      modeValue.textContent = modeLabels[mode];
+      pointer.modePulse = 1;
+      buildUI();
+    }
+
+    function setColorMode(mode) {
+      state.controls.colorMode = mode;
+      buildUI();
+    }
+
+    function requestScreenshot() {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `emergent-swarm-lab-${Date.now()}.png`;
+      link.click();
+      showToast('Screenshot saved');
+    }
+
+    function makeGridKey(ix, iy) {
+      return `${ix},${iy}`;
+    }
+
+    function buildSpatialGrid() {
+      state.grid.clear();
+      const cell = Math.max(24, state.cellSize);
+      for (let i = 0; i < state.flock.length; i += 1) {
+        const boid = state.flock[i];
+        const ix = Math.floor(boid.x / cell);
+        const iy = Math.floor(boid.y / cell);
+        const key = makeGridKey(ix, iy);
+        let bucket = state.grid.get(key);
+        if (!bucket) {
+          bucket = [];
+          state.grid.set(key, bucket);
+        }
+        bucket.push(boid);
+      }
+    }
+
+    function forEachNeighbor(boid, callback) {
+      const cell = Math.max(24, state.cellSize);
+      const ix = Math.floor(boid.x / cell);
+      const iy = Math.floor(boid.y / cell);
+      for (let ox = -1; ox <= 1; ox += 1) {
+        for (let oy = -1; oy <= 1; oy += 1) {
+          const bucket = state.grid.get(makeGridKey(ix + ox, iy + oy));
+          if (!bucket) continue;
+          for (let i = 0; i < bucket.length; i += 1) {
+            const other = bucket[i];
+            if (other !== boid) callback(other);
+          }
+        }
+      }
+    }
+
+    function applyObstacleForce(boid, dt) {
+      for (let i = 0; i < state.obstacles.length; i += 1) {
+        const obstacle = state.obstacles[i];
+        const dx = boid.x - obstacle.x;
+        const dy = boid.y - obstacle.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+        const reach = obstacle.radius + state.controls.visionRadius * 0.8;
+        if (dist < reach) {
+          const strength = (1 - dist / reach) * 2.6;
+          boid.ax += (dx / dist) * strength * dt * 60;
+          boid.ay += (dy / dist) * strength * dt * 60;
+        }
+      }
+    }
+
+    function applyPointerForce(boid, dt) {
+      if (!pointer.active && !pointer.inside) return;
+      const dx = pointer.x - boid.x;
+      const dy = pointer.y - boid.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+      let radius = 100;
+      let strength = 0;
+      if (state.controls.mouseMode === 'predator') {
+        radius = 100;
+        if (dist < radius) strength = -3.0 * (1 - dist / radius);
+      } else if (state.controls.mouseMode === 'attractor') {
+        radius = 150;
+        if (dist < radius) strength = 1.7 * (1 - dist / radius);
+      } else if (state.controls.mouseMode === 'repeller') {
+        radius = 80;
+        if (dist < radius) strength = -4.2 * (1 - dist / radius);
+      }
+      if (strength !== 0) {
+        boid.ax += (dx / dist) * strength * dt * 60;
+        boid.ay += (dy / dist) * strength * dt * 60;
+      }
+    }
+
+    function updateBoids(dt) {
+      buildSpatialGrid();
+      let neighborTotal = 0;
+      const vision = state.controls.visionRadius;
+      const separationRadius = vision * 0.52;
+      const maxSpeed = state.controls.maxSpeed;
+      const sepWeight = state.controls.separationWeight;
+      const aliWeight = state.controls.alignmentWeight;
+      const cohWeight = state.controls.cohesionWeight;
+
+      for (let i = 0; i < state.flock.length; i += 1) {
+        const boid = state.flock[i];
+        let sepX = 0;
+        let sepY = 0;
+        let aliX = 0;
+        let aliY = 0;
+        let cohX = 0;
+        let cohY = 0;
+        let neighbors = 0;
+
+        forEachNeighbor(boid, (other) => {
+          let dx = other.x - boid.x;
+          let dy = other.y - boid.y;
+
+          if (Math.abs(dx) > state.width * 0.5) dx -= Math.sign(dx) * state.width;
+          if (Math.abs(dy) > state.height * 0.5) dy -= Math.sign(dy) * state.height;
+
+          const distSq = dx * dx + dy * dy;
+          if (distSq === 0 || distSq > vision * vision) return;
+          const dist = Math.sqrt(distSq);
+          neighbors += 1;
+          aliX += other.vx;
+          aliY += other.vy;
+          cohX += other.x;
+          cohY += other.y;
+          if (dist < separationRadius) {
+            sepX -= dx / dist;
+            sepY -= dy / dist;
+          }
+        });
+
+        neighborTotal += neighbors;
+
+        boid.ax = 0;
+        boid.ay = 0;
+
+        if (neighbors > 0) {
+          aliX /= neighbors;
+          aliY /= neighbors;
+          cohX /= neighbors;
+          cohY /= neighbors;
+
+          const aliMag = Math.sqrt(aliX * aliX + aliY * aliY) || 1;
+          aliX = (aliX / aliMag) * maxSpeed - boid.vx;
+          aliY = (aliY / aliMag) * maxSpeed - boid.vy;
+
+          let cohDirX = cohX - boid.x;
+          let cohDirY = cohY - boid.y;
+          const cohMag = Math.sqrt(cohDirX * cohDirX + cohDirY * cohDirY) || 1;
+          cohDirX = (cohDirX / cohMag) * maxSpeed - boid.vx;
+          cohDirY = (cohDirY / cohMag) * maxSpeed - boid.vy;
+
+          boid.ax += sepX * sepWeight;
+          boid.ay += sepY * sepWeight;
+          boid.ax += aliX * aliWeight;
+          boid.ay += aliY * aliWeight;
+          boid.ax += cohDirX * cohWeight;
+          boid.ay += cohDirY * cohWeight;
+        }
+
+        const edgePadding = 26;
+        if (boid.x < edgePadding) boid.ax += smoothstep(edgePadding, 0, boid.x) * 0.4;
+        if (boid.x > state.width - edgePadding) boid.ax -= smoothstep(state.width - edgePadding, state.width, boid.x) * 0.4;
+        if (boid.y < edgePadding) boid.ay += smoothstep(edgePadding, 0, boid.y) * 0.4;
+        if (boid.y > state.height - edgePadding) boid.ay -= smoothstep(state.height - edgePadding, state.height, boid.y) * 0.4;
+
+        applyPointerForce(boid, dt);
+        applyObstacleForce(boid, dt);
+
+        const accMag = magnitude(boid.ax, boid.ay);
+        if (accMag > 0.2) {
+          boid.ax = (boid.ax / accMag) * 0.2;
+          boid.ay = (boid.ay / accMag) * 0.2;
+        }
+
+        boid.vx += boid.ax * dt * 60;
+        boid.vy += boid.ay * dt * 60;
+        const speed = magnitude(boid.vx, boid.vy);
+        if (speed > maxSpeed) {
+          boid.vx = (boid.vx / speed) * maxSpeed;
+          boid.vy = (boid.vy / speed) * maxSpeed;
+        }
+
+        boid.x += boid.vx * dt * 60;
+        boid.y += boid.vy * dt * 60;
+
+        if (boid.x < 0) boid.x += state.width;
+        if (boid.x >= state.width) boid.x -= state.width;
+        if (boid.y < 0) boid.y += state.height;
+        if (boid.y >= state.height) boid.y -= state.height;
+
+        boid.energy = lerp(boid.energy, speed / maxSpeed, 0.1);
+        boid.pulse += dt * (0.6 + boid.energy * 1.6);
+      }
+
+      state.neighborStats = state.flock.length ? neighborTotal / state.flock.length : 0;
+    }
+
+    function resolveBoidColor(boid) {
+      if (state.controls.colorMode === 'velocity') {
+        const t = boid.energy;
+        const r = Math.round(lerp(68, 255, t));
+        const g = Math.round(lerp(136, 68, t));
+        const b = Math.round(lerp(255, 136, t));
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+      if (state.controls.colorMode === 'heading') {
+        const angle = (Math.atan2(boid.vy, boid.vx) * 180 / Math.PI + 360) % 360;
+        return `hsl(${angle} 80% 62%)`;
+      }
+      if (state.controls.colorMode === 'group') {
+        return boid.color;
+      }
+      return '#ffffff';
+    }
+
+    function drawBoid(boid) {
+      const angle = Math.atan2(boid.vy, boid.vx);
+      const size = boid.size;
+      const tail = size * 0.65;
+      const wing = size * 0.48;
+      ctx.save();
+      ctx.translate(boid.x, boid.y);
+      ctx.rotate(angle);
+      const color = resolveBoidColor(boid);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(size, 0);
+      ctx.lineTo(-tail, wing);
+      ctx.lineTo(-tail * 0.55, 0);
+      ctx.lineTo(-tail, -wing);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawFieldBackdrop() {
+      if (state.controls.showTrails) {
+        ctx.fillStyle = 'rgba(10,10,15,0.07)';
+        ctx.fillRect(0, 0, state.width, state.height);
+      } else {
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, state.width, state.height);
+      }
+
+      const gradient = ctx.createRadialGradient(state.width * 0.5, state.height * 0.45, 40, state.width * 0.5, state.height * 0.5, Math.max(state.width, state.height) * 0.8);
+      gradient.addColorStop(0, 'rgba(30, 38, 70, 0.18)');
+      gradient.addColorStop(1, 'rgba(10, 10, 15, 0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, state.width, state.height);
+    }
+
+    function drawObstacle(obstacle) {
+      ctx.save();
+      ctx.fillStyle = '#1a1a2e';
+      ctx.strokeStyle = 'rgba(82, 114, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(82, 114, 255, 0.25)';
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, TWO_PI);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPointerField() {
+      if (!pointer.inside && !pointer.active) return;
+      const pulse = 0.5 + Math.sin(state.lastTime * 0.005) * 0.5;
+      let radius = 100;
+      let fill = 'rgba(255, 96, 96, 0.14)';
+      let stroke = 'rgba(255, 96, 96, 0.8)';
+      if (state.controls.mouseMode === 'attractor') {
+        radius = 150;
+        fill = 'rgba(255, 207, 107, 0.14)';
+        stroke = 'rgba(255, 207, 107, 0.9)';
+      } else if (state.controls.mouseMode === 'repeller') {
+        radius = 80;
+        fill = 'rgba(108, 152, 255, 0.16)';
+        stroke = 'rgba(108, 152, 255, 0.85)';
+      }
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = stroke;
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(pointer.x, pointer.y, radius + pulse * 5, 0, TWO_PI);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPlacementPreview() {
+      if (!pointer.placementPreview) return;
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.36)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pointer.placementPreview.x, pointer.placementPreview.y, pointer.placementPreview.radius, 0, TWO_PI);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function render() {
+      drawFieldBackdrop();
+      for (let i = 0; i < state.obstacles.length; i += 1) drawObstacle(state.obstacles[i]);
+      drawPlacementPreview();
+      for (let i = 0; i < state.flock.length; i += 1) drawBoid(state.flock[i]);
+      drawPointerField();
+    }
+
+    function updateStats(dt) {
+      state.statsUpdateTimer += dt;
+      if (state.statsUpdateTimer > 0.15) {
+        fpsValue.textContent = state.fpsSmoothed.toFixed(0);
+        neighborsValue.textContent = state.neighborStats.toFixed(1);
+        countValue.textContent = String(state.flock.length);
+        modeValue.textContent = modeLabels[state.controls.mouseMode];
+        state.statsUpdateTimer = 0;
+      }
+    }
+
+    function maybeAutoReduce(dt) {
+      if (state.fpsSmoothed < 20 && state.controls.count > 250) {
+        state.fpsDropTimer += dt;
+        if (state.fpsDropTimer > 2.0) {
+          state.controls.count = Math.max(200, state.controls.count - 120);
+          syncBoidCount();
+          buildUI();
+          showToast(`Performance guard: reduced boids to ${state.controls.count}`, 2200);
+          state.fpsDropTimer = 0;
+        }
+      } else {
+        state.fpsDropTimer = 0;
+      }
+    }
+
+    function tick(time) {
+      if (!state.lastTime) state.lastTime = time;
+      const dt = clamp((time - state.lastTime) / 1000, 0.001, 0.05);
+      state.lastTime = time;
+      state.fps = 1 / dt;
+      state.fpsSmoothed = lerp(state.fpsSmoothed, state.fps, 0.08);
+      pointer.modePulse = Math.max(0, pointer.modePulse - dt * 1.5);
+
+      if (!state.paused) {
+        updateBoids(dt);
+      }
+      render();
+      updateStats(dt);
+      maybeAutoReduce(dt);
+      state.animationId = requestAnimationFrame(tick);
+    }
+
+    function hitTestObstacle(x, y) {
+      for (let i = state.obstacles.length - 1; i >= 0; i -= 1) {
+        const obstacle = state.obstacles[i];
+        const dx = x - obstacle.x;
+        const dy = y - obstacle.y;
+        if (dx * dx + dy * dy <= obstacle.radius * obstacle.radius) return obstacle;
+      }
+      return null;
+    }
+
+    function addObstacle(x, y, radius) {
+      if (state.obstacles.length >= MAX_OBSTACLES) {
+        showToast('Obstacle limit reached');
+        return;
+      }
+      state.obstacles.push({ id: `ob-${Date.now()}-${Math.random()}`, x, y, radius: clamp(radius, 28, 72) });
+      buildUI();
+    }
+
+    function removeObstacleById(id) {
+      const index = state.obstacles.findIndex((o) => o.id === id);
+      if (index >= 0) {
+        state.obstacles.splice(index, 1);
+        buildUI();
+        showToast('Obstacle removed');
+      }
+    }
+
+    function getCanvasPoint(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function handlePointerMove(clientX, clientY) {
+      const point = getCanvasPoint(clientX, clientY);
+      pointer.lastX = pointer.x;
+      pointer.lastY = pointer.y;
+      pointer.x = point.x;
+      pointer.y = point.y;
+      pointer.inside = true;
+      if (pointer.draggingObstacleId) {
+        const obstacle = state.obstacles.find((item) => item.id === pointer.draggingObstacleId);
+        if (obstacle) {
+          obstacle.x = point.x;
+          obstacle.y = point.y;
+        }
+      }
+      if (pointer.placementPreview) {
+        const dx = point.x - pointer.dragStartX;
+        const dy = point.y - pointer.dragStartY;
+        pointer.placementPreview.radius = clamp(Math.sqrt(dx * dx + dy * dy), 20, 90);
+      }
+    }
+
+    function startPlacement(clientX, clientY) {
+      const point = getCanvasPoint(clientX, clientY);
+      pointer.dragStartX = point.x;
+      pointer.dragStartY = point.y;
+      pointer.placementPreview = { x: point.x, y: point.y, radius: 26 };
+    }
+
+    function finishPlacement() {
+      if (pointer.placementPreview) {
+        addObstacle(pointer.placementPreview.x, pointer.placementPreview.y, pointer.placementPreview.radius);
+        pointer.placementPreview = null;
+      }
+    }
+
+    canvas.addEventListener('pointerenter', (event) => {
+      handlePointerMove(event.clientX, event.clientY);
+    });
+
+    canvas.addEventListener('pointerleave', () => {
+      pointer.inside = false;
+      pointer.active = false;
+      pointer.placementPreview = null;
+      clearTimeout(pointer.longPressTimer);
+    });
+
+    canvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      const point = getCanvasPoint(event.clientX, event.clientY);
+      const hit = hitTestObstacle(point.x, point.y);
+      if (hit) removeObstacleById(hit.id);
+    });
+
+    canvas.addEventListener('pointerdown', (event) => {
+      const point = getCanvasPoint(event.clientX, event.clientY);
+      pointer.active = true;
+      handlePointerMove(event.clientX, event.clientY);
+      const hit = hitTestObstacle(point.x, point.y);
+      if (hit && !state.mobile) {
+        pointer.draggingObstacleId = hit.id;
+        return;
+      }
+      if (event.pointerType === 'touch') {
+        clearTimeout(pointer.longPressTimer);
+        pointer.longPressTimer = window.setTimeout(() => {
+          startPlacement(event.clientX, event.clientY);
+        }, 360);
+      } else if (event.shiftKey) {
+        startPlacement(event.clientX, event.clientY);
+      }
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      handlePointerMove(event.clientX, event.clientY);
+    });
+
+    canvas.addEventListener('pointerup', (event) => {
+      clearTimeout(pointer.longPressTimer);
+      if (pointer.draggingObstacleId) {
+        pointer.draggingObstacleId = null;
+      } else if (pointer.placementPreview) {
+        finishPlacement();
+      }
+      pointer.active = false;
+      const now = performance.now();
+      if (event.pointerType === 'touch') {
+        if (now - pointer.lastTapTime < 260) {
+          const point = getCanvasPoint(event.clientX, event.clientY);
+          const hit = hitTestObstacle(point.x, point.y);
+          if (hit) {
+            removeObstacleById(hit.id);
+          } else {
+            const order = ['predator', 'attractor', 'repeller'];
+            const current = order.indexOf(state.controls.mouseMode);
+            setMouseMode(order[(current + 1) % order.length]);
+          }
+        }
+        pointer.lastTapTime = now;
+      }
+    });
+
+    canvas.addEventListener('pointercancel', () => {
+      clearTimeout(pointer.longPressTimer);
+      pointer.draggingObstacleId = null;
+      pointer.placementPreview = null;
+      pointer.active = false;
+    });
+
+    canvas.addEventListener('touchstart', (event) => {
+      pointer.touchCount = event.touches.length;
+      if (event.touches.length === 2) {
+        const a = event.touches[0];
+        const b = event.touches[1];
+        const dx = b.clientX - a.clientX;
+        const dy = b.clientY - a.clientY;
+        pointer.pinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', (event) => {
+      pointer.touchCount = event.touches.length;
+      if (event.touches.length === 2) {
+        const a = event.touches[0];
+        const b = event.touches[1];
+        const dx = b.clientX - a.clientX;
+        const dy = b.clientY - a.clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const delta = distance - pointer.pinchDistance;
+        const forward = delta * 0.0025;
+        for (let i = 0; i < state.flock.length; i += 1) {
+          const boid = state.flock[i];
+          boid.vx += forward * 0.3;
+          boid.vy += forward * -0.1;
+        }
+        pointer.pinchDistance = distance;
+      }
+    }, { passive: true });
+
+    mobileDrawerToggle.addEventListener('click', () => setDrawerOpen(!state.drawerOpen));
+
+    window.addEventListener('keydown', (event) => {
+      const key = event.key.toLowerCase();
+      if (key === '1') applyPreset('murmuration', false);
+      if (key === '2') applyPreset('fish', false);
+      if (key === '3') applyPreset('predator', false);
+      if (key === '4') applyPreset('chaos', false);
+      if (key === 'p') setMouseMode('predator');
+      if (key === 'a') setMouseMode('attractor');
+      if (key === 'r') setMouseMode('repeller');
+      if (key === 't') toggleTrails();
+      if (key === ' ') {
+        event.preventDefault();
+        state.paused = !state.paused;
+        buildUI();
+      }
+      if (key === 's') requestScreenshot();
+    });
+
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      buildUI();
+    });
+
+    function initSimulation(params = {}) {
+      state.controls = Object.assign({}, defaultParams, params);
+      state.controls.preset = params.preset || defaultParams.preset;
+      state.cellSize = state.controls.visionRadius;
+      resizeCanvas();
+      respawnBoids();
+      buildUI();
+      countValue.textContent = String(state.controls.count);
+      modeValue.textContent = modeLabels[state.controls.mouseMode];
+      cancelAnimationFrame(state.animationId);
+      state.lastTime = 0;
+      state.animationId = requestAnimationFrame(tick);
+    }
+
+    window.LabModule = {
+      name: 'Emergent Swarm Lab',
+      slug: 'boids',
+      defaultParams,
+      init(inputCanvas, params) {
+        if (inputCanvas && inputCanvas !== canvas) {
+          throw new Error('This standalone build expects its own canvas element.');
+        }
+        initSimulation(params || {});
+      },
+      destroy() {
+        cancelAnimationFrame(state.animationId);
+        state.animationId = 0;
+      }
+    };
+
+    initSimulation({ preset: 'murmuration' });
+  })();
+  </script>
+</body>
+</html>
