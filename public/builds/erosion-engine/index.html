@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Hydraulic Erosion Engine</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --panel: rgba(12, 14, 20, 0.88);
+      --panel-2: rgba(18, 21, 30, 0.92);
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 215, 138, 0.22);
+      --text: #f4efe2;
+      --muted: #9ba3bb;
+      --accent: #d5a44f;
+      --accent-2: #ffda85;
+      --water: #58a9ff;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: minmax(54vh, 1fr) auto;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(213, 164, 79, 0.12), transparent 30%),
+        radial-gradient(circle at 78% 0%, rgba(88, 169, 255, 0.12), transparent 26%),
+        linear-gradient(180deg, #11151e 0%, #0a0a0f 55%);
+    }
+
+    #stage {
+      position: relative;
+      overflow: hidden;
+      min-height: 54vh;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .hud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px;
+    }
+
+    .topbar,
+    .stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .chip,
+    .stat,
+    button,
+    select,
+    input[type="range"] {
+      pointer-events: auto;
+    }
+
+    .chip,
+    .stat {
+      border: 1px solid var(--line);
+      background: rgba(11, 13, 20, 0.68);
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .chip strong,
+    .stat strong {
+      color: var(--accent-2);
+      font-weight: 650;
+    }
+
+    .controls {
+      border-top: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(16, 18, 26, 0.94), rgba(10, 10, 15, 0.98));
+      backdrop-filter: blur(18px);
+      padding: 14px 14px calc(18px + env(safe-area-inset-bottom));
+      display: grid;
+      gap: 12px;
+    }
+
+    .drawer-header {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .eyebrow {
+      color: var(--accent-2);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    h1 {
+      margin: 3px 0 0;
+      font-size: clamp(24px, 5vw, 34px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+
+    .subcopy {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+      max-width: 70ch;
+    }
+
+    .drawer-toggle,
+    .button,
+    .segmented button,
+    .small-button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(28, 31, 42, 0.9), rgba(14, 16, 24, 0.95));
+      color: var(--text);
+      border-radius: 14px;
+      padding: 11px 14px;
+      font: inherit;
+      cursor: pointer;
+      transition: border-color 180ms ease, transform 180ms ease, background 180ms ease, color 180ms ease;
+    }
+
+    .drawer-toggle:hover,
+    .button:hover,
+    .segmented button:hover,
+    .small-button:hover {
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+    }
+
+    .drawer-toggle {
+      width: 100%;
+      justify-self: stretch;
+    }
+
+    .drawer-toggle[aria-expanded="true"] {
+      border-color: rgba(255, 218, 133, 0.32);
+      color: var(--accent-2);
+    }
+
+    .panel-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(20, 23, 32, 0.88), rgba(12, 14, 20, 0.9));
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel-card h2 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      color: var(--accent-2);
+      text-transform: uppercase;
+    }
+
+    .segmented {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .segmented button {
+      flex: 1 1 110px;
+      min-width: 0;
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .segmented button.active,
+    .button.active,
+    .small-button.active {
+      color: #0d0b08;
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      border-color: rgba(255, 222, 146, 0.95);
+      font-weight: 700;
+    }
+
+    .slider-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .slider-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .slider-row label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .slider-row output {
+      color: var(--accent-2);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      background: transparent;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .small-button {
+      border-radius: 999px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .toast {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      pointer-events: none;
+      display: flex;
+      justify-content: center;
+    }
+
+    .toast span {
+      border-radius: 999px;
+      padding: 9px 14px;
+      background: rgba(11, 13, 19, 0.9);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .toast span.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .meta-box {
+      border-radius: 16px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .meta-box .label {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+
+    .meta-box .value {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+    }
+
+    .collapsed .panel-grid {
+      display: none;
+    }
+
+    @media (max-width: 979px) {
+      .topbar,
+      .stats {
+        max-width: calc(100% - 8px);
+      }
+
+      .chip,
+      .stat {
+        font-size: 11px;
+        padding: 7px 10px;
+      }
+
+      .hud {
+        padding: 12px;
+      }
+    }
+
+    @media (min-width: 980px) {
+      body {
+        grid-template-columns: minmax(0, 1fr) 360px;
+        grid-template-rows: 1fr;
+      }
+
+      .drawer-header {
+        grid-template-columns: 1fr;
+      }
+
+      #stage {
+        min-height: 100vh;
+      }
+
+      .controls {
+        border-top: 0;
+        border-left: 1px solid var(--line);
+        min-height: 100vh;
+        padding: 22px 18px 22px;
+        align-content: start;
+        overflow: auto;
+      }
+
+      .drawer-toggle {
+        display: none;
+      }
+
+      .panel-grid {
+        display: grid !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section id="stage">
+    <canvas id="terrainCanvas" aria-label="Hydraulic erosion terrain simulation"></canvas>
+    <div class="hud">
+      <div class="topbar">
+        <div class="chip"><strong>Lab Zero</strong> Hydraulic Erosion</div>
+        <div class="chip">paint rain · carve rivers · deposit fans</div>
+      </div>
+      <div class="stats" id="statChips"></div>
+    </div>
+    <div class="toast"><span id="toast"></span></div>
+  </section>
+
+  <aside class="controls collapsed" id="controlsRoot">
+    <div class="drawer-header">
+      <div>
+        <div class="eyebrow">Apr 5 build slot</div>
+        <h1>Hydraulic Erosion Engine</h1>
+        <p class="subcopy">Paint rainfall across a living heightfield. Water accelerates downhill, steals sediment, drops alluvial fans, and redraws the landscape in seconds.</p>
+      </div>
+      <button class="drawer-toggle" id="drawerToggle" aria-expanded="false">Expand controls</button>
+    </div>
+
+    <div class="panel-grid">
+      <section class="panel-card">
+        <h2>Presets</h2>
+        <div class="segmented" id="presetButtons"></div>
+      </section>
+
+      <section class="panel-card">
+        <h2>Brush & Physics</h2>
+        <div class="slider-grid" id="sliderGrid"></div>
+      </section>
+
+      <section class="panel-card">
+        <h2>Views</h2>
+        <div class="segmented" id="viewButtons"></div>
+        <div class="control-row" style="margin-top: 10px;">
+          <button class="small-button" id="pauseButton">Pause</button>
+          <button class="small-button" id="resumeRainButton">Auto rain</button>
+          <button class="small-button" id="showFlowButton">Flow streaks</button>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <h2>Actions</h2>
+        <div class="control-row">
+          <button class="button" id="resetButton">Reset terrain</button>
+          <button class="button" id="randomizeButton">New seed</button>
+          <button class="button" id="exportButton">Export PNG</button>
+        </div>
+        <p class="subcopy" style="margin-top: 10px; font-size: 12px;">Drag or touch the terrain to paint rain. Two-finger drag nudges the camera. Double tap resets the brush plume.</p>
+      </section>
+
+      <section class="panel-card">
+        <h2>Realtime counters</h2>
+        <div class="meta-grid" id="metaGrid"></div>
+      </section>
+
+      <section class="panel-card">
+        <h2>Legend</h2>
+        <div class="legend">
+          <span><i class="dot" style="background:#d5a44f"></i> high terrain</span>
+          <span><i class="dot" style="background:#6cc3ff"></i> water flow</span>
+          <span><i class="dot" style="background:#f1d39a"></i> sediment deposits</span>
+          <span><i class="dot" style="background:#8e5b32"></i> carved channels</span>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <script>
+    (() => {
+      const stage = document.getElementById('stage');
+      const canvas = document.getElementById('terrainCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+      const statChips = document.getElementById('statChips');
+      const controlsRoot = document.getElementById('controlsRoot');
+      const drawerToggle = document.getElementById('drawerToggle');
+      const sliderGrid = document.getElementById('sliderGrid');
+      const presetButtons = document.getElementById('presetButtons');
+      const viewButtons = document.getElementById('viewButtons');
+      const metaGrid = document.getElementById('metaGrid');
+      const pauseButton = document.getElementById('pauseButton');
+      const resetButton = document.getElementById('resetButton');
+      const exportButton = document.getElementById('exportButton');
+      const randomizeButton = document.getElementById('randomizeButton');
+      const resumeRainButton = document.getElementById('resumeRainButton');
+      const showFlowButton = document.getElementById('showFlowButton');
+      const toastEl = document.getElementById('toast');
+
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const lerp = (a, b, t) => a + (b - a) * t;
+      const smoothstep = (a, b, x) => {
+        const t = clamp((x - a) / (b - a || 1), 0, 1);
+        return t * t * (3 - 2 * t);
+      };
+
+      function mulberry32(seed) {
+        let value = seed >>> 0;
+        return function random() {
+          value += 0x6D2B79F5;
+          let t = value;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function hash2D(x, y, seed) {
+        let h = (x * 374761393 + y * 668265263 + seed * 362437) | 0;
+        h = (h ^ (h >>> 13)) * 1274126177;
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+      }
+
+      function valueNoise(x, y, seed) {
+        const x0 = Math.floor(x);
+        const y0 = Math.floor(y);
+        const xf = x - x0;
+        const yf = y - y0;
+        const sx = xf * xf * (3 - 2 * xf);
+        const sy = yf * yf * (3 - 2 * yf);
+        const n00 = hash2D(x0, y0, seed);
+        const n10 = hash2D(x0 + 1, y0, seed);
+        const n01 = hash2D(x0, y0 + 1, seed);
+        const n11 = hash2D(x0 + 1, y0 + 1, seed);
+        const ix0 = lerp(n00, n10, sx);
+        const ix1 = lerp(n01, n11, sx);
+        return lerp(ix0, ix1, sy);
+      }
+
+      function fractalNoise(x, y, seed, octaves, persistence, lacunarity) {
+        let sum = 0;
+        let amp = 1;
+        let freq = 1;
+        let total = 0;
+        for (let i = 0; i < octaves; i += 1) {
+          sum += valueNoise(x * freq, y * freq, seed + i * 97) * amp;
+          total += amp;
+          amp *= persistence;
+          freq *= lacunarity;
+        }
+        return total ? sum / total : 0;
+      }
+
+      const terrainPresets = {
+        mountain: {
+          label: 'Mountain',
+          gridDesktop: 220,
+          gridMobile: 152,
+          paletteShift: 0.12,
+          generator(nx, ny, seed) {
+            const ridges = fractalNoise(nx * 3.2, ny * 3.2, seed, 5, 0.55, 2.0);
+            const macro = fractalNoise(nx * 1.2 + 7.8, ny * 1.2 + 4.1, seed + 41, 4, 0.58, 2.1);
+            const folds = Math.abs(fractalNoise(nx * 6.4, ny * 6.4, seed + 99, 3, 0.45, 2.3) - 0.5) * 2;
+            return Math.pow(ridges, 1.45) * 0.54 + macro * 0.22 + folds * 0.18 + 0.08;
+          }
+        },
+        plateau: {
+          label: 'Plateau',
+          gridDesktop: 216,
+          gridMobile: 144,
+          paletteShift: 0.2,
+          generator(nx, ny, seed) {
+            const mesa = fractalNoise(nx * 2.1, ny * 2.1, seed + 11, 4, 0.52, 2.05);
+            const cliffs = fractalNoise(nx * 10.5, ny * 10.5, seed + 65, 3, 0.43, 2.4);
+            const terrace = Math.floor((mesa * 0.85 + cliffs * 0.15) * 6) / 6;
+            return terrace * 0.76 + 0.08;
+          }
+        },
+        desert: {
+          label: 'Desert',
+          gridDesktop: 208,
+          gridMobile: 140,
+          paletteShift: 0.35,
+          generator(nx, ny, seed) {
+            const dunes = fractalNoise(nx * 7.2, ny * 2.2, seed + 27, 4, 0.54, 2.0);
+            const swirls = fractalNoise(nx * 3.8 + 18, ny * 4.9 - 9, seed + 71, 5, 0.5, 2.15);
+            const basin = fractalNoise(nx * 1.1 - 5, ny * 1.1 + 6, seed + 120, 3, 0.6, 1.9);
+            return dunes * 0.48 + swirls * 0.24 + basin * 0.22 + 0.06;
+          }
+        },
+        random: {
+          label: 'Random',
+          gridDesktop: 224,
+          gridMobile: 148,
+          paletteShift: 0.5,
+          generator(nx, ny, seed) {
+            const a = fractalNoise(nx * 5.5, ny * 5.5, seed + 7, 5, 0.5, 2.18);
+            const b = fractalNoise(nx * 1.8 - 6, ny * 2.7 + 11, seed + 61, 5, 0.56, 2.02);
+            const c = fractalNoise(nx * 11.0 + 14, ny * 10.0 - 3, seed + 111, 2, 0.6, 2.5);
+            return a * 0.4 + b * 0.4 + c * 0.15 + 0.05;
+          }
+        }
+      };
+
+      const viewModes = {
+        height: 'Elevation',
+        flow: 'Flow',
+        sediment: 'Sediment'
+      };
+
+      const state = {
+        destroyed: false,
+        raf: 0,
+        dpr: 1,
+        width: 0,
+        height: 0,
+        gridW: 0,
+        gridH: 0,
+        cellW: 0,
+        cellH: 0,
+        elevation: null,
+        water: null,
+        sediment: null,
+        flow: null,
+        deposit: null,
+        velocityX: null,
+        velocityY: null,
+        baseElevation: null,
+        imageData: null,
+        imageBuffer: null,
+        seed: 1729,
+        preset: 'mountain',
+        view: 'height',
+        paused: false,
+        autoRain: true,
+        showFlowStreaks: true,
+        pointerDown: false,
+        pointerId: null,
+        brushX: 0.5,
+        brushY: 0.5,
+        brushActive: false,
+        cameraTilt: 0.62,
+        cameraPan: 0,
+        cameraVel: 0,
+        dragMode: 'paint',
+        frameTimes: [],
+        lastFrameAt: 0,
+        lowFpsFor: 0,
+        stats: {
+          fps: 60,
+          droplets: 0,
+          elevationDelta: 0,
+          waterMass: 0,
+          sedimentMass: 0,
+          lastDropletCount: 0,
+          frame: 0,
+          cellCount: 0
+        },
+        params: {
+          rainfall: 0.74,
+          erosionRate: 0.42,
+          sedimentCapacity: 0.53,
+          dropletsPerFrame: 0.58,
+          evaporation: 0.22,
+          blur: 0.18,
+          brushRadius: 0.18
+        }
+      };
+
+      const sliderDefinitions = [
+        { key: 'rainfall', label: 'Rainfall intensity', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(v * 100)}%` },
+        { key: 'erosionRate', label: 'Erosion rate', min: 0, max: 1, step: 0.01, format: (v) => v.toFixed(2) },
+        { key: 'sedimentCapacity', label: 'Sediment capacity', min: 0, max: 1, step: 0.01, format: (v) => v.toFixed(2) },
+        { key: 'dropletsPerFrame', label: 'Droplets / frame', min: 0, max: 1, step: 0.01, format: (v) => `${Math.round(lerp(250, 4200, v))}` },
+        { key: 'evaporation', label: 'Evaporation', min: 0, max: 1, step: 0.01, format: (v) => v.toFixed(2) },
+        { key: 'blur', label: 'Sediment smoothing', min: 0, max: 1, step: 0.01, format: (v) => v.toFixed(2) },
+        { key: 'brushRadius', label: 'Brush size', min: 0.05, max: 0.35, step: 0.01, format: (v) => `${Math.round(v * 100)} px` }
+      ];
+
+      const sliderOutputs = new Map();
+      const sliderInputs = new Map();
+      const metaBoxes = new Map();
+      const statBoxes = new Map();
+      const presetButtonsMap = new Map();
+      const viewButtonsMap = new Map();
+
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => {
+          toastEl.classList.remove('show');
+        }, 1800);
+      }
+
+      function createButton(label, className) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = className;
+        button.textContent = label;
+        return button;
+      }
+
+      function setupUI() {
+        sliderDefinitions.forEach((definition) => {
+          const row = document.createElement('div');
+          row.className = 'slider-row';
+          const label = document.createElement('label');
+          const title = document.createElement('span');
+          title.textContent = definition.label;
+          const output = document.createElement('output');
+          label.appendChild(title);
+          label.appendChild(output);
+          const input = document.createElement('input');
+          input.type = 'range';
+          input.min = definition.min;
+          input.max = definition.max;
+          input.step = definition.step;
+          input.value = state.params[definition.key];
+          input.addEventListener('input', () => {
+            state.params[definition.key] = Number(input.value);
+            refreshUI();
+          });
+          row.appendChild(label);
+          row.appendChild(input);
+          sliderGrid.appendChild(row);
+          sliderOutputs.set(definition.key, { output, format: definition.format });
+          sliderInputs.set(definition.key, input);
+        });
+
+        Object.entries(terrainPresets).forEach(([key, preset]) => {
+          const button = createButton(preset.label, '');
+          button.addEventListener('click', () => {
+            state.preset = key;
+            rebuildTerrain(true);
+            refreshUI();
+            showToast(`${preset.label} preset loaded`);
+          });
+          presetButtons.appendChild(button);
+          presetButtonsMap.set(key, button);
+        });
+
+        Object.entries(viewModes).forEach(([key, label]) => {
+          const button = createButton(label, '');
+          button.addEventListener('click', () => {
+            state.view = key;
+            refreshUI();
+          });
+          viewButtons.appendChild(button);
+          viewButtonsMap.set(key, button);
+        });
+
+        const metaConfig = [
+          ['fps', 'FPS'],
+          ['droplets', 'droplets'],
+          ['elevationDelta', 'elevation Δ'],
+          ['waterMass', 'water'],
+          ['sedimentMass', 'sediment'],
+          ['cellCount', 'grid cells']
+        ];
+
+        metaConfig.forEach(([key, label]) => {
+          const box = document.createElement('div');
+          box.className = 'meta-box';
+          const labelEl = document.createElement('span');
+          labelEl.className = 'label';
+          labelEl.textContent = label;
+          const valueEl = document.createElement('span');
+          valueEl.className = 'value';
+          box.appendChild(labelEl);
+          box.appendChild(valueEl);
+          metaGrid.appendChild(box);
+          metaBoxes.set(key, valueEl);
+        });
+
+        ['fps', 'droplets', 'delta'].forEach((key) => {
+          const chip = document.createElement('div');
+          chip.className = 'stat';
+          const strong = document.createElement('strong');
+          const text = document.createElement('span');
+          chip.appendChild(strong);
+          chip.appendChild(document.createTextNode(' '));
+          chip.appendChild(text);
+          statChips.appendChild(chip);
+          statBoxes.set(key, { strong, text });
+        });
+
+        drawerToggle.addEventListener('click', () => {
+          const expanded = drawerToggle.getAttribute('aria-expanded') === 'true';
+          drawerToggle.setAttribute('aria-expanded', String(!expanded));
+          drawerToggle.textContent = expanded ? 'Expand controls' : 'Collapse controls';
+          controlsRoot.classList.toggle('collapsed', expanded);
+        });
+
+        pauseButton.addEventListener('click', () => {
+          state.paused = !state.paused;
+          refreshUI();
+          showToast(state.paused ? 'Simulation paused' : 'Simulation resumed');
+        });
+
+        resumeRainButton.addEventListener('click', () => {
+          state.autoRain = !state.autoRain;
+          refreshUI();
+          showToast(state.autoRain ? 'Background weather on' : 'Background weather off');
+        });
+
+        showFlowButton.addEventListener('click', () => {
+          state.showFlowStreaks = !state.showFlowStreaks;
+          refreshUI();
+        });
+
+        resetButton.addEventListener('click', () => {
+          rebuildTerrain(false);
+          showToast('Terrain reset');
+        });
+
+        randomizeButton.addEventListener('click', () => {
+          state.seed = Math.floor(Math.random() * 1000000);
+          rebuildTerrain(true);
+          showToast(`Seed ${state.seed} loaded`);
+        });
+
+        exportButton.addEventListener('click', exportPNG);
+      }
+
+      function refreshUI() {
+        sliderDefinitions.forEach((definition) => {
+          const value = state.params[definition.key];
+          const config = sliderOutputs.get(definition.key);
+          const input = sliderInputs.get(definition.key);
+          if (input) input.value = value;
+          if (config) config.output.textContent = config.format(value);
+        });
+
+        presetButtonsMap.forEach((button, key) => {
+          button.classList.toggle('active', key === state.preset);
+        });
+
+        viewButtonsMap.forEach((button, key) => {
+          button.classList.toggle('active', key === state.view);
+        });
+
+        pauseButton.classList.toggle('active', state.paused);
+        pauseButton.textContent = state.paused ? 'Resume' : 'Pause';
+        resumeRainButton.classList.toggle('active', state.autoRain);
+        showFlowButton.classList.toggle('active', state.showFlowStreaks);
+
+        const fps = state.stats.fps.toFixed(0);
+        const dropletCount = state.stats.lastDropletCount.toString();
+        const delta = state.stats.elevationDelta.toFixed(2);
+        statBoxes.get('fps').strong.textContent = fps;
+        statBoxes.get('fps').text.textContent = 'FPS';
+        statBoxes.get('droplets').strong.textContent = dropletCount;
+        statBoxes.get('droplets').text.textContent = 'droplets';
+        statBoxes.get('delta').strong.textContent = delta;
+        statBoxes.get('delta').text.textContent = 'elevation Δ';
+
+        metaBoxes.get('fps').textContent = fps;
+        metaBoxes.get('droplets').textContent = state.stats.droplets.toLocaleString();
+        metaBoxes.get('elevationDelta').textContent = state.stats.elevationDelta.toFixed(2);
+        metaBoxes.get('waterMass').textContent = state.stats.waterMass.toFixed(0);
+        metaBoxes.get('sedimentMass').textContent = state.stats.sedimentMass.toFixed(0);
+        metaBoxes.get('cellCount').textContent = state.stats.cellCount.toLocaleString();
+      }
+
+      function resizeCanvas() {
+        state.dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const rect = stage.getBoundingClientRect();
+        state.width = Math.max(1, Math.floor(rect.width));
+        state.height = Math.max(1, Math.floor(rect.height));
+        canvas.width = Math.max(1, Math.floor(state.width * state.dpr));
+        canvas.height = Math.max(1, Math.floor(state.height * state.dpr));
+        ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
+        const preset = terrainPresets[state.preset];
+        const target = window.innerWidth >= 980 ? preset.gridDesktop : preset.gridMobile;
+        state.gridW = target;
+        state.gridH = Math.max(96, Math.round(target * (state.height / Math.max(state.width, 1))));
+        state.cellW = state.width / state.gridW;
+        state.cellH = state.height / state.gridH;
+        allocateGrids();
+        rebuildTerrain(false);
+      }
+
+      function allocateGrids() {
+        const cells = state.gridW * state.gridH;
+        state.elevation = new Float32Array(cells);
+        state.baseElevation = new Float32Array(cells);
+        state.water = new Float32Array(cells);
+        state.sediment = new Float32Array(cells);
+        state.flow = new Float32Array(cells);
+        state.deposit = new Float32Array(cells);
+        state.velocityX = new Float32Array(cells);
+        state.velocityY = new Float32Array(cells);
+        state.imageBuffer = new Uint8ClampedArray(cells * 4);
+        state.imageData = new ImageData(state.imageBuffer, state.gridW, state.gridH);
+        state.stats.cellCount = cells;
+      }
+
+      function idx(x, y) {
+        return y * state.gridW + x;
+      }
+
+      function rebuildTerrain(changeSeed) {
+        if (changeSeed && !Number.isFinite(state.seed)) {
+          state.seed = Math.floor(Math.random() * 1000000);
+        }
+        const preset = terrainPresets[state.preset];
+        const random = mulberry32(state.seed);
+        for (let y = 0; y < state.gridH; y += 1) {
+          for (let x = 0; x < state.gridW; x += 1) {
+            const i = idx(x, y);
+            const nx = x / Math.max(1, state.gridW - 1);
+            const ny = y / Math.max(1, state.gridH - 1);
+            const base = preset.generator(nx, ny, state.seed);
+            const radial = 1 - Math.hypot(nx - 0.5, ny - 0.52) * 0.92;
+            const edgeMask = smoothstep(-0.3, 0.8, radial);
+            const variation = (random() - 0.5) * 0.03;
+            const height = clamp(base * edgeMask + variation + 0.06, 0.02, 1.08);
+            state.elevation[i] = height;
+            state.baseElevation[i] = height;
+            state.water[i] = 0;
+            state.sediment[i] = 0;
+            state.flow[i] = 0;
+            state.deposit[i] = 0;
+            state.velocityX[i] = 0;
+            state.velocityY[i] = 0;
+          }
+        }
+        state.stats.droplets = 0;
+        state.stats.elevationDelta = 0;
+        state.stats.waterMass = 0;
+        state.stats.sedimentMass = 0;
+      }
+
+      function getSlope(x, y) {
+        const xL = clamp(x - 1, 0, state.gridW - 1);
+        const xR = clamp(x + 1, 0, state.gridW - 1);
+        const yT = clamp(y - 1, 0, state.gridH - 1);
+        const yB = clamp(y + 1, 0, state.gridH - 1);
+        const center = state.elevation[idx(x, y)] + state.water[idx(x, y)] * 0.4;
+        const dx = (state.elevation[idx(xR, y)] - state.elevation[idx(xL, y)]) * 0.5;
+        const dy = (state.elevation[idx(x, yB)] - state.elevation[idx(x, yT)]) * 0.5;
+        return { dx, dy, center };
+      }
+
+      function addRainAt(normX, normY, amount, radiusScale) {
+        const cx = clamp(Math.floor(normX * state.gridW), 0, state.gridW - 1);
+        const cy = clamp(Math.floor(normY * state.gridH), 0, state.gridH - 1);
+        const radius = Math.max(2, Math.floor((state.gridW * state.params.brushRadius + state.gridH * state.params.brushRadius) * 0.25 * radiusScale));
+        for (let y = cy - radius; y <= cy + radius; y += 1) {
+          if (y < 0 || y >= state.gridH) continue;
+          for (let x = cx - radius; x <= cx + radius; x += 1) {
+            if (x < 0 || x >= state.gridW) continue;
+            const dx = x - cx;
+            const dy = y - cy;
+            const dist = Math.hypot(dx, dy) / radius;
+            if (dist > 1) continue;
+            const falloff = Math.cos(dist * Math.PI * 0.5) ** 2;
+            const i = idx(x, y);
+            state.water[i] += amount * falloff;
+            state.flow[i] += amount * falloff * 0.45;
+          }
+        }
+      }
+
+      function simulateDroplets(count) {
+        const random = mulberry32((state.seed + state.stats.frame * 7919) >>> 0);
+        for (let n = 0; n < count; n += 1) {
+          let x = Math.floor(random() * state.gridW);
+          let y = Math.floor(random() * state.gridH);
+          let water = 0.7 + random() * 0.45;
+          let sediment = 0;
+          let vx = 0;
+          let vy = 0;
+          for (let life = 0; life < 18; life += 1) {
+            const slope = getSlope(x, y);
+            vx = vx * 0.78 - slope.dx * 5.2;
+            vy = vy * 0.78 - slope.dy * 5.2;
+            const mag = Math.hypot(vx, vy) || 1;
+            vx /= mag;
+            vy /= mag;
+            const nx = clamp(Math.round(x + vx), 0, state.gridW - 1);
+            const ny = clamp(Math.round(y + vy), 0, state.gridH - 1);
+            const i = idx(x, y);
+            const ni = idx(nx, ny);
+            const heightDiff = state.elevation[i] - state.elevation[ni];
+            const slopePower = Math.max(0.002, heightDiff + state.flow[i] * 0.05);
+            const capacity = clamp(slopePower * water * lerp(0.35, 2.8, state.params.sedimentCapacity), 0.002, 1.8);
+            if (sediment > capacity) {
+              const deposit = (sediment - capacity) * (0.28 + state.params.blur * 0.22);
+              state.elevation[i] += deposit;
+              state.deposit[i] += deposit * 1.8;
+              sediment -= deposit;
+            } else {
+              const erode = Math.min((capacity - sediment) * lerp(0.02, 0.16, state.params.erosionRate), state.elevation[i] - 0.01);
+              state.elevation[i] -= erode;
+              sediment += erode;
+              state.flow[i] += erode * 8;
+            }
+            state.water[i] += water * 0.015;
+            state.velocityX[i] = vx;
+            state.velocityY[i] = vy;
+            x = nx;
+            y = ny;
+            water *= 1 - lerp(0.02, 0.18, state.params.evaporation);
+            if (water < 0.04) break;
+          }
+          const finish = idx(x, y);
+          state.elevation[finish] += sediment * 0.65;
+          state.deposit[finish] += sediment * 2.4;
+          state.water[finish] += water * 0.18;
+        }
+        state.stats.droplets += count;
+        state.stats.lastDropletCount = count;
+      }
+
+      function simulateFlow() {
+        const erosionFactor = lerp(0.0015, 0.009, state.params.erosionRate);
+        const blurFactor = lerp(0.02, 0.18, state.params.blur);
+        let waterMass = 0;
+        let sedimentMass = 0;
+
+        for (let y = 1; y < state.gridH - 1; y += 1) {
+          for (let x = 1; x < state.gridW - 1; x += 1) {
+            const i = idx(x, y);
+            const h = state.elevation[i] + state.water[i];
+            let outflow = 0;
+            const neighbors = [
+              idx(x + 1, y), idx(x - 1, y), idx(x, y + 1), idx(x, y - 1)
+            ];
+            for (let n = 0; n < neighbors.length; n += 1) {
+              const j = neighbors[n];
+              const diff = h - (state.elevation[j] + state.water[j]);
+              if (diff > 0) {
+                const transfer = diff * 0.085;
+                state.water[j] += transfer;
+                outflow += transfer;
+                state.flow[j] += transfer * 0.6;
+                state.velocityX[j] += ((j % state.gridW) - x) * 0.08;
+                state.velocityY[j] += (Math.floor(j / state.gridW) - y) * 0.08;
+                const erode = Math.min(diff * erosionFactor, state.elevation[i] - 0.008);
+                state.elevation[i] -= erode;
+                state.sediment[i] += erode * 1.15;
+              }
+            }
+            state.water[i] = Math.max(0, state.water[i] - outflow);
+            const capacity = state.water[i] * lerp(0.18, 1.6, state.params.sedimentCapacity);
+            if (state.sediment[i] > capacity) {
+              const drop = (state.sediment[i] - capacity) * 0.08;
+              state.elevation[i] += drop;
+              state.deposit[i] += drop * 1.6;
+              state.sediment[i] -= drop;
+            }
+            state.water[i] *= 0.985 - state.params.evaporation * 0.03;
+            state.flow[i] *= 0.94;
+            state.deposit[i] *= 0.965;
+            state.velocityX[i] *= 0.88;
+            state.velocityY[i] *= 0.88;
+            waterMass += state.water[i];
+            sedimentMass += state.sediment[i];
+          }
+        }
+
+        if (blurFactor > 0.01) {
+          for (let y = 1; y < state.gridH - 1; y += 1) {
+            for (let x = 1; x < state.gridW - 1; x += 1) {
+              const i = idx(x, y);
+              const average = (
+                state.elevation[idx(x, y)] +
+                state.elevation[idx(x + 1, y)] +
+                state.elevation[idx(x - 1, y)] +
+                state.elevation[idx(x, y + 1)] +
+                state.elevation[idx(x, y - 1)]
+              ) / 5;
+              state.elevation[i] = lerp(state.elevation[i], average, blurFactor * 0.08);
+            }
+          }
+        }
+
+        state.stats.waterMass = waterMass;
+        state.stats.sedimentMass = sedimentMass;
+      }
+
+      function applyWeather() {
+        if (state.autoRain && !state.pointerDown) {
+          const frame = state.stats.frame;
+          const x = 0.5 + Math.sin(frame * 0.0065 + 0.9) * 0.33 + Math.sin(frame * 0.017) * 0.04;
+          const y = 0.48 + Math.cos(frame * 0.0052 + 1.3) * 0.28;
+          addRainAt(clamp(x, 0.08, 0.92), clamp(y, 0.08, 0.92), 0.025 + state.params.rainfall * 0.045, 0.9);
+        }
+
+        if (state.pointerDown || state.brushActive) {
+          addRainAt(state.brushX, state.brushY, 0.06 + state.params.rainfall * 0.11, 1.4);
+        }
+      }
+
+      function updateStats(deltaMs) {
+        state.frameTimes.push(deltaMs);
+        while (state.frameTimes.length > 30) state.frameTimes.shift();
+        const average = state.frameTimes.reduce((sum, value) => sum + value, 0) / Math.max(1, state.frameTimes.length);
+        state.stats.fps = 1000 / Math.max(average, 1);
+        let deltaSum = 0;
+        for (let i = 0; i < state.elevation.length; i += 1) {
+          deltaSum += Math.abs(state.elevation[i] - state.baseElevation[i]);
+        }
+        state.stats.elevationDelta = deltaSum / state.elevation.length;
+
+        if (state.stats.fps < 20) {
+          state.lowFpsFor += deltaMs;
+          if (state.lowFpsFor > 2000) {
+            const next = sliderInputs.get('dropletsPerFrame');
+            state.params.dropletsPerFrame = clamp(state.params.dropletsPerFrame - 0.08, 0.05, 1);
+            if (next) next.value = state.params.dropletsPerFrame;
+            state.lowFpsFor = 0;
+            showToast('Performance guard lowered droplet count');
+          }
+        } else {
+          state.lowFpsFor = Math.max(0, state.lowFpsFor - deltaMs * 2);
+        }
+      }
+
+      function shadeColor(height, flowValue, sedimentValue) {
+        const dry = [80, 58, 38];
+        const mid = [173, 131, 76];
+        const high = [240, 217, 169];
+        const blue = [84, 165, 255];
+        const t1 = clamp(height * 1.08, 0, 1);
+        const lowMix = smoothstep(0.0, 0.45, t1);
+        const highMix = smoothstep(0.42, 1.0, t1);
+        const r0 = lerp(dry[0], mid[0], lowMix);
+        const g0 = lerp(dry[1], mid[1], lowMix);
+        const b0 = lerp(dry[2], mid[2], lowMix);
+        let r = lerp(r0, high[0], highMix);
+        let g = lerp(g0, high[1], highMix);
+        let b = lerp(b0, high[2], highMix);
+        const waterMix = clamp(flowValue * 1.3, 0, 1);
+        const sedimentMix = clamp(sedimentValue * 0.5, 0, 1);
+        r = lerp(r, blue[0], waterMix * 0.55);
+        g = lerp(g, blue[1], waterMix * 0.65);
+        b = lerp(b, blue[2], waterMix * 0.8);
+        r = lerp(r, 248, sedimentMix * 0.55);
+        g = lerp(g, 209, sedimentMix * 0.45);
+        b = lerp(b, 148, sedimentMix * 0.22);
+        return [r, g, b];
+      }
+
+      function renderHeightfield() {
+        for (let y = 0; y < state.gridH; y += 1) {
+          for (let x = 0; x < state.gridW; x += 1) {
+            const i = idx(x, y);
+            const h = state.elevation[i];
+            const flowValue = state.flow[i];
+            const sedimentValue = state.deposit[i];
+            const xL = clamp(x - 1, 0, state.gridW - 1);
+            const xR = clamp(x + 1, 0, state.gridW - 1);
+            const yT = clamp(y - 1, 0, state.gridH - 1);
+            const yB = clamp(y + 1, 0, state.gridH - 1);
+            const dx = state.elevation[idx(xR, y)] - state.elevation[idx(xL, y)];
+            const dy = state.elevation[idx(x, yB)] - state.elevation[idx(x, yT)];
+            const shade = clamp(0.62 + (-dx * 0.55 - dy * 0.92), 0.26, 1.3);
+            let color;
+            if (state.view === 'flow') {
+              const intensity = clamp(flowValue * 1.8 + state.water[i] * 0.9, 0, 1);
+              color = [
+                lerp(18, 86, intensity),
+                lerp(22, 177, intensity),
+                lerp(30, 255, intensity)
+              ];
+            } else if (state.view === 'sediment') {
+              const intensity = clamp(sedimentValue * 0.9 + state.sediment[i] * 0.45, 0, 1);
+              color = [
+                lerp(32, 247, intensity),
+                lerp(28, 214, intensity),
+                lerp(24, 146, intensity)
+              ];
+            } else {
+              color = shadeColor(h, flowValue, sedimentValue);
+            }
+            const p = i * 4;
+            state.imageBuffer[p] = clamp(color[0] * shade, 0, 255);
+            state.imageBuffer[p + 1] = clamp(color[1] * shade, 0, 255);
+            state.imageBuffer[p + 2] = clamp(color[2] * shade, 0, 255);
+            state.imageBuffer[p + 3] = 255;
+          }
+        }
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width = state.gridW;
+        offscreen.height = state.gridH;
+        const offCtx = offscreen.getContext('2d');
+        offCtx.putImageData(state.imageData, 0, 0);
+
+        ctx.clearRect(0, 0, state.width, state.height);
+        ctx.fillStyle = '#0a0a0f';
+        ctx.fillRect(0, 0, state.width, state.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.save();
+        ctx.translate(state.width * 0.5, state.height * 0.12);
+        ctx.scale(1, state.cameraTilt);
+        ctx.rotate(state.cameraPan * 0.08);
+        const drawW = state.width * 0.95;
+        const drawH = state.height * 0.92;
+        ctx.drawImage(offscreen, -drawW * 0.5, 0, drawW, drawH);
+
+        ctx.globalCompositeOperation = 'screen';
+        const gradient = ctx.createLinearGradient(0, 0, 0, drawH);
+        gradient.addColorStop(0, 'rgba(255, 223, 143, 0.16)');
+        gradient.addColorStop(0.45, 'rgba(0,0,0,0)');
+        gradient.addColorStop(1, 'rgba(9, 15, 24, 0.22)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(-drawW * 0.5, 0, drawW, drawH);
+
+        ctx.strokeStyle = 'rgba(255, 240, 188, 0.08)';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        const contourStep = Math.max(6, Math.floor(state.gridH / 26));
+        for (let y = contourStep; y < state.gridH; y += contourStep) {
+          for (let x = 0; x < state.gridW; x += 1) {
+            const px = -drawW * 0.5 + (x / state.gridW) * drawW;
+            const offset = state.elevation[idx(x, y)] * drawH * 0.08;
+            const py = (y / state.gridH) * drawH - offset;
+            if (x === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+        }
+        ctx.stroke();
+
+        if (state.showFlowStreaks) {
+          ctx.strokeStyle = 'rgba(121, 196, 255, 0.2)';
+          ctx.lineWidth = Math.max(0.8, state.cellW * 0.3);
+          ctx.beginPath();
+          const stepX = Math.max(2, Math.floor(state.gridW / 36));
+          const stepY = Math.max(2, Math.floor(state.gridH / 24));
+          for (let y = 0; y < state.gridH; y += stepY) {
+            for (let x = 0; x < state.gridW; x += stepX) {
+              const i = idx(x, y);
+              const strength = state.flow[i] + state.water[i] * 0.4;
+              if (strength < 0.03) continue;
+              const px = -drawW * 0.5 + (x / state.gridW) * drawW;
+              const py = (y / state.gridH) * drawH;
+              ctx.moveTo(px, py);
+              ctx.lineTo(
+                px + state.velocityX[i] * 10,
+                py + state.velocityY[i] * 10
+              );
+            }
+          }
+          ctx.stroke();
+        }
+
+        if (state.pointerDown || state.brushActive) {
+          const brushX = -drawW * 0.5 + state.brushX * drawW;
+          const brushY = state.brushY * drawH;
+          const radius = drawW * state.params.brushRadius * 0.2;
+          const pulse = 0.88 + Math.sin(state.stats.frame * 0.18) * 0.08;
+          ctx.fillStyle = 'rgba(255, 210, 120, 0.12)';
+          ctx.strokeStyle = 'rgba(255, 221, 157, 0.85)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(brushX, brushY, radius * pulse, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      function step(timestamp) {
+        if (state.destroyed) return;
+        if (!state.lastFrameAt) state.lastFrameAt = timestamp;
+        const deltaMs = clamp(timestamp - state.lastFrameAt, 8, 40);
+        state.lastFrameAt = timestamp;
+        state.stats.frame += 1;
+
+        if (!state.paused) {
+          applyWeather();
+          const dropletCount = Math.round(lerp(250, 4200, state.params.dropletsPerFrame));
+          simulateDroplets(dropletCount);
+          simulateFlow();
+        } else {
+          state.stats.lastDropletCount = 0;
+        }
+
+        state.cameraVel += (state.pointerDown && state.dragMode === 'pan' ? 0.0035 : 0.0002);
+        state.cameraVel *= 0.94;
+        state.cameraPan += state.cameraVel;
+        renderHeightfield();
+        updateStats(deltaMs);
+        refreshUI();
+        state.raf = requestAnimationFrame(step);
+      }
+
+      function normFromEvent(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: clamp((event.clientX - rect.left) / Math.max(rect.width, 1), 0, 1),
+          y: clamp((event.clientY - rect.top) / Math.max(rect.height, 1), 0, 1)
+        };
+      }
+
+      function onPointerDown(event) {
+        if (event.pointerType === 'mouse' && event.button === 2) return;
+        const pos = normFromEvent(event);
+        state.pointerDown = true;
+        state.pointerId = event.pointerId;
+        state.brushX = pos.x;
+        state.brushY = pos.y;
+        state.brushActive = true;
+        state.dragMode = event.shiftKey ? 'pan' : 'paint';
+        canvas.setPointerCapture(event.pointerId);
+      }
+
+      function onPointerMove(event) {
+        const pos = normFromEvent(event);
+        state.brushX = pos.x;
+        state.brushY = pos.y;
+        if (!state.pointerDown) return;
+        if (state.dragMode === 'pan') {
+          state.cameraPan += (event.movementX || 0) * 0.0008;
+        }
+      }
+
+      function onPointerUp(event) {
+        if (state.pointerId !== null && event.pointerId === state.pointerId) {
+          try { canvas.releasePointerCapture(event.pointerId); } catch (error) { }
+        }
+        state.pointerDown = false;
+        state.pointerId = null;
+        setTimeout(() => {
+          if (!state.pointerDown) state.brushActive = false;
+        }, 120);
+      }
+
+      function exportPNG() {
+        const link = document.createElement('a');
+        link.download = `hydraulic-erosion-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        showToast('PNG exported');
+      }
+
+      function init(targetCanvas, params = {}) {
+        if (targetCanvas && targetCanvas !== canvas) return;
+        Object.assign(state.params, params || {});
+        if (params.preset && terrainPresets[params.preset]) {
+          state.preset = params.preset;
+        }
+        resizeCanvas();
+        refreshUI();
+        cancelAnimationFrame(state.raf);
+        state.destroyed = false;
+        state.lastFrameAt = 0;
+        state.raf = requestAnimationFrame(step);
+      }
+
+      function destroy() {
+        state.destroyed = true;
+        cancelAnimationFrame(state.raf);
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      canvas.addEventListener('pointerdown', onPointerDown);
+      canvas.addEventListener('pointermove', onPointerMove);
+      canvas.addEventListener('pointerup', onPointerUp);
+      canvas.addEventListener('pointercancel', onPointerUp);
+      canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+      canvas.addEventListener('dblclick', () => {
+        state.brushX = 0.5;
+        state.brushY = 0.5;
+        showToast('Brush recentered');
+      });
+
+      setupUI();
+      window.LabModule = {
+        name: 'Hydraulic Erosion Engine',
+        slug: 'erosion-engine',
+        init,
+        destroy,
+        defaultParams: {
+          preset: 'mountain',
+          rainfall: 0.74,
+          erosionRate: 0.42,
+          sedimentCapacity: 0.53,
+          dropletsPerFrame: 0.58,
+          evaporation: 0.22,
+          blur: 0.18,
+          brushRadius: 0.18
+        }
+      };
+      init(canvas, window.LabModule.defaultParams);
+    })();
+  </script>
+</body>
+</html>
