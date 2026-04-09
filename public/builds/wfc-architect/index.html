@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WFC Architect</title>
+    <style>
+      :root {
+        --bg: #0a0a0f;
+        --canvas-bg: #090e09;
+        --grid-line: rgba(0, 255, 100, 0.06);
+        --trace: #00ff66;
+        --trace-glow: rgba(0, 255, 102, 0.4);
+        --trace-dim: #003d1a;
+        --component-bg: #111827;
+        --component-border: #334455;
+        --pad-gold: #f0c040;
+        --pad-glow: rgba(240, 192, 64, 0.5);
+        --entropy-full: rgba(0, 255, 100, 0.03);
+        --entropy-few: rgba(0, 255, 100, 0.35);
+        --entropy-one: rgba(0, 255, 100, 0);
+        --collapse-flash: rgba(0, 255, 100, 0.7);
+        --contradiction-red: rgba(255, 60, 60, 0.8);
+        --forced-ring: rgba(255, 220, 50, 0.9);
+        --panel-bg: rgba(7, 13, 7, 0.97);
+        --panel-border: rgba(0, 255, 100, 0.18);
+        --text-ui: #44cc77;
+        --text-bright: #aaffcc;
+        --text-dim: #226644;
+        --accent: #00ff66;
+        --btn-active: rgba(0, 255, 100, 0.15);
+        --shadow: 0 24px 72px rgba(0, 0, 0, 0.45);
+        --drawer-height: 84px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top, rgba(24, 42, 30, 0.28), transparent 40%),
+          linear-gradient(180deg, #11141c 0%, #0a0a0f 100%);
+        color: var(--text-bright);
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      }
+
+      body {
+        overflow: hidden;
+      }
+
+      button,
+      input,
+      label,
+      select {
+        font: inherit;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      #app {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(0, 255, 100, 0.04), transparent 24%),
+          radial-gradient(circle at 82% 20%, rgba(240, 192, 64, 0.04), transparent 18%);
+      }
+
+      #stage {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+          var(--canvas-bg);
+      }
+
+      #board {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+        cursor: crosshair;
+      }
+
+      #chrome {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+
+      .hero {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        max-width: min(30vw, 380px);
+        padding: 14px 16px 12px;
+        border: 1px solid rgba(170, 255, 204, 0.08);
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(7, 13, 7, 0.78), rgba(7, 13, 7, 0.48));
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        font-size: 10px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: var(--text-ui);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 4.5rem);
+        letter-spacing: 0.08em;
+        line-height: 0.92;
+        text-transform: uppercase;
+      }
+
+      .lede {
+        margin: 10px 0 0;
+        color: rgba(200, 255, 220, 0.78);
+        line-height: 1.45;
+        font-size: 13px;
+      }
+
+      .hero-accent {
+        display: inline-flex;
+        gap: 8px;
+        margin-top: 10px;
+        color: var(--text-ui);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      #stats-strip {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      .chip {
+        min-width: 0;
+        padding: 9px 12px;
+        border: 1px solid rgba(170, 255, 204, 0.1);
+        border-radius: 999px;
+        background: rgba(7, 13, 7, 0.62);
+        backdrop-filter: blur(10px);
+        color: var(--text-ui);
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        box-shadow: var(--shadow);
+      }
+
+      .chip strong {
+        color: var(--text-bright);
+        font-weight: 700;
+      }
+
+      #message-chip {
+        max-width: min(420px, 68vw);
+        border-color: rgba(255, 220, 50, 0.14);
+        color: #ffe286;
+      }
+
+      #side {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px 14px 16px;
+        overflow-y: auto;
+        background: var(--panel-bg);
+        border-left: 1px solid var(--panel-border);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      #drawer-toggle {
+        display: none;
+      }
+
+      .side-head h2 {
+        margin: 0;
+        font-size: 26px;
+        line-height: 0.94;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .side-head p {
+        margin: 8px 0 0;
+        color: rgba(170, 255, 204, 0.86);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .panel {
+        border: 1px solid var(--panel-border);
+        border-radius: 18px;
+        padding: 12px;
+        background: rgba(8, 15, 10, 0.76);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      .panel-title {
+        margin: 0 0 10px;
+        color: var(--text-ui);
+        font-size: 10px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+
+      .group {
+        display: grid;
+        gap: 8px;
+      }
+
+      .tile-row,
+      .grid-row,
+      .speed-row,
+      .view-row,
+      .brush-row,
+      .action-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .segmented {
+        display: grid;
+        gap: 8px;
+      }
+
+      .segmented.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .segmented.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .segmented.five {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+
+      .btn,
+      .toggle,
+      .tile-btn,
+      .grid-btn,
+      .speed-btn,
+      .brush-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid rgba(170, 255, 204, 0.12);
+        border-radius: 14px;
+        background: rgba(8, 15, 10, 0.72);
+        color: var(--text-bright);
+        cursor: pointer;
+        transition:
+          transform 140ms ease,
+          border-color 140ms ease,
+          background 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .btn:hover,
+      .toggle:hover,
+      .tile-btn:hover,
+      .grid-btn:hover,
+      .speed-btn:hover,
+      .brush-btn:hover,
+      .btn:focus-visible,
+      .toggle:focus-visible,
+      .tile-btn:focus-visible,
+      .grid-btn:focus-visible,
+      .speed-btn:focus-visible,
+      .brush-btn:focus-visible {
+        outline: none;
+        transform: translateY(-1px);
+        border-color: rgba(170, 255, 204, 0.34);
+        box-shadow: 0 0 0 1px rgba(0, 255, 100, 0.08);
+      }
+
+      .btn.active,
+      .toggle.active,
+      .tile-btn.active,
+      .grid-btn.active,
+      .speed-btn.active,
+      .brush-btn.active {
+        background: var(--btn-active);
+        border-color: rgba(170, 255, 204, 0.44);
+      }
+
+      .tile-btn {
+        align-items: stretch;
+        justify-content: flex-start;
+        flex-direction: column;
+        gap: 4px;
+        min-height: 54px;
+        text-align: left;
+      }
+
+      .tile-btn .name {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .tile-btn .desc {
+        color: var(--text-ui);
+        font-size: 11px;
+        line-height: 1.35;
+      }
+
+      .meta {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        color: var(--text-ui);
+        font-size: 11px;
+      }
+
+      .meta strong {
+        color: var(--text-bright);
+      }
+
+      .slider-wrap {
+        display: grid;
+        gap: 8px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .check {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        min-height: 44px;
+        padding: 10px 12px;
+        border: 1px solid rgba(170, 255, 204, 0.12);
+        border-radius: 14px;
+        background: rgba(8, 15, 10, 0.62);
+        cursor: pointer;
+      }
+
+      .check input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+      }
+
+      .subtle {
+        color: var(--text-ui);
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      #picker {
+        position: absolute;
+        z-index: 4;
+        min-width: 208px;
+        max-width: 280px;
+        padding: 12px;
+        border: 1px solid rgba(170, 255, 204, 0.18);
+        border-radius: 18px;
+        background: rgba(7, 13, 7, 0.94);
+        box-shadow: 0 18px 64px rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(12px);
+        pointer-events: auto;
+      }
+
+      #picker.hidden {
+        display: none;
+      }
+
+      #picker-head {
+        display: grid;
+        gap: 4px;
+        margin-bottom: 10px;
+      }
+
+      #picker-title {
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-ui);
+      }
+
+      #picker-subtitle {
+        color: var(--text-bright);
+        font-size: 12px;
+      }
+
+      #picker-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+        gap: 8px;
+      }
+
+      .picker-option {
+        display: grid;
+        gap: 6px;
+        padding: 8px;
+        border: 1px solid rgba(170, 255, 204, 0.12);
+        border-radius: 12px;
+        background: rgba(12, 20, 13, 0.88);
+        cursor: pointer;
+      }
+
+      .picker-option span {
+        color: var(--text-ui);
+        font-size: 10px;
+        line-height: 1.2;
+        text-transform: uppercase;
+      }
+
+      .picker-option canvas {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        background: var(--canvas-bg);
+      }
+
+      #mobile-brush {
+        display: none;
+      }
+
+      @media (max-width: 767px) {
+        #app {
+          display: block;
+        }
+
+        #stage {
+          position: absolute;
+          inset: 0 0 var(--drawer-height) 0;
+        }
+
+        .hero {
+          top: 10px;
+          left: 10px;
+          right: auto;
+          max-width: min(74vw, 300px);
+          padding: 11px 11px 9px;
+          border-radius: 18px;
+        }
+
+        .eyebrow {
+          font-size: 9px;
+          letter-spacing: 0.14em;
+        }
+
+        h1 {
+          font-size: clamp(1.45rem, 8vw, 2.15rem);
+          line-height: 0.98;
+          letter-spacing: 0.035em;
+        }
+
+        .lede {
+          display: none;
+        }
+
+        .hero-accent {
+          flex-wrap: wrap;
+          gap: 5px;
+          margin-top: 8px;
+          font-size: 9px;
+          letter-spacing: 0.08em;
+        }
+
+        #stats-strip {
+          left: 10px;
+          right: 10px;
+          bottom: calc(var(--drawer-height) + 10px);
+          display: flex;
+          flex-wrap: nowrap;
+          gap: 8px;
+          align-items: stretch;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+
+        .chip {
+          flex: 0 0 auto;
+          padding: 9px 10px;
+          font-size: 10px;
+          line-height: 1.2;
+        }
+
+        #message-chip {
+          display: none;
+        }
+
+        #side {
+          position: absolute;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          height: min(64vh, 520px);
+          padding: 12px 12px 16px;
+          border-left: none;
+          border-top: 1px solid var(--panel-border);
+          border-radius: 22px 22px 0 0;
+          transform: translateY(calc(100% - var(--drawer-height)));
+          transition: transform 220ms ease;
+          box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.45);
+        }
+
+        #side.open {
+          transform: translateY(0);
+        }
+
+        #drawer-toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 46px;
+          padding: 0 16px;
+          border: 1px solid rgba(170, 255, 204, 0.12);
+          border-radius: 999px;
+          background: rgba(8, 15, 10, 0.84);
+          color: var(--text-bright);
+          cursor: pointer;
+        }
+
+        .side-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .side-head h2 {
+          font-size: 18px;
+          line-height: 1;
+        }
+
+        .side-head p {
+          font-size: 11px;
+        }
+
+        #mobile-brush {
+          display: block;
+        }
+
+        #picker {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <section id="stage" aria-label="Constraint-solver board">
+        <canvas id="board"></canvas>
+        <div id="chrome" aria-hidden="true">
+          <div class="hero">
+            <p class="eyebrow">Procedural Generation / Constraint Solver</p>
+            <h1>WFC Architect</h1>
+            <p class="lede">
+              Paint constraints, expose the entropy field, and watch a wave-function
+              collapse solver snap a circuit board, city, or dungeon into coherence.
+            </p>
+            <div class="hero-accent">
+              <span>Entropy Heatmap</span>
+              <span>Weighted Collapse</span>
+              <span>Live Propagation</span>
+            </div>
+          </div>
+          <div id="stats-strip">
+            <div class="chip"><strong id="stat-solved">0 / 0</strong> solved</div>
+            <div class="chip"><strong id="stat-speed">4×</strong> speed</div>
+            <div class="chip"><strong id="stat-resets">0</strong> resets</div>
+            <div class="chip"><strong id="stat-time">0:00</strong> active</div>
+            <div class="chip"><strong id="stat-brush">trace</strong> brush</div>
+            <div class="chip" id="message-chip">Watching for the lowest entropy cell.</div>
+          </div>
+        </div>
+        <div id="picker" class="hidden" role="dialog" aria-label="Tile picker">
+          <div id="picker-head">
+            <div id="picker-title">Tile Picker</div>
+            <div id="picker-subtitle"></div>
+          </div>
+          <div id="picker-grid"></div>
+        </div>
+      </section>
+
+      <aside id="side" aria-label="WFC controls">
+        <div class="side-head">
+          <div>
+            <h2>WFC Architect</h2>
+            <p>Constraint solver. Zero libraries. Paint, propagate, collapse.</p>
+          </div>
+          <button id="drawer-toggle" type="button" aria-expanded="false" aria-controls="side">
+            Open
+          </button>
+        </div>
+
+        <section class="panel">
+          <h3 class="panel-title">Tileset</h3>
+          <div id="tileset-buttons" class="group tile-row"></div>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">Grid</h3>
+          <div id="grid-buttons" class="segmented five grid-row"></div>
+          <p class="subtle">24 is the default. 48 pushes the solver into dense-field mode.</p>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">Solve</h3>
+          <div class="action-row">
+            <button class="btn" id="auto-btn" type="button" aria-pressed="true">Auto-Solve</button>
+            <button class="btn" id="step-btn" type="button">One Step</button>
+          </div>
+          <div class="slider-wrap">
+            <div class="meta">
+              <span>Speed</span>
+              <strong id="speed-label">4×</strong>
+            </div>
+            <input id="speed-range" type="range" min="0" max="4" step="1" value="1" aria-label="Solve speed" />
+            <div id="speed-buttons" class="segmented five speed-row"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">Brush</h3>
+          <div id="brush-buttons" class="segmented two brush-row"></div>
+          <div id="mobile-brush" class="subtle">
+            Mobile uses the active brush directly: tap to place, drag to paint, double-tap to clear.
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">Controls</h3>
+          <div class="action-row">
+            <button class="btn" id="reset-btn" type="button">Reset Pins</button>
+            <button class="btn" id="clear-btn" type="button">Clear All</button>
+          </div>
+          <div class="action-row">
+            <button class="btn" id="export-btn" type="button">Export PNG</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">View</h3>
+          <label class="check">
+            <input id="entropy-toggle" type="checkbox" checked />
+            <span>Entropy Map</span>
+          </label>
+          <label class="check">
+            <input id="grid-toggle" type="checkbox" checked />
+            <span>Grid Lines</span>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h3 class="panel-title">Telemetry</h3>
+          <div class="meta"><span>Collapsed</span><strong id="telemetry-collapsed">0 / 0</strong></div>
+          <div class="meta"><span>Consecutive contradictions</span><strong id="telemetry-contradictions">0</strong></div>
+          <div class="meta"><span>Last action</span><strong id="telemetry-last">Boot</strong></div>
+          <p class="subtle">
+            Keyboard: <strong>Space</strong> step, <strong>Enter</strong> auto,
+            <strong>R</strong> reset pins, <strong>C</strong> clear,
+            <strong>H</strong> heatmap, <strong>1/2/3</strong> tileset.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <script>
+      (() => {
+        const canvas = document.getElementById("board");
+        const ctx = canvas.getContext("2d");
+        const stage = document.getElementById("stage");
+        const picker = document.getElementById("picker");
+        const pickerTitle = document.getElementById("picker-title");
+        const pickerSubtitle = document.getElementById("picker-subtitle");
+        const pickerGrid = document.getElementById("picker-grid");
+        const side = document.getElementById("side");
+        const drawerToggle = document.getElementById("drawer-toggle");
+
+        const statSolved = document.getElementById("stat-solved");
+        const statSpeed = document.getElementById("stat-speed");
+        const statResets = document.getElementById("stat-resets");
+        const statTime = document.getElementById("stat-time");
+        const statBrush = document.getElementById("stat-brush");
+        const messageChip = document.getElementById("message-chip");
+
+        const speedRange = document.getElementById("speed-range");
+        const speedLabel = document.getElementById("speed-label");
+        const autoBtn = document.getElementById("auto-btn");
+        const stepBtn = document.getElementById("step-btn");
+        const resetBtn = document.getElementById("reset-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const exportBtn = document.getElementById("export-btn");
+        const entropyToggle = document.getElementById("entropy-toggle");
+        const gridToggle = document.getElementById("grid-toggle");
+
+        const tilesetButtons = document.getElementById("tileset-buttons");
+        const gridButtons = document.getElementById("grid-buttons");
+        const speedButtons = document.getElementById("speed-buttons");
+        const brushButtons = document.getElementById("brush-buttons");
+
+        const telemetryCollapsed = document.getElementById("telemetry-collapsed");
+        const telemetryContradictions = document.getElementById("telemetry-contradictions");
+        const telemetryLast = document.getElementById("telemetry-last");
+
+        const SPEED_OPTIONS = [
+          { id: 0, label: "1×", steps: 1 },
+          { id: 1, label: "4×", steps: 4 },
+          { id: 2, label: "8×", steps: 8 },
+          { id: 3, label: "16×", steps: 16 },
+          { id: 4, label: "∞", steps: Infinity },
+        ];
+
+        const GRID_OPTIONS = [16, 24, 32, 48];
+        const MOBILE_GRID = 20;
+        const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
+
+        const themeSets = {
+          circuit: {
+            "--canvas-bg": "#090e09",
+            "--panel-bg": "rgba(7, 13, 7, 0.97)",
+            "--panel-border": "rgba(0, 255, 100, 0.18)",
+            "--text-ui": "#44cc77",
+            "--text-bright": "#aaffcc",
+            "--text-dim": "#226644",
+            "--accent": "#00ff66",
+            "--btn-active": "rgba(0, 255, 100, 0.15)",
+            "--grid-line": "rgba(0, 255, 100, 0.06)",
+            "--trace": "#00ff66",
+            "--trace-glow": "rgba(0, 255, 102, 0.4)",
+            "--trace-dim": "#003d1a",
+            "--component-bg": "#111827",
+            "--component-border": "#334455",
+            "--pad-gold": "#f0c040",
+            "--pad-glow": "rgba(240, 192, 64, 0.5)",
+          },
+          city: {
+            "--canvas-bg": "#1a1a18",
+            "--panel-bg": "rgba(20, 20, 18, 0.97)",
+            "--panel-border": "rgba(201, 184, 150, 0.18)",
+            "--text-ui": "#d0b690",
+            "--text-bright": "#f4ead7",
+            "--text-dim": "#7d6b55",
+            "--accent": "#d6b25a",
+            "--btn-active": "rgba(214, 178, 90, 0.18)",
+            "--grid-line": "rgba(255, 235, 205, 0.06)",
+            "--trace": "#4d4d52",
+            "--trace-glow": "rgba(255, 232, 160, 0.14)",
+            "--trace-dim": "#27272b",
+            "--component-bg": "#637b8f",
+            "--component-border": "#8aa0b4",
+            "--pad-gold": "#80a852",
+            "--pad-glow": "rgba(128, 168, 82, 0.22)",
+          },
+          dungeon: {
+            "--canvas-bg": "#100e0a",
+            "--panel-bg": "rgba(16, 14, 10, 0.97)",
+            "--panel-border": "rgba(192, 144, 26, 0.18)",
+            "--text-ui": "#c79e4d",
+            "--text-bright": "#f2d7a0",
+            "--text-dim": "#785f2c",
+            "--accent": "#c0901a",
+            "--btn-active": "rgba(192, 144, 26, 0.18)",
+            "--grid-line": "rgba(192, 144, 26, 0.06)",
+            "--trace": "#c0901a",
+            "--trace-glow": "rgba(192, 144, 26, 0.2)",
+            "--trace-dim": "#4a3820",
+            "--component-bg": "#2a2825",
+            "--component-border": "#3a3632",
+            "--pad-gold": "#8a6020",
+            "--pad-glow": "rgba(192, 144, 26, 0.22)",
+          },
+        };
+
+        const circuitTiles = [
+          { id: "empty", s: { n: "_", e: "_", s: "_", w: "_" }, w: 7 },
+          { id: "via", s: { n: "_", e: "_", s: "_", w: "_" }, w: 1 },
+          { id: "ns", s: { n: "T", e: "_", s: "T", w: "_" }, w: 4 },
+          { id: "ew", s: { n: "_", e: "T", s: "_", w: "T" }, w: 4 },
+          { id: "ne", s: { n: "T", e: "T", s: "_", w: "_" }, w: 2 },
+          { id: "nw", s: { n: "T", e: "_", s: "_", w: "T" }, w: 2 },
+          { id: "se", s: { n: "_", e: "T", s: "T", w: "_" }, w: 2 },
+          { id: "sw", s: { n: "_", e: "_", s: "T", w: "T" }, w: 2 },
+          { id: "cross", s: { n: "T", e: "T", s: "T", w: "T" }, w: 0.5 },
+          { id: "t-nse", s: { n: "T", e: "T", s: "T", w: "_" }, w: 0.8 },
+          { id: "t-nsw", s: { n: "T", e: "_", s: "T", w: "T" }, w: 0.8 },
+          { id: "t-new", s: { n: "T", e: "T", s: "_", w: "T" }, w: 0.8 },
+          { id: "t-sew", s: { n: "_", e: "T", s: "T", w: "T" }, w: 0.8 },
+          { id: "chip", s: { n: "T", e: "T", s: "T", w: "T" }, w: 0.3 },
+        ];
+
+        const cityTiles = [
+          { id: "building-a", s: { n: "B", e: "B", s: "B", w: "B" }, w: 5 },
+          { id: "building-b", s: { n: "B", e: "B", s: "B", w: "B" }, w: 4 },
+          { id: "building-c", s: { n: "B", e: "B", s: "B", w: "B" }, w: 3 },
+          { id: "park", s: { n: "B", e: "B", s: "B", w: "B" }, w: 2 },
+          { id: "road-ns", s: { n: "R", e: "B", s: "R", w: "B" }, w: 4 },
+          { id: "road-ew", s: { n: "B", e: "R", s: "B", w: "R" }, w: 4 },
+          { id: "road-ne", s: { n: "R", e: "R", s: "B", w: "B" }, w: 2 },
+          { id: "road-nw", s: { n: "R", e: "B", s: "B", w: "R" }, w: 2 },
+          { id: "road-se", s: { n: "B", e: "R", s: "R", w: "B" }, w: 2 },
+          { id: "road-sw", s: { n: "B", e: "B", s: "R", w: "R" }, w: 2 },
+          { id: "intersect", s: { n: "R", e: "R", s: "R", w: "R" }, w: 0.5 },
+          { id: "road-t-nse", s: { n: "R", e: "R", s: "R", w: "B" }, w: 0.8 },
+          { id: "road-t-nsw", s: { n: "R", e: "B", s: "R", w: "R" }, w: 0.8 },
+          { id: "road-t-new", s: { n: "R", e: "R", s: "B", w: "R" }, w: 0.8 },
+          { id: "road-t-sew", s: { n: "B", e: "R", s: "R", w: "R" }, w: 0.8 },
+        ];
+
+        const dungeonTiles = [
+          { id: "wall", s: { n: "W", e: "W", s: "W", w: "W" }, w: 6 },
+          { id: "floor", s: { n: "F", e: "F", s: "F", w: "F" }, w: 4 },
+          { id: "corr-ns", s: { n: "F", e: "W", s: "F", w: "W" }, w: 4 },
+          { id: "corr-ew", s: { n: "W", e: "F", s: "W", w: "F" }, w: 4 },
+          { id: "room-ne", s: { n: "F", e: "F", s: "W", w: "W" }, w: 2 },
+          { id: "room-nw", s: { n: "F", e: "W", s: "W", w: "F" }, w: 2 },
+          { id: "room-se", s: { n: "W", e: "F", s: "F", w: "W" }, w: 2 },
+          { id: "room-sw", s: { n: "W", e: "W", s: "F", w: "F" }, w: 2 },
+          { id: "junction", s: { n: "F", e: "F", s: "F", w: "F" }, w: 0.5 },
+          { id: "t-nse", s: { n: "F", e: "F", s: "F", w: "W" }, w: 0.8 },
+          { id: "t-nsw", s: { n: "F", e: "W", s: "F", w: "F" }, w: 0.8 },
+          { id: "t-new", s: { n: "F", e: "F", s: "W", w: "F" }, w: 0.8 },
+          { id: "t-sew", s: { n: "W", e: "F", s: "F", w: "F" }, w: 0.8 },
+          { id: "door-n", s: { n: "F", e: "W", s: "W", w: "W" }, w: 0.3 },
+          { id: "door-e", s: { n: "W", e: "F", s: "W", w: "W" }, w: 0.3 },
+          { id: "door-s", s: { n: "W", e: "W", s: "F", w: "W" }, w: 0.3 },
+          { id: "door-w", s: { n: "W", e: "W", s: "W", w: "F" }, w: 0.3 },
+        ];
+
+        const tilesets = {
+          circuit: {
+            key: "circuit",
+            title: "Circuit",
+            short: "PCB",
+            desc: "Glowing copper traces on dark substrate.",
+            tiles: circuitTiles,
+            seedPool: ["ns", "ew", "via", "ne", "sw", "chip", "cross", "t-nse"],
+            theme: "circuit",
+            drawTile: drawCircuitTile,
+            previewBrushes: ["ns", "ew"],
+          },
+          city: {
+            key: "city",
+            title: "City",
+            short: "Road",
+            desc: "Road grids, parks, concrete, glass, and warm asphalt.",
+            tiles: cityTiles,
+            seedPool: ["road-ns", "road-ew", "road-ne", "park", "building-b", "intersect"],
+            theme: "city",
+            drawTile: drawCityTile,
+            previewBrushes: ["road-ns", "road-ew"],
+          },
+          dungeon: {
+            key: "dungeon",
+            title: "Dungeon",
+            short: "Floor",
+            desc: "Stone walls, amber halls, doors, and room fragments.",
+            tiles: dungeonTiles,
+            seedPool: ["floor", "corr-ns", "corr-ew", "room-ne", "door-e", "junction"],
+            theme: "dungeon",
+            drawTile: drawDungeonTile,
+            previewBrushes: ["floor", "corr-ew"],
+          },
+        };
+
+        const anims = [];
+        const offscreen = document.createElement("canvas");
+        const offCtx = offscreen.getContext("2d");
+
+        let state = null;
+
+        class WFC {
+          constructor(width, height, tiles) {
+            this.W = width;
+            this.H = height;
+            this.setTiles(tiles);
+          }
+
+          setTiles(tiles) {
+            this.tiles = tiles;
+            this.tileMap = Object.fromEntries(tiles.map((tile) => [tile.id, tile]));
+            this.compat = buildCompatMap(tiles);
+            this.forced = Array.from({ length: this.H }, () => new Array(this.W).fill(null));
+            this.reset();
+          }
+
+          reset() {
+            const allIds = new Set(this.tiles.map((tile) => tile.id));
+            this.grid = Array.from({ length: this.H }, () =>
+              Array.from({ length: this.W }, () => new Set(allIds))
+            );
+            this.collapsed = Array.from({ length: this.H }, () => new Array(this.W).fill(null));
+            this.contradiction = false;
+            this.done = false;
+            this.stack = [];
+            this.lastCollapsed = null;
+            for (let y = 0; y < this.H; y += 1) {
+              for (let x = 0; x < this.W; x += 1) {
+                if (this.forced[y][x]) {
+                  this._applyForce(x, y, this.forced[y][x]);
+                }
+              }
+            }
+            for (let y = 0; y < this.H; y += 1) {
+              for (let x = 0; x < this.W; x += 1) {
+                if (this.forced[y][x]) {
+                  this.propagate(x, y);
+                }
+              }
+            }
+          }
+
+          resize(width, height) {
+            this.W = width;
+            this.H = height;
+            this.forced = Array.from({ length: this.H }, () => new Array(this.W).fill(null));
+            this.reset();
+          }
+
+          entropy(x, y) {
+            return this.grid[y][x].size;
+          }
+
+          findMinEntropy() {
+            let best = null;
+            let bestEntropy = Infinity;
+            for (let y = 0; y < this.H; y += 1) {
+              for (let x = 0; x < this.W; x += 1) {
+                if (this.collapsed[y][x] !== null) {
+                  continue;
+                }
+                const e = this.grid[y][x].size;
+                if (e === 0) {
+                  continue;
+                }
+                const jitter = e + Math.random() * 0.001;
+                if (jitter < bestEntropy) {
+                  bestEntropy = jitter;
+                  best = { x, y };
+                }
+              }
+            }
+            return best;
+          }
+
+          collapse(x, y) {
+            const options = [...this.grid[y][x]];
+            if (options.length === 0) {
+              this.contradiction = true;
+              return null;
+            }
+            const totalWeight = options.reduce((sum, id) => sum + (this.tileMap[id].w || 1), 0);
+            let rand = Math.random() * totalWeight;
+            let chosen = options[options.length - 1];
+            for (const id of options) {
+              rand -= this.tileMap[id].w || 1;
+              if (rand <= 0) {
+                chosen = id;
+                break;
+              }
+            }
+            this.grid[y][x] = new Set([chosen]);
+            this.collapsed[y][x] = chosen;
+            return chosen;
+          }
+
+          propagate(startX, startY) {
+            const dirs = [
+              { dx: 0, dy: -1, from: "n", to: "s" },
+              { dx: 1, dy: 0, from: "e", to: "w" },
+              { dx: 0, dy: 1, from: "s", to: "n" },
+              { dx: -1, dy: 0, from: "w", to: "e" },
+            ];
+            this.stack.push({ x: startX, y: startY });
+            while (this.stack.length > 0) {
+              const { x, y } = this.stack.pop();
+              const current = this.grid[y][x];
+              for (const { dx, dy, from, to } of dirs) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= this.W || ny >= this.H) {
+                  continue;
+                }
+                const neighbor = this.grid[ny][nx];
+                const before = neighbor.size;
+                const allowed = new Set();
+                for (const currentId of current) {
+                  for (const compatibleId of this.compat[currentId][from]) {
+                    if (this.tileMap[compatibleId].s[to] === this.tileMap[currentId].s[from]) {
+                      allowed.add(compatibleId);
+                    }
+                  }
+                }
+                for (const neighborId of [...neighbor]) {
+                  if (!allowed.has(neighborId)) {
+                    neighbor.delete(neighborId);
+                  }
+                }
+                if (neighbor.size === 0) {
+                  this.contradiction = true;
+                  return false;
+                }
+                if (neighbor.size < before) {
+                  if (neighbor.size === 1 && this.collapsed[ny][nx] === null) {
+                    this.collapsed[ny][nx] = [...neighbor][0];
+                  }
+                  this.stack.push({ x: nx, y: ny });
+                }
+              }
+            }
+            return true;
+          }
+
+          step() {
+            const cell = this.findMinEntropy();
+            if (!cell) {
+              this.done = true;
+              return { status: "done" };
+            }
+            const chosen = this.collapse(cell.x, cell.y);
+            if (!chosen) {
+              return { status: "contradiction", cell };
+            }
+            if (!this.propagate(cell.x, cell.y)) {
+              return { status: "contradiction", cell };
+            }
+            this.lastCollapsed = cell;
+            return { status: "ok", cell, chosen };
+          }
+
+          forceCell(x, y, tileId) {
+            this.forced[y][x] = tileId;
+            this._applyForce(x, y, tileId);
+            return this.propagate(x, y);
+          }
+
+          _applyForce(x, y, tileId) {
+            this.grid[y][x] = new Set([tileId]);
+            this.collapsed[y][x] = tileId;
+          }
+
+          clearForce(x, y) {
+            this.forced[y][x] = null;
+          }
+
+          countCollapsed() {
+            let count = 0;
+            for (let y = 0; y < this.H; y += 1) {
+              for (let x = 0; x < this.W; x += 1) {
+                if (this.collapsed[y][x] !== null) {
+                  count += 1;
+                }
+              }
+            }
+            return count;
+          }
+
+          getOptions(x, y) {
+            return [...this.grid[y][x]];
+          }
+        }
+
+        function buildCompatMap(tiles) {
+          const compat = {};
+          const dirs = [
+            { dir: "n", opposite: "s" },
+            { dir: "e", opposite: "w" },
+            { dir: "s", opposite: "n" },
+            { dir: "w", opposite: "e" },
+          ];
+          for (const tile of tiles) {
+            compat[tile.id] = { n: [], e: [], s: [], w: [] };
+            for (const { dir, opposite } of dirs) {
+              for (const candidate of tiles) {
+                if (tile.s[dir] === candidate.s[opposite]) {
+                  compat[tile.id][dir].push(candidate.id);
+                }
+              }
+            }
+          }
+          return compat;
+        }
+
+        function drawCircuitTile(target, tile, x, y, size) {
+          const cx = x + size / 2;
+          const cy = y + size / 2;
+          target.fillStyle = "#090e09";
+          target.fillRect(x, y, size, size);
+          target.fillStyle = "#0a110a";
+          target.fillRect(x + 1, y + 1, size - 2, size - 2);
+
+          if (tile.id === "empty") {
+            return;
+          }
+
+          if (tile.id === "via") {
+            target.beginPath();
+            target.arc(cx, cy, size * 0.22, 0, Math.PI * 2);
+            target.fillStyle = "#f0c040";
+            target.shadowColor = "rgba(240, 192, 64, 0.45)";
+            target.shadowBlur = size * 0.22;
+            target.fill();
+            target.shadowBlur = 0;
+            target.beginPath();
+            target.arc(cx, cy, size * 0.1, 0, Math.PI * 2);
+            target.fillStyle = "#070d07";
+            target.fill();
+            return;
+          }
+
+          if (tile.id === "chip") {
+            target.fillStyle = "#111827";
+            target.fillRect(x + size * 0.24, y + size * 0.24, size * 0.52, size * 0.52);
+            target.strokeStyle = "#334455";
+            target.lineWidth = 1;
+            target.strokeRect(x + size * 0.24, y + size * 0.24, size * 0.52, size * 0.52);
+            target.strokeStyle = "#00ff66";
+            target.lineWidth = Math.max(1.4, size * 0.08);
+            target.lineCap = "round";
+            const pins = [
+              [cx, y, cx, y + size * 0.24],
+              [cx, y + size * 0.76, cx, y + size],
+              [x + size * 0.76, cy, x + size, cy],
+              [x, cy, x + size * 0.24, cy],
+            ];
+            target.shadowColor = "rgba(0, 255, 100, 0.35)";
+            target.shadowBlur = size * 0.08;
+            for (const [x1, y1, x2, y2] of pins) {
+              target.beginPath();
+              target.moveTo(x1, y1);
+              target.lineTo(x2, y2);
+              target.stroke();
+            }
+            target.shadowBlur = 0;
+            return;
+          }
+
+          const edges = {
+            n: [[cx, y], [cx, cy]],
+            s: [[cx, y + size], [cx, cy]],
+            e: [[x + size, cy], [cx, cy]],
+            w: [[x, cy], [cx, cy]],
+          };
+          target.strokeStyle = "#00ff66";
+          target.lineWidth = Math.max(2, size * 0.18);
+          target.lineCap = "round";
+          target.shadowColor = "rgba(0, 255, 100, 0.38)";
+          target.shadowBlur = size * 0.12;
+          for (const [dir, socket] of Object.entries(tile.s)) {
+            if (socket !== "T") {
+              continue;
+            }
+            const [[x1, y1], [x2, y2]] = edges[dir];
+            target.beginPath();
+            target.moveTo(x1, y1);
+            target.lineTo(x2, y2);
+            target.stroke();
+          }
+          const connCount = Object.values(tile.s).filter((socket) => socket === "T").length;
+          if (connCount >= 2) {
+            target.beginPath();
+            target.arc(cx, cy, Math.max(2, size * 0.1), 0, Math.PI * 2);
+            target.fillStyle = "#00ff66";
+            target.fill();
+          }
+          target.shadowBlur = 0;
+        }
+
+        function drawCityTile(target, tile, x, y, size) {
+          target.fillStyle = "#1a1a18";
+          target.fillRect(x, y, size, size);
+          const roads = {
+            "road-ns": ["n", "s"],
+            "road-ew": ["e", "w"],
+            "road-ne": ["n", "e"],
+            "road-nw": ["n", "w"],
+            "road-se": ["s", "e"],
+            "road-sw": ["s", "w"],
+            intersect: ["n", "e", "s", "w"],
+            "road-t-nse": ["n", "e", "s"],
+            "road-t-nsw": ["n", "s", "w"],
+            "road-t-new": ["n", "e", "w"],
+            "road-t-sew": ["s", "e", "w"],
+          };
+
+          if (tile.id.startsWith("building")) {
+            const colors = {
+              "building-a": ["#8a8a8a", "#6a6a6a"],
+              "building-b": ["#c87040", "#914f2e"],
+              "building-c": ["#4080b0", "#82a7c8"],
+            };
+            const [base, accent] = colors[tile.id];
+            target.fillStyle = base;
+            target.fillRect(x + 1, y + 1, size - 2, size - 2);
+            target.strokeStyle = accent;
+            target.lineWidth = Math.max(1, size * 0.05);
+            const step = Math.max(4, size * 0.22);
+            for (let py = y + step; py < y + size; py += step) {
+              target.beginPath();
+              target.moveTo(x + 2, py);
+              target.lineTo(x + size - 2, py);
+              target.stroke();
+            }
+            for (let px = x + step; px < x + size; px += step) {
+              target.beginPath();
+              target.moveTo(px, y + 2);
+              target.lineTo(px, y + size - 2);
+              target.stroke();
+            }
+            return;
+          }
+
+          if (tile.id === "park") {
+            target.fillStyle = "#2d6a2d";
+            target.fillRect(x + 1, y + 1, size - 2, size - 2);
+            target.fillStyle = "#1a4a1a";
+            target.beginPath();
+            target.arc(x + size * 0.34, y + size * 0.42, size * 0.13, 0, Math.PI * 2);
+            target.fill();
+            target.beginPath();
+            target.arc(x + size * 0.66, y + size * 0.58, size * 0.16, 0, Math.PI * 2);
+            target.fill();
+            return;
+          }
+
+          target.fillStyle = "#444448";
+          target.fillRect(x + 1, y + 1, size - 2, size - 2);
+          target.strokeStyle = "#444448";
+          target.lineWidth = Math.max(4, size * 0.34);
+          target.lineCap = "butt";
+          const center = x + size / 2;
+          const middle = y + size / 2;
+          for (const dir of roads[tile.id] || []) {
+            target.beginPath();
+            if (dir === "n") {
+              target.moveTo(center, y);
+              target.lineTo(center, middle);
+            }
+            if (dir === "s") {
+              target.moveTo(center, middle);
+              target.lineTo(center, y + size);
+            }
+            if (dir === "e") {
+              target.moveTo(center, middle);
+              target.lineTo(x + size, middle);
+            }
+            if (dir === "w") {
+              target.moveTo(x, middle);
+              target.lineTo(center, middle);
+            }
+            target.stroke();
+          }
+          target.strokeStyle = "#555558";
+          target.lineWidth = Math.max(1, size * 0.05);
+          target.setLineDash([size * 0.15, size * 0.15]);
+          for (const dir of roads[tile.id] || []) {
+            target.beginPath();
+            if (dir === "n" || dir === "s") {
+              target.moveTo(center, y + size * 0.1);
+              target.lineTo(center, y + size * 0.9);
+            } else {
+              target.moveTo(x + size * 0.1, middle);
+              target.lineTo(x + size * 0.9, middle);
+            }
+            target.stroke();
+          }
+          target.setLineDash([]);
+        }
+
+        function drawDungeonTile(target, tile, x, y, size) {
+          target.fillStyle = "#100e0a";
+          target.fillRect(x, y, size, size);
+
+          if (tile.id === "wall") {
+            target.fillStyle = "#2a2825";
+            target.fillRect(x + 1, y + 1, size - 2, size - 2);
+            target.strokeStyle = "#3a3632";
+            target.lineWidth = 1;
+            for (let py = y + size * 0.22; py < y + size; py += size * 0.22) {
+              target.beginPath();
+              target.moveTo(x + 1, py);
+              target.lineTo(x + size - 1, py);
+              target.stroke();
+            }
+            return;
+          }
+
+          const paintFloor = () => {
+            target.fillStyle = "#4a3820";
+            target.fillRect(x + 1, y + 1, size - 2, size - 2);
+            target.fillStyle = "#2a2018";
+            target.fillRect(x + size * 0.28, y + size * 0.28, size * 0.44, size * 0.44);
+          };
+
+          const openSides = Object.entries(tile.s)
+            .filter(([, socket]) => socket === "F")
+            .map(([dir]) => dir);
+
+          paintFloor();
+
+          if (tile.id.startsWith("door")) {
+            target.fillStyle = "#8a6020";
+            const bw = size * 0.24;
+            if (tile.id.endsWith("n")) {
+              target.fillRect(x + size * 0.38, y, bw, size * 0.4);
+            }
+            if (tile.id.endsWith("e")) {
+              target.fillRect(x + size * 0.6, y + size * 0.38, size * 0.4, bw);
+            }
+            if (tile.id.endsWith("s")) {
+              target.fillRect(x + size * 0.38, y + size * 0.6, bw, size * 0.4);
+            }
+            if (tile.id.endsWith("w")) {
+              target.fillRect(x, y + size * 0.38, size * 0.4, bw);
+            }
+          }
+
+          target.strokeStyle = "#c0901a";
+          target.lineWidth = Math.max(2, size * 0.14);
+          target.lineCap = "round";
+          target.shadowColor = "rgba(192, 144, 26, 0.22)";
+          target.shadowBlur = size * 0.08;
+          const cx = x + size / 2;
+          const cy = y + size / 2;
+          const edges = {
+            n: [[cx, y], [cx, cy]],
+            s: [[cx, y + size], [cx, cy]],
+            e: [[x + size, cy], [cx, cy]],
+            w: [[x, cy], [cx, cy]],
+          };
+          for (const dir of openSides) {
+            const [[x1, y1], [x2, y2]] = edges[dir];
+            target.beginPath();
+            target.moveTo(x1, y1);
+            target.lineTo(x2, y2);
+            target.stroke();
+          }
+          target.shadowBlur = 0;
+        }
+
+        function createState() {
+          return {
+            tilesetKey: "circuit",
+            gridSize: 24,
+            tileSize: 16,
+            offsetX: 0,
+            offsetY: 0,
+            width: 24,
+            height: 24,
+            autoSolve: true,
+            stepsPerFrame: 4,
+            speedIndex: 1,
+            entropyMap: true,
+            showGrid: true,
+            startTime: performance.now(),
+            runTime: 0,
+            resetCount: 0,
+            consecutiveContradictions: 0,
+            lastAction: "Boot",
+            activeBrush: "ns",
+            selectedCell: null,
+            pointer: {
+              down: false,
+              painting: false,
+              moved: false,
+              startX: 0,
+              startY: 0,
+              lastCellKey: "",
+              downTime: 0,
+              doubleTapAt: 0,
+            },
+            autoResetAt: 0,
+            lastInteractionAt: performance.now(),
+            mobileDrawerOpen: false,
+          };
+        }
+
+        function boot() {
+          state = createState();
+          buildUI();
+          applyTheme();
+          rebuildSolver(true);
+          bindEvents();
+          resizeCanvas();
+          updateBrushButtons();
+          updateTilesetButtons();
+          updateGridButtons();
+          updateSpeedButtons();
+          setMessage("Solver is live. Paint constraints or let the board evolve.");
+          requestAnimationFrame(render);
+        }
+
+        function buildUI() {
+          buildTilesetButtons();
+          buildGridButtons();
+          buildSpeedButtons();
+          buildBrushButtons();
+        }
+
+        function buildTilesetButtons() {
+          for (const key of Object.keys(tilesets)) {
+            const item = tilesets[key];
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "tile-btn";
+            button.dataset.key = key;
+            button.setAttribute("aria-label", `Switch to ${item.title} tileset`);
+            const name = document.createElement("span");
+            name.className = "name";
+            name.textContent = item.title;
+            const desc = document.createElement("span");
+            desc.className = "desc";
+            desc.textContent = item.desc;
+            button.appendChild(name);
+            button.appendChild(desc);
+            button.addEventListener("click", () => setTileset(key));
+            tilesetButtons.appendChild(button);
+          }
+        }
+
+        function buildGridButtons() {
+          for (const size of GRID_OPTIONS) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "grid-btn";
+            button.dataset.size = String(size);
+            button.textContent = String(size);
+            button.addEventListener("click", () => setGridSize(size));
+            gridButtons.appendChild(button);
+          }
+        }
+
+        function buildSpeedButtons() {
+          for (const option of SPEED_OPTIONS) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "speed-btn";
+            button.dataset.speed = String(option.id);
+            button.textContent = option.label;
+            button.addEventListener("click", () => setSpeed(option.id));
+            speedButtons.appendChild(button);
+          }
+        }
+
+        function buildBrushButtons() {
+          const forceButton = document.createElement("button");
+          forceButton.type = "button";
+          forceButton.className = "brush-btn";
+          forceButton.dataset.mode = "brush";
+          forceButton.textContent = "Brush";
+          forceButton.addEventListener("click", () => {
+            setMessage("Brush armed. Desktop click opens a picker. Mobile uses the active tile directly.");
+          });
+          const clearBrush = document.createElement("button");
+          clearBrush.type = "button";
+          clearBrush.className = "brush-btn";
+          clearBrush.dataset.mode = "clear";
+          clearBrush.textContent = "Clear Pins";
+          clearBrush.addEventListener("click", () => {
+            state.activeBrush = "__clear__";
+            updateBrushButtons();
+            setMessage("Clear brush active. Tap or drag to erase pinned cells.");
+          });
+          brushButtons.appendChild(forceButton);
+          brushButtons.appendChild(clearBrush);
+        }
+
+        function bindEvents() {
+          window.addEventListener("resize", resizeCanvas);
+          canvas.addEventListener("pointerdown", onPointerDown);
+          canvas.addEventListener("pointermove", onPointerMove);
+          canvas.addEventListener("pointerup", onPointerUp);
+          canvas.addEventListener("pointercancel", onPointerUp);
+          canvas.addEventListener("contextmenu", onContextMenu);
+          document.addEventListener("click", onDocumentClick);
+          document.addEventListener("keydown", onKeyDown);
+          autoBtn.addEventListener("click", toggleAutoSolve);
+          stepBtn.addEventListener("click", () => {
+            noteInteraction();
+            runStep(true);
+          });
+          resetBtn.addEventListener("click", () => {
+            noteInteraction();
+            resetWithPins();
+          });
+          clearBtn.addEventListener("click", () => {
+            noteInteraction();
+            clearAllPins();
+          });
+          exportBtn.addEventListener("click", () => {
+            noteInteraction();
+            exportPng();
+          });
+          entropyToggle.addEventListener("change", () => {
+            state.entropyMap = entropyToggle.checked;
+            setMessage(state.entropyMap ? "Entropy field enabled." : "Entropy field hidden.");
+          });
+          gridToggle.addEventListener("change", () => {
+            state.showGrid = gridToggle.checked;
+            setMessage(state.showGrid ? "Grid lines enabled." : "Grid lines hidden.");
+          });
+          speedRange.addEventListener("input", () => {
+            setSpeed(Number(speedRange.value));
+          });
+          drawerToggle.addEventListener("click", toggleDrawer);
+          MOBILE_QUERY.addEventListener("change", () => {
+            if (!MOBILE_QUERY.matches) {
+              side.classList.remove("open");
+              drawerToggle.setAttribute("aria-expanded", "false");
+              drawerToggle.textContent = "Open";
+            }
+            resizeCanvas();
+          });
+        }
+
+        function noteInteraction() {
+          state.lastInteractionAt = performance.now();
+          state.autoResetAt = 0;
+        }
+
+        function toggleDrawer() {
+          state.mobileDrawerOpen = !state.mobileDrawerOpen;
+          side.classList.toggle("open", state.mobileDrawerOpen);
+          drawerToggle.setAttribute("aria-expanded", String(state.mobileDrawerOpen));
+          drawerToggle.textContent = state.mobileDrawerOpen ? "Close" : "Open";
+        }
+
+        function setTileset(key) {
+          if (state.tilesetKey === key) {
+            return;
+          }
+          state.tilesetKey = key;
+          state.activeBrush = tilesets[key].previewBrushes[0];
+          applyTheme();
+          rebuildSolver(true);
+          updateTilesetButtons();
+          updateBrushButtons();
+          setMessage(`${tilesets[key].title} tileset loaded. New seeds injected.`);
+          state.lastAction = `Tileset ${tilesets[key].title}`;
+        }
+
+        function setGridSize(size) {
+          if (MOBILE_QUERY.matches) {
+            setMessage("Mobile locks the board to 20×20 so the canvas stays touch-friendly.");
+            return;
+          }
+          state.gridSize = size;
+          rebuildSolver(true);
+          updateGridButtons();
+          setMessage(`Grid resized to ${size}×${size}.`);
+          state.lastAction = `Grid ${size}`;
+        }
+
+        function setSpeed(index) {
+          const option = SPEED_OPTIONS[index];
+          state.speedIndex = option.id;
+          state.stepsPerFrame = option.steps;
+          speedRange.value = String(option.id);
+          speedLabel.textContent = option.label;
+          statSpeed.textContent = option.label;
+          updateSpeedButtons();
+          if (option.steps === Infinity) {
+            setMessage("Infinity speed armed. The next solve pass resolves in one frame.");
+          } else {
+            setMessage(`Solve speed set to ${option.label}.`);
+          }
+        }
+
+        function toggleAutoSolve() {
+          state.autoSolve = !state.autoSolve;
+          autoBtn.classList.toggle("active", state.autoSolve);
+          autoBtn.setAttribute("aria-pressed", String(state.autoSolve));
+          autoBtn.textContent = state.autoSolve ? "Auto-Solve" : "Paused";
+          setMessage(state.autoSolve ? "Auto-solve resumed." : "Auto-solve paused.");
+          noteInteraction();
+        }
+
+        function applyTheme() {
+          const theme = themeSets[tilesets[state.tilesetKey].theme];
+          for (const [prop, value] of Object.entries(theme)) {
+            document.documentElement.style.setProperty(prop, value);
+          }
+        }
+
+        function rebuildSolver(seedDemo) {
+          const count = MOBILE_QUERY.matches ? MOBILE_GRID : state.gridSize;
+          state.width = count;
+          state.height = count;
+          const tiles = tilesets[state.tilesetKey].tiles;
+          state.wfc = new WFC(count, count, tiles);
+          clearAnimations();
+          state.consecutiveContradictions = 0;
+          state.resetCount = 0;
+          if (seedDemo) {
+            applyAutoSeed();
+            state.autoSolve = true;
+            autoBtn.classList.add("active");
+            autoBtn.setAttribute("aria-pressed", "true");
+            autoBtn.textContent = "Auto-Solve";
+          }
+          resizeCanvas();
+          updateStats();
+          closePicker();
+        }
+
+        function applyAutoSeed() {
+          const positions = buildSeedPositions(state.wfc.W, state.wfc.H);
+          const pool = tilesets[state.tilesetKey].seedPool;
+          for (const { x, y } of positions) {
+            const tileId = pool[Math.floor(Math.random() * pool.length)];
+            state.wfc.forced[y][x] = tileId;
+          }
+          state.wfc.reset();
+          state.activeBrush = pool[0];
+          updateBrushButtons();
+        }
+
+        function buildSeedPositions(width, height) {
+          const points = [
+            { x: 2 + Math.floor(Math.random() * Math.max(2, width * 0.18)), y: 2 + Math.floor(Math.random() * Math.max(2, height * 0.18)) },
+            { x: width - 3 - Math.floor(Math.random() * Math.max(2, width * 0.18)), y: 2 + Math.floor(Math.random() * Math.max(2, height * 0.18)) },
+            { x: 2 + Math.floor(Math.random() * Math.max(2, width * 0.18)), y: height - 3 - Math.floor(Math.random() * Math.max(2, height * 0.18)) },
+            { x: width - 3 - Math.floor(Math.random() * Math.max(2, width * 0.18)), y: height - 3 - Math.floor(Math.random() * Math.max(2, height * 0.18)) },
+          ];
+          return points.map((point) => ({
+            x: clamp(point.x, 0, width - 1),
+            y: clamp(point.y, 0, height - 1),
+          }));
+        }
+
+        function resizeCanvas() {
+          const rect = stage.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.floor(rect.width * dpr);
+          canvas.height = Math.floor(rect.height * dpr);
+          canvas.style.width = `${rect.width}px`;
+          canvas.style.height = `${rect.height}px`;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          const size = Math.floor(Math.min(rect.width / state.wfc.W, rect.height / state.wfc.H));
+          state.tileSize = Math.max(8, size);
+          state.offsetX = Math.floor((rect.width - state.tileSize * state.wfc.W) / 2);
+          state.offsetY = Math.floor((rect.height - state.tileSize * state.wfc.H) / 2);
+        }
+
+        function clearAnimations() {
+          anims.length = 0;
+        }
+
+        function pushCollapse(x, y) {
+          anims.push({ x, y, type: "collapse", t: 0, duration: 300 });
+        }
+
+        function pushContradiction(x, y) {
+          anims.push({ x, y, type: "contradiction", t: 0, duration: 500 });
+        }
+
+        function pushVictory() {
+          anims.push({ x: 0, y: 0, type: "victory", t: 0, duration: 600 });
+        }
+
+        function pushSeedPulse(x, y) {
+          anims.push({ x, y, type: "seed", t: 0, duration: 700 });
+        }
+
+        function tickAnimations(dt) {
+          for (const anim of anims) {
+            anim.t += dt;
+          }
+          for (let index = anims.length - 1; index >= 0; index -= 1) {
+            if (anims[index].t >= anims[index].duration) {
+              anims.splice(index, 1);
+            }
+          }
+        }
+
+        function drawAnimations() {
+          const boardWidth = state.tileSize * state.wfc.W;
+          const boardHeight = state.tileSize * state.wfc.H;
+          for (const anim of anims) {
+            const progress = Math.min(anim.t / anim.duration, 1);
+            const px = state.offsetX + anim.x * state.tileSize;
+            const py = state.offsetY + anim.y * state.tileSize;
+            if (anim.type === "collapse") {
+              ctx.beginPath();
+              ctx.arc(px + state.tileSize / 2, py + state.tileSize / 2, state.tileSize * 0.54 * progress, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(0,255,100,${(1 - progress) * 0.7})`;
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+            if (anim.type === "contradiction") {
+              ctx.fillStyle = `rgba(255,60,60,${(1 - progress) * 0.78})`;
+              ctx.fillRect(px, py, state.tileSize, state.tileSize);
+            }
+            if (anim.type === "victory") {
+              ctx.fillStyle = `rgba(0,255,100,${Math.sin(progress * Math.PI) * 0.15})`;
+              ctx.fillRect(state.offsetX, state.offsetY, boardWidth, boardHeight);
+            }
+            if (anim.type === "seed") {
+              ctx.beginPath();
+              ctx.arc(px + state.tileSize / 2, py + state.tileSize / 2, state.tileSize * 0.8 * progress, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(255,220,50,${(1 - progress) * 0.55})`;
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+          }
+        }
+
+        function drawEntropyOverlay() {
+          const totalTiles = state.wfc.tiles.length;
+          for (let y = 0; y < state.wfc.H; y += 1) {
+            for (let x = 0; x < state.wfc.W; x += 1) {
+              if (state.wfc.collapsed[y][x] !== null) {
+                continue;
+              }
+              const entropy = state.wfc.grid[y][x].size;
+              if (entropy === 0) {
+                continue;
+              }
+              const ratio = 1 - entropy / totalTiles;
+              const alpha = 0.04 + ratio * 0.35;
+              ctx.fillStyle = colorForOverlay(alpha);
+              ctx.fillRect(
+                state.offsetX + x * state.tileSize,
+                state.offsetY + y * state.tileSize,
+                state.tileSize,
+                state.tileSize
+              );
+            }
+          }
+        }
+
+        function colorForOverlay(alpha) {
+          if (state.tilesetKey === "circuit") {
+            return `rgba(0,255,100,${alpha})`;
+          }
+          if (state.tilesetKey === "city") {
+            return `rgba(214,178,90,${alpha * 0.8})`;
+          }
+          return `rgba(192,144,26,${alpha * 0.85})`;
+        }
+
+        function drawForcedRings() {
+          ctx.strokeStyle = "rgba(255,220,50,0.9)";
+          ctx.lineWidth = 2;
+          for (let y = 0; y < state.wfc.H; y += 1) {
+            for (let x = 0; x < state.wfc.W; x += 1) {
+              if (!state.wfc.forced[y][x]) {
+                continue;
+              }
+              ctx.strokeRect(
+                state.offsetX + x * state.tileSize + 1,
+                state.offsetY + y * state.tileSize + 1,
+                state.tileSize - 2,
+                state.tileSize - 2
+              );
+            }
+          }
+        }
+
+        function drawGrid() {
+          if (!state.showGrid) {
+            return;
+          }
+          ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid-line").trim() || "rgba(255,255,255,0.06)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (let x = 0; x <= state.wfc.W; x += 1) {
+            const px = state.offsetX + x * state.tileSize + 0.5;
+            ctx.moveTo(px, state.offsetY);
+            ctx.lineTo(px, state.offsetY + state.tileSize * state.wfc.H);
+          }
+          for (let y = 0; y <= state.wfc.H; y += 1) {
+            const py = state.offsetY + y * state.tileSize + 0.5;
+            ctx.moveTo(state.offsetX, py);
+            ctx.lineTo(state.offsetX + state.tileSize * state.wfc.W, py);
+          }
+          ctx.stroke();
+        }
+
+        function drawBoard() {
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--canvas-bg").trim() || "#090e09";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          const drawTile = tilesets[state.tilesetKey].drawTile;
+
+          for (let y = 0; y < state.wfc.H; y += 1) {
+            for (let x = 0; x < state.wfc.W; x += 1) {
+              const px = state.offsetX + x * state.tileSize;
+              const py = state.offsetY + y * state.tileSize;
+              const collapsedId = state.wfc.collapsed[y][x];
+              if (collapsedId) {
+                drawTile(ctx, state.wfc.tileMap[collapsedId], px, py, state.tileSize);
+              } else {
+                drawSubstrate(px, py, state.tileSize, state.tilesetKey);
+              }
+            }
+          }
+
+          if (state.entropyMap) {
+            drawEntropyOverlay();
+          }
+          drawGrid();
+          drawForcedRings();
+          drawAnimations();
+        }
+
+        function drawSubstrate(x, y, size, tilesetKey) {
+          if (tilesetKey === "circuit") {
+            ctx.fillStyle = "#090e09";
+            ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = "#0a110a";
+            ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+          }
+          if (tilesetKey === "city") {
+            ctx.fillStyle = "#1d1b18";
+            ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = "#23211d";
+            ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+          }
+          if (tilesetKey === "dungeon") {
+            ctx.fillStyle = "#14110d";
+            ctx.fillRect(x, y, size, size);
+            ctx.fillStyle = "#191510";
+            ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+          }
+        }
+
+        function runStep(manual) {
+          const result = state.wfc.step();
+          if (result.status === "ok") {
+            state.consecutiveContradictions = 0;
+            pushCollapse(result.cell.x, result.cell.y);
+            if (manual) {
+              setMessage(`Collapsed ${result.chosen} at ${result.cell.x}, ${result.cell.y}.`);
+            }
+          }
+          if (result.status === "contradiction") {
+            state.consecutiveContradictions += 1;
+            if (result.cell) {
+              pushContradiction(result.cell.x, result.cell.y);
+            }
+            state.resetCount += 1;
+            state.wfc.reset();
+            if (state.consecutiveContradictions >= 3) {
+              setMessage("Constraints conflict. Clear some pins.");
+              state.consecutiveContradictions = 0;
+            } else {
+              setMessage("Contradiction detected. Resetting from pinned constraints.");
+            }
+          }
+          if (result.status === "done") {
+            pushVictory();
+            state.autoSolve = false;
+            autoBtn.classList.remove("active");
+            autoBtn.setAttribute("aria-pressed", "false");
+            autoBtn.textContent = "Paused";
+            setMessage("Solve complete. The board will auto-reset if left idle.");
+            state.autoResetAt = performance.now() + 10000;
+          }
+          state.lastAction = manual ? "Manual Step" : "Auto Solve";
+          updateStats();
+          return result;
+        }
+
+        function simulateFrameSolve() {
+          if (!state.autoSolve || state.wfc.done) {
+            return;
+          }
+          if (state.stepsPerFrame === Infinity) {
+            let safety = state.wfc.W * state.wfc.H * 2;
+            while (!state.wfc.done && safety > 0) {
+              const result = runStep(false);
+              if (result.status === "contradiction") {
+                break;
+              }
+              safety -= 1;
+            }
+            return;
+          }
+          for (let step = 0; step < state.stepsPerFrame; step += 1) {
+            const result = runStep(false);
+            if (result.status !== "ok") {
+              break;
+            }
+          }
+        }
+
+        function maybeIdleReset(now) {
+          if (state.autoResetAt && now >= state.autoResetAt && now - state.lastInteractionAt >= 10000) {
+            state.resetCount = 0;
+            rebuildSolver(true);
+            setMessage("Idle loop refreshed with a new seed spread.");
+            for (let y = 0; y < state.wfc.H; y += 1) {
+              for (let x = 0; x < state.wfc.W; x += 1) {
+                if (state.wfc.forced[y][x]) {
+                  pushSeedPulse(x, y);
+                }
+              }
+            }
+          }
+        }
+
+        function render(now) {
+          if (!state.lastFrame) {
+            state.lastFrame = now;
+          }
+          const dt = now - state.lastFrame;
+          state.lastFrame = now;
+          state.runTime = now - state.startTime;
+
+          simulateFrameSolve();
+          maybeIdleReset(now);
+          drawBoard();
+          tickAnimations(dt);
+          updateStats();
+          requestAnimationFrame(render);
+        }
+
+        function updateStats() {
+          const collapsed = state.wfc.countCollapsed();
+          const total = state.wfc.W * state.wfc.H;
+          const speed = SPEED_OPTIONS[state.speedIndex];
+          statSolved.textContent = `${collapsed} / ${total}`;
+          statSpeed.textContent = speed.label;
+          statResets.textContent = String(state.resetCount);
+          statTime.textContent = formatElapsed(state.runTime);
+          statBrush.textContent = formatBrushLabel(state.activeBrush);
+          telemetryCollapsed.textContent = `${collapsed} / ${total}`;
+          telemetryContradictions.textContent = String(state.consecutiveContradictions);
+          telemetryLast.textContent = state.lastAction;
+        }
+
+        function formatElapsed(ms) {
+          const seconds = Math.floor(ms / 1000);
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          return `${mins}:${String(secs).padStart(2, "0")}`;
+        }
+
+        function setMessage(text) {
+          messageChip.textContent = text;
+        }
+
+        function formatBrushLabel(id) {
+          if (id === "__clear__") {
+            return "clear";
+          }
+          return id.replaceAll("-", " ");
+        }
+
+        function updateTilesetButtons() {
+          for (const button of tilesetButtons.querySelectorAll("button")) {
+            button.classList.toggle("active", button.dataset.key === state.tilesetKey);
+          }
+        }
+
+        function updateGridButtons() {
+          for (const button of gridButtons.querySelectorAll("button")) {
+            const active = Number(button.dataset.size) === state.gridSize && !MOBILE_QUERY.matches;
+            button.classList.toggle("active", active);
+          }
+        }
+
+        function updateSpeedButtons() {
+          for (const button of speedButtons.querySelectorAll("button")) {
+            button.classList.toggle("active", Number(button.dataset.speed) === state.speedIndex);
+          }
+        }
+
+        function updateBrushButtons() {
+          for (const button of brushButtons.querySelectorAll("button")) {
+            if (button.dataset.mode === "clear") {
+              button.classList.toggle("active", state.activeBrush === "__clear__");
+            }
+            if (button.dataset.mode === "brush") {
+              button.classList.toggle("active", state.activeBrush !== "__clear__");
+              button.textContent = state.activeBrush === "__clear__"
+                ? "Brush"
+                : `Brush · ${formatBrushLabel(state.activeBrush)}`;
+            }
+          }
+        }
+
+        function exportPng() {
+          drawBoard();
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              setMessage("Export failed.");
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `wfc-architect-${state.tilesetKey}.png`;
+            link.click();
+            URL.revokeObjectURL(url);
+            setMessage("PNG export ready.");
+          });
+        }
+
+        function resetWithPins() {
+          state.wfc.reset();
+          clearAnimations();
+          setMessage("Board reset. User pins preserved.");
+          state.lastAction = "Reset Pins";
+          state.consecutiveContradictions = 0;
+          state.autoSolve = true;
+          autoBtn.classList.add("active");
+          autoBtn.setAttribute("aria-pressed", "true");
+          autoBtn.textContent = "Auto-Solve";
+          closePicker();
+        }
+
+        function clearAllPins() {
+          for (let y = 0; y < state.wfc.H; y += 1) {
+            for (let x = 0; x < state.wfc.W; x += 1) {
+              state.wfc.forced[y][x] = null;
+            }
+          }
+          state.wfc.reset();
+          applyAutoSeed();
+          clearAnimations();
+          setMessage("Pins cleared. Fresh seed spread dropped back in.");
+          state.lastAction = "Clear All";
+          closePicker();
+        }
+
+        function toCell(clientX, clientY) {
+          const rect = canvas.getBoundingClientRect();
+          const x = clientX - rect.left;
+          const y = clientY - rect.top;
+          const gx = Math.floor((x - state.offsetX) / state.tileSize);
+          const gy = Math.floor((y - state.offsetY) / state.tileSize);
+          if (gx < 0 || gy < 0 || gx >= state.wfc.W || gy >= state.wfc.H) {
+            return null;
+          }
+          return { x: gx, y: gy };
+        }
+
+        function onPointerDown(event) {
+          noteInteraction();
+          canvas.setPointerCapture(event.pointerId);
+          state.pointer.down = true;
+          state.pointer.painting = false;
+          state.pointer.moved = false;
+          state.pointer.startX = event.clientX;
+          state.pointer.startY = event.clientY;
+          state.pointer.downTime = performance.now();
+          const cell = toCell(event.clientX, event.clientY);
+          if (!cell) {
+            return;
+          }
+          state.selectedCell = cell;
+
+          if (MOBILE_QUERY.matches) {
+            if (performance.now() - state.pointer.doubleTapAt < 260) {
+              eraseCell(cell.x, cell.y);
+              state.pointer.doubleTapAt = 0;
+              return;
+            }
+            state.pointer.doubleTapAt = performance.now();
+            paintCell(cell.x, cell.y, state.activeBrush);
+            state.pointer.painting = true;
+            return;
+          }
+
+          if (event.button === 2) {
+            eraseCell(cell.x, cell.y);
+            return;
+          }
+
+          if (state.activeBrush === "__clear__") {
+            eraseCell(cell.x, cell.y);
+            state.pointer.painting = true;
+          }
+        }
+
+        function onPointerMove(event) {
+          if (!state.pointer.down) {
+            return;
+          }
+          const dx = event.clientX - state.pointer.startX;
+          const dy = event.clientY - state.pointer.startY;
+          if (Math.hypot(dx, dy) > 8) {
+            state.pointer.moved = true;
+          }
+
+          const cell = toCell(event.clientX, event.clientY);
+          if (!cell) {
+            return;
+          }
+          const key = `${cell.x}:${cell.y}`;
+          if (key === state.pointer.lastCellKey) {
+            return;
+          }
+          state.pointer.lastCellKey = key;
+
+          const heldLongEnough = performance.now() - state.pointer.downTime > 150;
+          if (!state.pointer.moved && !heldLongEnough) {
+            return;
+          }
+
+          state.pointer.painting = true;
+          paintCell(cell.x, cell.y, state.activeBrush);
+        }
+
+        function onPointerUp(event) {
+          if (!state.pointer.down) {
+            return;
+          }
+          const cell = toCell(event.clientX, event.clientY);
+          const quickTap = !state.pointer.moved && performance.now() - state.pointer.downTime < 220;
+
+          if (!MOBILE_QUERY.matches && quickTap && cell && state.activeBrush !== "__clear__") {
+            openPicker(cell.x, cell.y, event.clientX, event.clientY);
+          }
+
+          state.pointer.down = false;
+          state.pointer.painting = false;
+          state.pointer.moved = false;
+          state.pointer.lastCellKey = "";
+        }
+
+        function onContextMenu(event) {
+          event.preventDefault();
+          const cell = toCell(event.clientX, event.clientY);
+          if (cell) {
+            noteInteraction();
+            eraseCell(cell.x, cell.y);
+          }
+        }
+
+        function paintCell(x, y, tileId) {
+          if (tileId === "__clear__") {
+            eraseCell(x, y);
+            return;
+          }
+          const options = state.wfc.getOptions(x, y);
+          const resolvedTileId = options.includes(tileId) ? tileId : options[0];
+          if (!resolvedTileId) {
+            setMessage("No valid tile available here. Try clearing nearby pins.");
+            return;
+          }
+          state.wfc.forceCell(x, y, resolvedTileId);
+          state.activeBrush = resolvedTileId;
+          pushSeedPulse(x, y);
+          state.lastAction = `Force ${resolvedTileId}`;
+          state.autoSolve = true;
+          autoBtn.classList.add("active");
+          autoBtn.setAttribute("aria-pressed", "true");
+          autoBtn.textContent = "Auto-Solve";
+          updateBrushButtons();
+          updateStats();
+        }
+
+        function eraseCell(x, y) {
+          if (!state.wfc.forced[y][x]) {
+            return;
+          }
+          state.wfc.clearForce(x, y);
+          state.wfc.reset();
+          pushContradiction(x, y);
+          state.lastAction = `Erase ${x},${y}`;
+          setMessage("Pinned tile removed. Board reset from remaining constraints.");
+          updateStats();
+          closePicker();
+        }
+
+        function openPicker(x, y, clientX, clientY) {
+          if (MOBILE_QUERY.matches) {
+            return;
+          }
+          const options = state.wfc.getOptions(x, y);
+          if (options.length === 0) {
+            setMessage("No valid options remain in that cell.");
+            return;
+          }
+          picker.classList.remove("hidden");
+          pickerGrid.replaceChildren();
+          pickerTitle.textContent = `Cell ${x + 1}, ${y + 1}`;
+          pickerSubtitle.textContent = `${options.length} options available`;
+
+          for (const optionId of options) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "picker-option";
+            const previewCanvas = document.createElement("canvas");
+            previewCanvas.width = 48;
+            previewCanvas.height = 48;
+            const previewCtx = previewCanvas.getContext("2d");
+            previewCtx.clearRect(0, 0, 48, 48);
+            tilesets[state.tilesetKey].drawTile(previewCtx, state.wfc.tileMap[optionId], 0, 0, 48);
+            const label = document.createElement("span");
+            label.textContent = optionId;
+            button.appendChild(previewCanvas);
+            button.appendChild(label);
+            button.addEventListener("click", () => {
+              paintCell(x, y, optionId);
+              state.activeBrush = optionId;
+              updateBrushButtons();
+              setMessage(`Pinned ${optionId}. Constraints propagated.`);
+              closePicker();
+            });
+            pickerGrid.appendChild(button);
+          }
+
+          positionPicker(clientX, clientY);
+        }
+
+        function positionPicker(clientX, clientY) {
+          const rect = stage.getBoundingClientRect();
+          requestAnimationFrame(() => {
+            const bounds = picker.getBoundingClientRect();
+            const localX = clientX - rect.left;
+            const localY = clientY - rect.top;
+            let left = localX + 16;
+            let top = localY + 16;
+            if (left + bounds.width > rect.width - 12) {
+              left = rect.width - bounds.width - 12;
+            }
+            if (top + bounds.height > rect.height - 12) {
+              top = rect.height - bounds.height - 12;
+            }
+            picker.style.left = `${Math.max(12, left)}px`;
+            picker.style.top = `${Math.max(12, top)}px`;
+          });
+        }
+
+        function closePicker() {
+          picker.classList.add("hidden");
+        }
+
+        function onDocumentClick(event) {
+          if (picker.classList.contains("hidden")) {
+            return;
+          }
+          if (picker.contains(event.target) || canvas.contains(event.target)) {
+            return;
+          }
+          closePicker();
+        }
+
+        function onKeyDown(event) {
+          if (event.key === " ") {
+            event.preventDefault();
+            noteInteraction();
+            runStep(true);
+          }
+          if (event.key === "Enter") {
+            event.preventDefault();
+            noteInteraction();
+            toggleAutoSolve();
+          }
+          if (event.key.toLowerCase() === "c") {
+            event.preventDefault();
+            noteInteraction();
+            clearAllPins();
+          }
+          if (event.key.toLowerCase() === "r") {
+            event.preventDefault();
+            noteInteraction();
+            resetWithPins();
+          }
+          if (event.key.toLowerCase() === "h") {
+            event.preventDefault();
+            entropyToggle.checked = !entropyToggle.checked;
+            state.entropyMap = entropyToggle.checked;
+            setMessage(state.entropyMap ? "Entropy field enabled." : "Entropy field hidden.");
+          }
+          if (event.key === "1") {
+            setTileset("circuit");
+          }
+          if (event.key === "2") {
+            setTileset("city");
+          }
+          if (event.key === "3") {
+            setTileset("dungeon");
+          }
+        }
+
+        function clamp(value, min, max) {
+          return Math.max(min, Math.min(max, value));
+        }
+
+        boot();
+      })();
+    </script>
+  </body>
+</html>
