@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Glyph Cathedral</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0a0f;
+      --panel: rgba(18, 18, 29, 0.88);
+      --panel-strong: rgba(24, 24, 39, 0.96);
+      --line: rgba(255,255,255,0.08);
+      --text: #e4e4ed;
+      --muted: #9da3b6;
+      --gold: #d7b46a;
+      --rose: #ff6fae;
+      --azure: #79c5ff;
+      --violet: #9f8bff;
+      --danger: #ff536b;
+      --ok: #85f0b7;
+      --shadow: 0 24px 90px rgba(0,0,0,0.45);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: radial-gradient(circle at top, rgba(120,90,255,0.16), transparent 38%), radial-gradient(circle at 20% 20%, rgba(255,111,174,0.1), transparent 30%), var(--bg); color: var(--text); }
+    body { overflow-x: hidden; }
+    button, input, select { font: inherit; }
+    .shell { min-height: 100vh; display: grid; grid-template-columns: 1fr; }
+    .topbar { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(18px); background: rgba(10,10,15,0.72); border-bottom: 1px solid var(--line); }
+    .topbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
+    .brand { display: flex; flex-direction: column; gap: 3px; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); }
+    .title { font-size: clamp(22px, 4vw, 38px); font-weight: 700; letter-spacing: -0.03em; }
+    .subtitle { font-size: 13px; color: var(--muted); max-width: 54ch; }
+    .mode-pill { min-height: 44px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); color: var(--text); padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .content { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 14px; }
+    .panel { border: 1px solid var(--line); background: var(--panel); border-radius: 24px; box-shadow: var(--shadow); }
+    .controls { padding: 16px; display: grid; gap: 14px; }
+    .hero-copy { display: grid; gap: 8px; }
+    .hero-copy p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .input-wrap { display: grid; gap: 10px; }
+    textarea { width: 100%; min-height: 116px; resize: vertical; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: var(--text); padding: 14px; }
+    .button-row, .preset-row, .toggle-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .button, .preset, .toggle, .chip {
+      min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04); color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: transform 140ms ease, background 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+    }
+    .button:hover, .preset:hover, .toggle:hover, .chip:hover { transform: translateY(-1px); background: rgba(255,255,255,0.07); }
+    .button.primary { background: linear-gradient(135deg, rgba(215,180,106,0.26), rgba(159,139,255,0.22)); border-color: rgba(215,180,106,0.44); }
+    .button.danger { border-color: rgba(255,83,107,0.4); color: #ffd6dd; }
+    .preset.active, .toggle.active, .chip.active { border-color: rgba(121,197,255,0.6); background: rgba(121,197,255,0.16); }
+    .range-group { display: grid; gap: 8px; }
+    .range-head { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }
+    input[type="range"] { width: 100%; accent-color: var(--gold); }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .stat-card { border-radius: 18px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.03); padding: 12px; }
+    .stat-label { color: var(--muted); font-size: 12px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.12em; }
+    .stat-value { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    .viz { overflow: hidden; position: relative; min-height: 56vh; }
+    .viz-shell { position: relative; aspect-ratio: 1 / 1.18; min-height: 520px; }
+    svg { width: 100%; height: 100%; display: block; }
+    .overlay { position: absolute; inset: 0; pointer-events: none; }
+    .legend { position: absolute; left: 12px; bottom: 12px; right: 12px; display: grid; gap: 10px; padding: 14px; border-radius: 18px; background: rgba(8,8,14,0.58); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(18px); }
+    .legend-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .callout { display: grid; gap: 4px; }
+    .callout strong { color: var(--gold); }
+    .catalog { display: grid; gap: 10px; }
+    .catalog-item { display: grid; gap: 6px; padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
+    .catalog-item code { color: var(--azure); word-break: break-word; }
+    .toast-stack { position: fixed; right: 12px; bottom: 12px; display: grid; gap: 8px; z-index: 20; }
+    .toast { max-width: 300px; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); background: rgba(18,18,29,0.96); box-shadow: var(--shadow); }
+    .toast strong { color: var(--gold); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (min-width: 1100px) {
+      .content { grid-template-columns: minmax(360px, 430px) minmax(0, 1fr); align-items: start; }
+      .controls { position: sticky; top: 86px; max-height: calc(100vh - 104px); overflow: auto; }
+      .viz-shell { min-height: calc(100vh - 120px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="eyebrow">Lab Zero • Language Artifact</div>
+          <div class="title">Glyph Cathedral</div>
+          <div class="subtitle">Type a phrase, then watch it ascend into a stained-glass monument built from Unicode doubles, false twins, and script-bending echoes.</div>
+        </div>
+        <button class="mode-pill" id="threatToggle" aria-pressed="false">Beauty mode</button>
+      </div>
+    </header>
+    <main class="content">
+      <section class="panel controls" aria-label="Glyph Cathedral controls">
+        <div class="hero-copy">
+          <p>This is half typography toy, half phishing horror story. The reveal matters: the same word can become sacred ornament or hostile camouflage.</p>
+          <p>No dependencies, no canvas trickery, no innerHTML. Just SVG architecture, curated glyph families, and a camera that knows when to show off.</p>
+        </div>
+        <div class="input-wrap">
+          <label for="phraseInput">Seed phrase</label>
+          <textarea id="phraseInput" aria-label="Seed phrase">LUMEN ARCHIVE</textarea>
+          <div class="preset-row" id="presetRow" aria-label="Preset phrases"></div>
+        </div>
+        <div class="button-row">
+          <button class="button primary" id="buildButton">Build cathedral</button>
+          <button class="button" id="pulseButton">Cinematic reveal</button>
+          <button class="button" id="exportButton">Export PNG</button>
+          <button class="button danger" id="shuffleButton">Shuffle glyph families</button>
+        </div>
+        <div class="toggle-row" id="viewToggles" aria-label="View toggles"></div>
+        <div class="range-group">
+          <div class="range-head"><span>Height</span><span id="heightValue">7 tiers</span></div>
+          <input id="heightRange" type="range" min="4" max="10" step="1" value="7" aria-label="Cathedral height" />
+        </div>
+        <div class="range-group">
+          <div class="range-head"><span>Density</span><span id="densityValue">6 glyphs per bay</span></div>
+          <input id="densityRange" type="range" min="3" max="10" step="1" value="6" aria-label="Glyph density" />
+        </div>
+        <div class="range-group">
+          <div class="range-head"><span>Drama</span><span id="dramaValue">0.64</span></div>
+          <input id="dramaRange" type="range" min="0.2" max="1" step="0.01" value="0.64" aria-label="Transformation drama" />
+        </div>
+        <div class="stats" id="stats"></div>
+        <div class="catalog">
+          <div class="catalog-item">
+            <strong>Hovered glyph</strong>
+            <div id="hoverGlyph">Touch or hover a window to inspect its substitution lineage.</div>
+          </div>
+          <div class="catalog-item">
+            <strong>Deception index</strong>
+            <div id="riskNarrative">Beauty mode keeps substitutions legible and ceremonial.</div>
+          </div>
+        </div>
+      </section>
+      <section class="panel viz" aria-label="Glyph Cathedral visualization">
+        <div class="viz-shell" id="vizShell">
+          <svg id="cathedralSvg" viewBox="0 0 1000 1320" role="img" aria-label="Glyph cathedral visualization"></svg>
+          <div class="overlay">
+            <div class="legend">
+              <div class="callout"><strong id="modeTitle">Beauty mode</strong><span id="modeDescription">Curated substitutions keep script changes visible and cathedral geometry airy.</span></div>
+              <div class="legend-row" id="legendChips"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const state = {
+    phrase: "LUMEN ARCHIVE",
+    tiers: 7,
+    density: 6,
+    drama: 0.64,
+    threatMode: false,
+    showScaffold: true,
+    showLabels: false,
+    glowMode: true,
+    families: [],
+    glyphPlan: [],
+    stats: { windows: 0, scripts: 0, risk: 0, towers: 0 },
+    hover: null,
+    cameraScale: 1,
+    cinematicTimer: null,
+    pendingFrame: 0,
+    seededVariant: 0,
+  };
+
+  const phraseInput = document.getElementById("phraseInput");
+  const buildButton = document.getElementById("buildButton");
+  const pulseButton = document.getElementById("pulseButton");
+  const exportButton = document.getElementById("exportButton");
+  const shuffleButton = document.getElementById("shuffleButton");
+  const threatToggle = document.getElementById("threatToggle");
+  const heightRange = document.getElementById("heightRange");
+  const densityRange = document.getElementById("densityRange");
+  const dramaRange = document.getElementById("dramaRange");
+  const heightValue = document.getElementById("heightValue");
+  const densityValue = document.getElementById("densityValue");
+  const dramaValue = document.getElementById("dramaValue");
+  const statsHost = document.getElementById("stats");
+  const svg = document.getElementById("cathedralSvg");
+  const hoverGlyph = document.getElementById("hoverGlyph");
+  const riskNarrative = document.getElementById("riskNarrative");
+  const presetRow = document.getElementById("presetRow");
+  const viewToggles = document.getElementById("viewToggles");
+  const legendChips = document.getElementById("legendChips");
+  const modeTitle = document.getElementById("modeTitle");
+  const modeDescription = document.getElementById("modeDescription");
+  const toastStack = document.getElementById("toastStack");
+  const vizShell = document.getElementById("vizShell");
+
+  const presets = [
+    "LUMEN ARCHIVE",
+    "VAST MEMORY",
+    "SILENT ORBIT",
+    "OPEN WOUND",
+    "HOLY CACHE",
+    "VELVET FIRE"
+  ];
+
+  const viewOptions = [
+    { key: "showScaffold", label: "Architecture" },
+    { key: "showLabels", label: "Origins" },
+    { key: "glowMode", label: "Stained glass" }
+  ];
+
+  const scriptFamilies = [
+    { label: "Latin echoes", script: "Latin / Fullwidth", glyphs: { A:["A","Ａ","Λ","ᗅ","ꓮ"], E:["E","Ｅ","Ξ","Σ","ꓰ"], I:["I","Ｉ","Ι","Ӏ","１"], O:["O","Ｏ","Ο","⊘","ꓳ"], U:["U","Ｕ","Ս","⋃","Ա"], M:["M","Ｍ","Μ","Ϻ","ᛖ"], N:["N","Ｎ","Ν","Ѝ","И"], R:["R","Ｒ","Я","℞","ꓣ"], S:["S","Ｓ","Ѕ","Ϟ","ꓢ"], T:["T","Ｔ","Τ","⊤","ꓔ"], V:["V","Ｖ","Ѵ","∨","ꓦ"], L:["L","Ｌ","Ⅼ","∟","ꓡ"], H:["H","Ｈ","Η","Н","ꓧ"], C:["C","Ｃ","Ϲ","ℂ","ꓚ"], D:["D","Ｄ","ᗪ","◖","ꓓ"], Y:["Y","Ｙ","Υ","Ɏ","ꓬ"] } },
+    { label: "Runic seams", script: "Runic / Nordic", glyphs: { A:["ᚨ","ᚪ","A","Λ","ꓮ"], E:["ᛂ","ᛖ","E","Ξ","Σ"], I:["ᛁ","ᛇ","I","Ӏ","۱"], O:["ᛟ","ᚮ","O","⊙","ꓳ"], U:["ᚢ","ᚤ","U","Ա","⋃"], M:["ᛗ","ᛖ","M","Ϻ","ᛞ"], N:["ᚾ","ᚻ","N","И","Ѝ"], R:["ᚱ","ᚱ","R","Я","℞"], S:["ᛋ","ᛊ","S","Ϟ","ꓢ"], T:["ᛏ","ᛐ","T","⊤","ꓔ"], V:["ᚡ","ᚢ","V","∨","ꓦ"], L:["ᛚ","ᛇ","L","Ⅼ","∟"], H:["ᚺ","ᚻ","H","Н","ꓧ"], C:["ᚲ","ᚳ","C","ℂ","Ϲ"], D:["ᛞ","ᚦ","D","ᗪ","ꓓ"], Y:["ᛦ","ᛉ","Y","Ɏ","Υ"] } },
+    { label: "Math ghosts", script: "Math / Technical", glyphs: { A:["∀","Δ","A","Λ","Ａ"], E:["∃","Σ","E","Ξ","Ｅ"], I:["∣","Ⅰ","I","Ι","Ｉ"], O:["⊙","⊕","O","Ο","Ｏ"], U:["∪","⋃","U","Ս","Ｕ"], M:["∑","⋔","M","Μ","Ｍ"], N:["⋂","∩","N","Ν","Ｎ"], R:["℞","ℜ","R","Я","Ｒ"], S:["∫","§","S","Ѕ","Ｓ"], T:["⊤","⊢","T","Τ","Ｔ"], V:["∨","⋎","V","Ѵ","Ｖ"], L:["∟","⅃","L","Ⅼ","Ｌ"], H:["ℍ","H","Η","Н","Ｈ"], C:["ℂ","⊂","C","Ϲ","Ｃ"], D:["◖","◗","D","ᗪ","Ｄ"], Y:["Ɏ","¥","Y","Υ","Ｙ"] } },
+    { label: "Cyrillic twins", script: "Cyrillic / Greek", glyphs: { A:["А","Α","A","ᗅ","Ａ"], E:["Е","Ε","E","Ξ","Ｅ"], I:["І","Ι","I","Ӏ","１"], O:["О","Ο","O","⊘","Ｏ"], U:["Ц","Ս","U","Ա","Ｕ"], M:["М","Μ","M","Ϻ","Ｍ"], N:["И","Ν","N","Ѝ","Ｎ"], R:["Я","Я","R","℞","Ｒ"], S:["Ѕ","Σ","S","Ϟ","Ｓ"], T:["Т","Τ","T","⊤","Ｔ"], V:["Ѵ","Υ","V","∨","Ｖ"], L:["Ⅼ","Г","L","∟","Ｌ"], H:["Н","Η","H","ꓧ","Ｈ"], C:["С","Ϲ","C","ℂ","Ｃ"], D:["Д","ᗪ","D","◖","Ｄ"], Y:["Ү","Υ","Y","Ɏ","Ｙ"] } },
+  ];
+
+  function seededHash(text) {
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  function createRng(seed) {
+    let s = seed >>> 0;
+    return () => {
+      s += 0x6D2B79F5;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (typeof text === "string") node.textContent = text;
+    return node;
+  }
+
+  function svgEl(tag, attrs = {}) {
+    const node = document.createElementNS(NS, tag);
+    Object.entries(attrs).forEach(([key, value]) => {
+      node.setAttribute(key, String(value));
+    });
+    return node;
+  }
+
+  function clearNode(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function showToast(title, body) {
+    const toast = el("div", "toast");
+    const strong = el("strong", null, title);
+    const copy = el("div", null, body);
+    toast.appendChild(strong);
+    toast.appendChild(copy);
+    toastStack.appendChild(toast);
+    window.setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 3200);
+  }
+
+  function normalizePhrase(value) {
+    return value.replace(/\s+/g, " ").trim().toUpperCase().slice(0, 36) || "LUMEN ARCHIVE";
+  }
+
+  function getGlyphForCharacter(character, family, depth, threatMode, rng) {
+    const pool = family.glyphs[character] || [character];
+    const bias = threatMode ? pool.length - 1 : 0;
+    const drift = clamp(Math.floor(depth * pool.length * 0.12), 0, pool.length - 1);
+    const indexBase = threatMode ? clamp(bias - drift, 0, pool.length - 1) : clamp(drift, 0, pool.length - 1);
+    const wobble = Math.floor(rng() * Math.min(3, pool.length));
+    return pool[(indexBase + wobble) % pool.length];
+  }
+
+  function pickFamilies(phrase) {
+    const seed = seededHash(phrase + String(state.seededVariant));
+    const rng = createRng(seed);
+    const families = [];
+    for (let i = 0; i < state.tiers; i += 1) {
+      const family = scriptFamilies[Math.floor(rng() * scriptFamilies.length)];
+      families.push(family);
+    }
+    return families;
+  }
+
+  function buildGlyphPlan() {
+    const phrase = state.phrase;
+    const letters = phrase.split("").filter((ch) => ch !== " ");
+    const bays = Math.max(letters.length, 5);
+    const centerX = 500;
+    const baseY = 1180;
+    const seed = seededHash(phrase + (state.threatMode ? "threat" : "beauty") + state.tiers + state.density + state.drama + state.seededVariant);
+    const rng = createRng(seed);
+    const plan = [];
+    const familyUse = pickFamilies(phrase);
+    state.families = familyUse;
+    for (let tier = 0; tier < state.tiers; tier += 1) {
+      const tierProgress = tier / Math.max(1, state.tiers - 1);
+      const tierWidth = 860 - tier * (58 + state.drama * 12);
+      const tierY = baseY - tier * (104 + state.drama * 18);
+      const family = familyUse[tier % familyUse.length];
+      const bayCount = clamp(Math.round(bays + (state.density - 6) * 0.65 - tier * 0.35), 3, 18);
+      for (let bay = 0; bay < bayCount; bay += 1) {
+        const char = letters[(bay + tier) % letters.length] || "A";
+        const widthStep = tierWidth / bayCount;
+        const cx = centerX - tierWidth / 2 + widthStep * bay + widthStep / 2;
+        const archWidth = widthStep * (0.76 + rng() * 0.16);
+        const archHeight = 82 + tierProgress * 120 + rng() * 16;
+        const depth = tier + bay * 0.35;
+        const glyph = getGlyphForCharacter(char, family, depth, state.threatMode, rng);
+        const deception = clamp((family.glyphs[char]?.indexOf(glyph) ?? 0) / 4 + (state.threatMode ? 0.35 : 0.08), 0.05, 0.98);
+        const colorHue = state.threatMode ? 345 - tier * 8 + bay * 2 : 205 + tier * 12 + bay * 3;
+        plan.push({
+          tier,
+          bay,
+          family,
+          char,
+          glyph,
+          cx,
+          y: tierY,
+          archWidth,
+          archHeight,
+          deception,
+          hue: colorHue,
+          rotation: (rng() - 0.5) * 6,
+        });
+      }
+    }
+    state.glyphPlan = plan;
+    state.stats = {
+      windows: plan.length,
+      scripts: new Set(plan.map((entry) => entry.family.label)).size,
+      risk: Math.round((plan.reduce((sum, item) => sum + item.deception, 0) / Math.max(1, plan.length)) * 100),
+      towers: 3 + Math.round(state.tiers / 4),
+    };
+  }
+
+  function buildDefs() {
+    const defs = svgEl("defs");
+    const gradient = svgEl("linearGradient", { id: "glassGradient", x1: "0%", y1: "0%", x2: "0%", y2: "100%" });
+    const stops = [
+      { o: "0%", c: state.threatMode ? "#ff9ab8" : "#80d7ff" },
+      { o: "35%", c: state.threatMode ? "#ffc16f" : "#d7b46a" },
+      { o: "100%", c: state.threatMode ? "#47203b" : "#1f2344" },
+    ];
+    stops.forEach((stop) => gradient.appendChild(svgEl("stop", { offset: stop.o, "stop-color": stop.c })));
+    const blur = svgEl("filter", { id: "glassBlur", x: "-40%", y: "-40%", width: "180%", height: "180%" });
+    blur.appendChild(svgEl("feGaussianBlur", { stdDeviation: state.glowMode ? 10 : 3, result: "blur" }));
+    blur.appendChild(svgEl("feColorMatrix", { type: "matrix", values: "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.9 0" }));
+    defs.appendChild(gradient);
+    defs.appendChild(blur);
+    return defs;
+  }
+
+  function buildBackdrop(root) {
+    const bg = svgEl("rect", { x: 0, y: 0, width: 1000, height: 1320, fill: "#0a0a0f" });
+    root.appendChild(bg);
+    for (let i = 0; i < 24; i += 1) {
+      const glow = svgEl("circle", {
+        cx: 140 + i * 31,
+        cy: 120 + (i % 6) * 130,
+        r: 18 + (i % 4) * 11,
+        fill: i % 2 === 0 ? "rgba(121,197,255,0.08)" : "rgba(255,111,174,0.06)",
+      });
+      root.appendChild(glow);
+    }
+  }
+
+  function addPath(parent, d, attrs) {
+    const node = svgEl("path", Object.assign({ d }, attrs));
+    parent.appendChild(node);
+    return node;
+  }
+
+  function buildScaffold(root) {
+    const g = svgEl("g", { opacity: state.showScaffold ? 1 : 0.18 });
+    const buttressColor = state.threatMode ? "rgba(255,111,174,0.32)" : "rgba(121,197,255,0.24)";
+    const frameColor = state.threatMode ? "rgba(255,193,111,0.55)" : "rgba(215,180,106,0.48)";
+    addPath(g, "M140 1190 C220 980, 240 780, 280 610 C316 458, 372 330, 500 164", { fill: "none", stroke: buttressColor, "stroke-width": 8 });
+    addPath(g, "M860 1190 C780 980, 760 780, 720 610 C684 458, 628 330, 500 164", { fill: "none", stroke: buttressColor, "stroke-width": 8 });
+    addPath(g, "M120 1190 L880 1190", { fill: "none", stroke: frameColor, "stroke-width": 10, "stroke-linecap": "round" });
+    addPath(g, "M500 160 L500 1168", { fill: "none", stroke: frameColor, "stroke-width": 4, "stroke-dasharray": "10 16" });
+    for (let tier = 0; tier < state.tiers; tier += 1) {
+      const y = 1180 - tier * (104 + state.drama * 18);
+      const half = 420 - tier * 34;
+      addPath(g, `M${500-half} ${y} Q500 ${y - 44 - tier * 3}, ${500+half} ${y}`, { fill: "none", stroke: "rgba(255,255,255,0.08)", "stroke-width": 2 });
+    }
+    root.appendChild(g);
+  }
+
+  function archPath(cx, y, width, height) {
+    const left = cx - width / 2;
+    const right = cx + width / 2;
+    const top = y - height;
+    return `M${left} ${y} L${left} ${top + height * 0.35} Q${cx} ${top}, ${right} ${top + height * 0.35} L${right} ${y} Z`;
+  }
+
+  function rosePath(cx, cy, radius, petals) {
+    let d = "";
+    for (let i = 0; i <= petals; i += 1) {
+      const angle = (Math.PI * 2 * i) / petals - Math.PI / 2;
+      const r = i % 2 === 0 ? radius : radius * 0.42;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      d += i === 0 ? `M${x} ${y}` : ` L${x} ${y}`;
+    }
+    return d + " Z";
+  }
+
+  function buildWindows(root) {
+    const g = svgEl("g");
+    state.glyphPlan.forEach((entry, index) => {
+      const group = svgEl("g", {
+        tabindex: 0,
+        role: "button",
+        "aria-label": `${entry.glyph} derived from ${entry.char} in ${entry.family.label}`,
+      });
+      group.style.cursor = "pointer";
+      group.dataset.index = String(index);
+      const hue = entry.hue;
+      const fill = `hsla(${hue}, ${state.threatMode ? 92 : 82}%, ${state.threatMode ? 66 : 60}%, 0.72)`;
+      const frame = state.threatMode ? "rgba(255,186,204,0.82)" : "rgba(214,233,255,0.82)";
+      const glass = addPath(group, archPath(entry.cx, entry.y, entry.archWidth, entry.archHeight), {
+        fill,
+        stroke: frame,
+        "stroke-width": 2.2,
+        filter: state.glowMode ? "url(#glassBlur)" : undefined,
+        transform: `rotate(${entry.rotation} ${entry.cx} ${entry.y - entry.archHeight / 2})`,
+      });
+      const mullion = svgEl("path", {
+        d: `M${entry.cx} ${entry.y} L${entry.cx} ${entry.y - entry.archHeight * 0.82} M${entry.cx - entry.archWidth * 0.22} ${entry.y - entry.archHeight * 0.18} L${entry.cx + entry.archWidth * 0.22} ${entry.y - entry.archHeight * 0.18}`,
+        fill: "none",
+        stroke: "rgba(255,255,255,0.18)",
+        "stroke-width": 1.4,
+      });
+      const glyphText = svgEl("text", {
+        x: entry.cx,
+        y: entry.y - entry.archHeight * 0.28,
+        fill: "rgba(255,255,255,0.95)",
+        "font-size": clamp(entry.archWidth * 0.42, 24, 64),
+        "font-weight": 700,
+        "text-anchor": "middle",
+        "dominant-baseline": "middle",
+      });
+      glyphText.textContent = entry.glyph;
+      const label = svgEl("text", {
+        x: entry.cx,
+        y: entry.y + 18,
+        fill: "rgba(255,255,255,0.42)",
+        "font-size": 12,
+        "text-anchor": "middle",
+        opacity: state.showLabels ? 1 : 0,
+      });
+      label.textContent = `${entry.char} • ${entry.family.script}`;
+      group.appendChild(glass);
+      group.appendChild(mullion);
+      group.appendChild(glyphText);
+      group.appendChild(label);
+      const focusHandler = () => setHover(entry);
+      group.addEventListener("pointerenter", focusHandler);
+      group.addEventListener("focus", focusHandler);
+      group.addEventListener("pointerleave", () => setHover(null));
+      group.addEventListener("blur", () => setHover(null));
+      group.addEventListener("click", () => {
+        setHover(entry);
+        showToast(entry.glyph, `${entry.family.label} · deception ${Math.round(entry.deception * 100)}%`);
+      });
+      g.appendChild(group);
+    });
+    root.appendChild(g);
+  }
+
+  function buildSpire(root) {
+    const g = svgEl("g");
+    const body = addPath(g, "M430 1160 Q500 1060 570 1160 L540 330 Q500 210 460 330 Z", {
+      fill: state.threatMode ? "rgba(94,24,53,0.46)" : "rgba(33,42,86,0.42)",
+      stroke: state.threatMode ? "rgba(255,171,195,0.42)" : "rgba(215,180,106,0.28)",
+      "stroke-width": 2.4,
+    });
+    body.setAttribute("opacity", "0.9");
+    const rose = addPath(g, rosePath(500, 444, 84 + state.drama * 18, 14), {
+      fill: "url(#glassGradient)",
+      stroke: state.threatMode ? "rgba(255,193,111,0.82)" : "rgba(214,233,255,0.82)",
+      "stroke-width": 3,
+      filter: state.glowMode ? "url(#glassBlur)" : undefined,
+    });
+    rose.setAttribute("opacity", state.glowMode ? "0.92" : "0.74");
+    const lance = addPath(g, "M500 170 L534 288 L500 330 L466 288 Z", {
+      fill: state.threatMode ? "rgba(255,193,111,0.82)" : "rgba(121,197,255,0.82)",
+      stroke: "rgba(255,255,255,0.4)",
+      "stroke-width": 1.8,
+    });
+    lance.setAttribute("filter", state.glowMode ? "url(#glassBlur)" : "");
+    root.appendChild(g);
+  }
+
+  function buildFloor(root) {
+    const g = svgEl("g");
+    const floor = svgEl("rect", { x: 120, y: 1190, width: 760, height: 96, rx: 26, fill: "rgba(16,16,28,0.82)", stroke: "rgba(255,255,255,0.08)", "stroke-width": 2 });
+    g.appendChild(floor);
+    const phrase = state.phrase;
+    const phraseNode = svgEl("text", { x: 500, y: 1248, fill: state.threatMode ? "#ffb3c7" : "#d7b46a", "font-size": 32, "letter-spacing": 6, "text-anchor": "middle" });
+    phraseNode.textContent = phrase;
+    g.appendChild(phraseNode);
+    root.appendChild(g);
+  }
+
+  function renderLegend() {
+    clearNode(legendChips);
+    const labels = [
+      `${state.stats.windows} windows`,
+      `${state.stats.scripts} script families`,
+      `${state.stats.risk}% deception`,
+      `${state.stats.towers} spires`,
+    ];
+    labels.forEach((label) => {
+      const chip = el("div", "chip", label);
+      legendChips.appendChild(chip);
+    });
+    modeTitle.textContent = state.threatMode ? "Threat mode" : "Beauty mode";
+    modeDescription.textContent = state.threatMode
+      ? "Glyph substitutions skew toward phishing-grade doubles, denser structure, and warmer warning tones."
+      : "Curated substitutions stay readable, ceremonial, and easier to trace across scripts.";
+  }
+
+  function renderStats() {
+    clearNode(statsHost);
+    const entries = [
+      ["Windows", String(state.stats.windows)],
+      ["Families", String(state.stats.scripts)],
+      ["Risk", `${state.stats.risk}%`],
+      ["Towers", String(state.stats.towers)],
+    ];
+    entries.forEach(([label, value]) => {
+      const card = el("div", "stat-card");
+      card.appendChild(el("div", "stat-label", label));
+      card.appendChild(el("div", "stat-value", value));
+      statsHost.appendChild(card);
+    });
+  }
+
+  function setHover(entry) {
+    state.hover = entry;
+    if (!entry) {
+      hoverGlyph.textContent = "Touch or hover a window to inspect its substitution lineage.";
+      return;
+    }
+    hoverGlyph.textContent = `${entry.char} → ${entry.glyph} · ${entry.family.label} · ${Math.round(entry.deception * 100)}% deceptive`;
+  }
+
+  function renderNarrative() {
+    riskNarrative.textContent = state.threatMode
+      ? "Threat mode compresses differences and favors near-twin glyphs, the kind of substitutions that can hide inside phishing URLs and look normal at a glance."
+      : "Beauty mode keeps substitutions ceremonial. You can still feel the script drift, but the original phrase remains emotionally legible.";
+    threatToggle.textContent = state.threatMode ? "Threat mode" : "Beauty mode";
+    threatToggle.setAttribute("aria-pressed", state.threatMode ? "true" : "false");
+  }
+
+  function renderSvg() {
+    clearNode(svg);
+    svg.appendChild(buildDefs());
+    buildBackdrop(svg);
+    buildScaffold(svg);
+    buildSpire(svg);
+    buildWindows(svg);
+    buildFloor(svg);
+    const targetScale = state.threatMode ? 1.03 + state.drama * 0.05 : 1 + state.drama * 0.02;
+    vizShell.style.transform = `scale(${targetScale})`;
+    vizShell.style.transformOrigin = "center top";
+  }
+
+  function rerender() {
+    state.phrase = normalizePhrase(phraseInput.value);
+    phraseInput.value = state.phrase;
+    buildGlyphPlan();
+    renderSvg();
+    renderStats();
+    renderLegend();
+    renderNarrative();
+    heightValue.textContent = `${state.tiers} tiers`;
+    densityValue.textContent = `${state.density} glyphs per bay`;
+    dramaValue.textContent = state.drama.toFixed(2);
+  }
+
+  function cinematicReveal() {
+    if (state.cinematicTimer) window.clearInterval(state.cinematicTimer);
+    const frames = [0.24, 0.36, 0.48, 0.62, 0.78, state.drama];
+    let index = 0;
+    const original = state.drama;
+    state.cinematicTimer = window.setInterval(() => {
+      state.drama = frames[index];
+      dramaRange.value = String(state.drama);
+      rerender();
+      index += 1;
+      if (index >= frames.length) {
+        window.clearInterval(state.cinematicTimer);
+        state.cinematicTimer = null;
+        state.drama = original;
+        dramaRange.value = String(original);
+        rerender();
+      }
+    }, 180);
+    showToast("Cinematic reveal", "The cathedral is climbing tier by tier.");
+  }
+
+  function exportPng() {
+    const serializer = new XMLSerializer();
+    const source = serializer.serializeToString(svg);
+    const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1400;
+      canvas.height = 1848;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#0a0a0f";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `${state.phrase.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "glyph-cathedral"}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      showToast("PNG exported", "Saved the current cathedral frame.");
+    };
+    image.src = url;
+  }
+
+  function buildPresetButtons() {
+    presets.forEach((preset) => {
+      const button = el("button", "preset", preset);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        phraseInput.value = preset;
+        rerender();
+      });
+      presetRow.appendChild(button);
+    });
+  }
+
+  function buildViewToggles() {
+    viewOptions.forEach((option) => {
+      const button = el("button", "toggle", option.label);
+      button.type = "button";
+      button.addEventListener("click", () => {
+        state[option.key] = !state[option.key];
+        button.classList.toggle("active", Boolean(state[option.key]));
+        rerender();
+      });
+      button.classList.toggle("active", Boolean(state[option.key]));
+      viewToggles.appendChild(button);
+    });
+  }
+
+  function attachEvents() {
+    buildButton.addEventListener("click", rerender);
+    pulseButton.addEventListener("click", cinematicReveal);
+    exportButton.addEventListener("click", exportPng);
+    shuffleButton.addEventListener("click", () => {
+      state.seededVariant += 1;
+      rerender();
+      showToast("Glyph families shuffled", "Same phrase, new lineage map.");
+    });
+    threatToggle.addEventListener("click", () => {
+      state.threatMode = !state.threatMode;
+      rerender();
+    });
+    phraseInput.addEventListener("keydown", (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter") rerender();
+    });
+    heightRange.addEventListener("input", () => {
+      state.tiers = Number(heightRange.value);
+      rerender();
+    });
+    densityRange.addEventListener("input", () => {
+      state.density = Number(densityRange.value);
+      rerender();
+    });
+    dramaRange.addEventListener("input", () => {
+      state.drama = Number(dramaRange.value);
+      rerender();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key.toLowerCase() === "g") {
+        state.threatMode = !state.threatMode;
+        rerender();
+      }
+      if (event.key.toLowerCase() === "r") {
+        cinematicReveal();
+      }
+    });
+    window.addEventListener("resize", () => {
+      if (state.pendingFrame) cancelAnimationFrame(state.pendingFrame);
+      state.pendingFrame = requestAnimationFrame(() => rerender());
+    });
+  }
+
+  function init() {
+    buildPresetButtons();
+    buildViewToggles();
+    attachEvents();
+    rerender();
+    showToast("Glyph Cathedral ready", "Try Beauty mode first, then flip to Threat mode.");
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
