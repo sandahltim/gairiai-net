@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>NCA Regenerator</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --panel: rgba(2, 6, 18, 0.92);
+      --panel-border: rgba(0, 195, 160, 0.2);
+      --text: #9bbcc9;
+      --value: #e4f3ff;
+      --accent: #00c3a0;
+      --damage-flash: #ff004f;
+      --radius: 16px;
+      --shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
+    body {
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      background:
+        radial-gradient(circle at 20% 18%, rgba(0, 195, 160, 0.08), transparent 24%),
+        radial-gradient(circle at 82% 14%, rgba(17, 118, 177, 0.1), transparent 22%),
+        radial-gradient(circle at 48% 85%, rgba(136, 255, 238, 0.07), transparent 26%),
+        var(--bg);
+    }
+
+    #panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 18px 14px;
+      border-right: 1px solid var(--panel-border);
+      background: linear-gradient(180deg, rgba(1, 7, 16, 0.98), rgba(1, 4, 12, 0.94));
+      box-shadow: var(--shadow);
+      z-index: 2;
+    }
+
+    .caps {
+      font: 600 10px/1.3 "IBM Plex Mono", monospace;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .subtle {
+      font: 400 9px/1.5 "IBM Plex Mono", monospace;
+      color: var(--text);
+      opacity: 0.85;
+    }
+
+    .rule {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0, 195, 160, 0.45), rgba(0, 195, 160, 0.04));
+    }
+
+    .species-grid, .brush-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    button {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      min-height: 40px;
+      padding: 10px 8px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+      font: 500 12px/1 "IBM Plex Sans", sans-serif;
+      cursor: pointer;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, color 140ms ease, box-shadow 140ms ease;
+    }
+
+    button:hover, button:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+      border-color: rgba(136, 255, 238, 0.35);
+      background: rgba(14, 58, 54, 0.42);
+    }
+
+    button.active {
+      color: #04120f;
+      border-color: rgba(136, 255, 238, 0.8);
+      background: linear-gradient(135deg, rgba(136, 255, 238, 0.95), rgba(0, 195, 160, 0.92));
+      box-shadow: 0 0 24px rgba(0, 195, 160, 0.3);
+    }
+
+    .control {
+      display: grid;
+      gap: 6px;
+    }
+
+    .control-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 11px;
+    }
+
+    .value {
+      color: var(--value);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(0, 76, 56, 0.95), rgba(3, 14, 26, 1));
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(2, 10, 11, 0.95);
+      background: linear-gradient(135deg, #88ffee, #00c3a0);
+      box-shadow: 0 0 16px rgba(0, 195, 160, 0.42);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(2, 10, 11, 0.95);
+      background: linear-gradient(135deg, #88ffee, #00c3a0);
+      box-shadow: 0 0 16px rgba(0, 195, 160, 0.42);
+    }
+
+    #stage {
+      position: relative;
+      min-width: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    canvas, #fallback, #intro {
+      position: absolute;
+      inset: 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    #fallback, #intro {
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    #fallback {
+      padding: 24px;
+      background: rgba(0, 4, 8, 0.9);
+      color: var(--value);
+      font: 500 18px/1.5 "IBM Plex Sans", sans-serif;
+    }
+
+    #intro {
+      opacity: 0;
+      transition: opacity 200ms ease;
+      color: rgba(228, 243, 255, 0.92);
+      font: 500 20px/1 "IBM Plex Sans", sans-serif;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(0, 195, 160, 0.4);
+    }
+
+    #stepCounter {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      background: rgba(2, 6, 18, 0.6);
+      border: 1px solid rgba(0, 195, 160, 0.16);
+      font: 500 10px/1 "IBM Plex Mono", monospace;
+      color: var(--text);
+      pointer-events: none;
+    }
+
+    @media (max-width: 880px) {
+      html, body {
+        height: auto;
+        min-height: 100%;
+        overflow: auto;
+      }
+
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(360px, 1fr);
+      }
+
+      #panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--panel-border);
+        padding: 16px 12px 12px;
+      }
+
+      .species-grid, .brush-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      button {
+        min-width: 0;
+      }
+
+      #stage {
+        height: min(68vh, 540px);
+        min-height: 360px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      #panel {
+        gap: 12px;
+        padding: 12px 10px 10px;
+      }
+
+      .species-grid, .brush-grid {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        min-height: 38px;
+        padding: 9px 8px;
+        font-size: 11px;
+      }
+
+      .control-head {
+        font-size: 10px;
+      }
+
+      #stage {
+        height: min(58vh, 420px);
+        min-height: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <aside id="panel">
+    <div>
+      <div class="caps">NCA Regenerator</div>
+      <div class="subtle">neural cellular automata</div>
+    </div>
+    <div class="rule"></div>
+    <div class="caps">Species</div>
+    <div class="species-grid" id="speciesGrid"></div>
+    <div class="rule"></div>
+    <div class="caps">Brush</div>
+    <div class="brush-grid" id="brushGrid">
+      <button data-brush="seed" class="active">Seed</button>
+      <button data-brush="erase">Erase</button>
+    </div>
+    <div class="control">
+      <div class="control-head"><span class="caps">Brush Size</span><span class="value" id="brushValue">30px</span></div>
+      <input id="brushSize" type="range" min="10" max="80" value="30">
+    </div>
+    <div class="control">
+      <div class="control-head"><span class="caps">Steps / Frame</span><span class="value" id="stepsValue">2</span></div>
+      <input id="stepsPerFrame" type="range" min="1" max="8" value="2">
+    </div>
+    <div class="rule"></div>
+    <button id="resetButton">Reset Canvas</button>
+    <button id="playPauseButton">Pause</button>
+    <div class="rule"></div>
+    <div class="subtle">right-click = erase<br>watch it heal</div>
+  </aside>
+  <main id="stage">
+    <canvas id="canvas" width="512" height="512" aria-label="Neural cellular automata canvas"></canvas>
+    <div id="fallback" hidden>WebGL2 required — open in Chrome, Firefox, or Safari 15+</div>
+    <div id="intro">Growing...</div>
+    <div id="stepCounter">Step 0</div>
+  </main>
+
+  <script>
+    const SIZE = 512;
+    const SPECIES = {
+      coral:   { name: "Coral",   accent: "#00c3a0", seedColor: [0.00, 0.55, 0.45], birth: [0.29, 0.41], death: [0.58, 0.78], flow: 0.10, recover: 0.035, tint: [1.00, 0.95, 1.02] },
+      moss:    { name: "Moss",    accent: "#4aff72", seedColor: [0.12, 0.80, 0.18], birth: [0.24, 0.35], death: [0.52, 0.70], flow: 0.07, recover: 0.045, tint: [0.85, 1.05, 0.90] },
+      circuit: { name: "Circuit", accent: "#4a9eff", seedColor: [0.14, 0.40, 0.95], birth: [0.34, 0.48], death: [0.60, 0.82], flow: 0.14, recover: 0.028, tint: [0.86, 0.96, 1.18] },
+      alien:   { name: "Alien",   accent: "#ff4af0", seedColor: [0.90, 0.16, 0.90], birth: [0.27, 0.39], death: [0.48, 0.68], flow: 0.12, recover: 0.05,  tint: [1.12, 0.90, 1.15] }
+    };
+
+    const canvas = document.getElementById("canvas");
+    const fallback = document.getElementById("fallback");
+    const intro = document.getElementById("intro");
+    const stepCounter = document.getElementById("stepCounter");
+    const brushSlider = document.getElementById("brushSize");
+    const stepsSlider = document.getElementById("stepsPerFrame");
+    const brushValue = document.getElementById("brushValue");
+    const stepsValue = document.getElementById("stepsValue");
+    const speciesGrid = document.getElementById("speciesGrid");
+    const playPauseButton = document.getElementById("playPauseButton");
+    const resetButton = document.getElementById("resetButton");
+    const brushButtons = [...document.querySelectorAll("[data-brush]")];
+
+    let brushMode = "seed";
+    let currentSpeciesKey = "coral";
+    let playing = true;
+    let stepCount = 0;
+    let pointerDown = false;
+    let pointerUV = [0.5, 0.5];
+    let lastNow = performance.now();
+    let eraseEvent = { x: -10, y: -10, time: -1000, radius: 0.06 };
+
+    const gl = canvas.getContext("webgl2", { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
+    if (!gl) {
+      fallback.hidden = false;
+      throw new Error("WebGL2 unavailable");
+    }
+    const floatExt = gl.getExtension("EXT_color_buffer_float");
+    if (!floatExt) {
+      fallback.hidden = false;
+      fallback.textContent = "Float render targets required — try a newer browser";
+      throw new Error("EXT_color_buffer_float unavailable");
+    }
+
+    const quadVerts = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+    const quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+    function makeShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader));
+      return shader;
+    }
+
+    function makeProgram(vsSource, fsSource) {
+      const program = gl.createProgram();
+      gl.attachShader(program, makeShader(gl.VERTEX_SHADER, vsSource));
+      gl.attachShader(program, makeShader(gl.FRAGMENT_SHADER, fsSource));
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+      return program;
+    }
+
+    const vertexShader = `#version 300 es
+      precision highp float;
+      layout(location=0) in vec2 aPosition;
+      out vec2 vUv;
+      void main() {
+        vUv = aPosition * 0.5 + 0.5;
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+    `;
+
+    const simShader = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      uniform sampler2D uState0;
+      uniform sampler2D uState1;
+      uniform vec2 uTexel;
+      uniform vec2 uBirth;
+      uniform vec2 uDeath;
+      uniform vec3 uTint;
+      uniform float uFlow;
+      uniform float uRecover;
+      uniform float uTime;
+      layout(location=0) out vec4 outState0;
+      layout(location=1) out vec4 outState1;
+
+      vec4 state0(vec2 uv) { return texture(uState0, fract(uv)); }
+      vec4 state1(vec2 uv) { return texture(uState1, fract(uv)); }
+
+      float rand(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7)) + uTime * 0.017) * 43758.5453123);
+      }
+
+      void main() {
+        vec4 s0 = state0(vUv);
+        vec4 s1 = state1(vUv);
+        float alive = s0.a;
+        float nearAlive = 0.0;
+        float midAlive = 0.0;
+        vec3 nearPigment = vec3(0.0);
+        vec4 hiddenMean = vec4(0.0);
+
+        for (int y = -1; y <= 1; y++) {
+          for (int x = -1; x <= 1; x++) {
+            vec2 uv = vUv + vec2(float(x), float(y)) * uTexel;
+            vec4 n0 = state0(uv);
+            vec4 n1 = state1(uv);
+            nearAlive += n0.a;
+            nearPigment += n0.rgb;
+            hiddenMean += n1;
+          }
+        }
+        nearAlive /= 9.0;
+        nearPigment /= 9.0;
+        hiddenMean /= 9.0;
+
+        for (int y = -3; y <= 3; y++) {
+          for (int x = -3; x <= 3; x++) {
+            if (x == 0 && y == 0) continue;
+            float w = 1.0 / (1.0 + float(x * x + y * y));
+            midAlive += state0(vUv + vec2(float(x), float(y)) * uTexel).a * w;
+          }
+        }
+        midAlive /= 13.447158;
+
+        float birth = smoothstep(uBirth.x, uBirth.y, nearAlive) * (1.0 - smoothstep(uDeath.x, uDeath.y, midAlive));
+        float health = birth + hiddenMean.x * 0.12 - abs(hiddenMean.y) * 0.04;
+        float targetAlive = clamp(mix(alive, birth, 0.65) + health * uRecover - alive * 0.016, 0.0, 1.0);
+        float mask = step(0.5, rand(vUv));
+        float nextAlive = mix(alive, targetAlive, mask);
+
+        vec3 pigment = mix(s0.rgb, nearPigment * uTint, 0.08 + uFlow * 0.4 * nextAlive);
+        pigment += vec3(hiddenMean.z * 0.010, hiddenMean.w * 0.008, hiddenMean.x * 0.006);
+        pigment = clamp(pigment, 0.0, 1.0);
+
+        vec4 nextHidden = mix(s1, vec4(
+          (nearAlive - alive) * 2.0,
+          (birth - 0.5) * 1.5,
+          (nearPigment.r - nearPigment.b),
+          (nearPigment.g - alive)
+        ), 0.15 + uFlow * 0.25);
+        nextHidden = clamp(nextHidden, -1.0, 1.0);
+
+        outState0 = vec4(pigment, nextAlive);
+        outState1 = nextHidden;
+      }
+    `;
+
+    const brushShader = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      uniform sampler2D uState0;
+      uniform sampler2D uState1;
+      uniform vec2 uBrush;
+      uniform float uRadius;
+      uniform int uMode;
+      uniform vec3 uSeedColor;
+      layout(location=0) out vec4 outState0;
+      layout(location=1) out vec4 outState1;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(91.7, 47.3))) * 43758.5453123);
+      }
+
+      void main() {
+        vec4 s0 = texture(uState0, vUv);
+        vec4 s1 = texture(uState1, vUv);
+        float d = distance(vUv, uBrush);
+        if (d < uRadius) {
+          float falloff = smoothstep(uRadius, uRadius * 0.15, d);
+          if (uMode == 0) {
+            vec4 seedHidden = vec4(
+              hash(vUv * 17.0) - 0.5,
+              hash(vUv * 31.0) - 0.5,
+              hash(vUv * 47.0) - 0.5,
+              hash(vUv * 59.0) - 0.5
+            );
+            s0 = vec4(mix(s0.rgb, uSeedColor, falloff), max(s0.a, falloff));
+            s1 = mix(s1, seedHidden, falloff);
+          } else {
+            s0 *= (1.0 - falloff);
+            s1 *= (1.0 - falloff);
+          }
+        }
+        outState0 = s0;
+        outState1 = s1;
+      }
+    `;
+
+    const displayShader = `#version 300 es
+      precision highp float;
+      in vec2 vUv;
+      uniform sampler2D uState0;
+      uniform vec2 uErase;
+      uniform float uEraseAge;
+      uniform float uEraseRadius;
+      out vec4 fragColor;
+      void main() {
+        vec4 s0 = texture(uState0, vUv);
+        float alive = s0.a;
+        vec3 col;
+        if (alive < 0.05) {
+          col = vec3(0.0, 0.016, 0.031);
+        } else {
+          float t = smoothstep(0.05, 1.0, alive);
+          vec3 edge = vec3(0.0, 0.298, 0.220);
+          vec3 tissue = vec3(0.0, 0.765, 0.627);
+          vec3 core = vec3(0.537, 1.0, 0.929);
+          col = mix(edge, tissue, smoothstep(0.0, 0.5, t));
+          col = mix(col, core, smoothstep(0.5, 1.0, t));
+          col.r += s0.r * 0.28;
+          col.b += s0.g * 0.18;
+          col = clamp(col, 0.0, 1.0);
+        }
+        col *= 0.97 + 0.03 * sin(vUv.y * 1024.0);
+
+        float fade = clamp(1.0 - uEraseAge / 300.0, 0.0, 1.0);
+        if (fade > 0.0) {
+          float d = distance(vUv, uErase);
+          float ring = smoothstep(uEraseRadius - 0.006, uEraseRadius, d) - smoothstep(uEraseRadius, uEraseRadius + 0.03, d);
+          col += vec3(1.0, 0.0, 0.31) * ring * 0.9 * fade;
+        }
+        fragColor = vec4(col, 1.0);
+      }
+    `;
+
+    const simProgram = makeProgram(vertexShader, simShader);
+    const brushProgram = makeProgram(vertexShader, brushShader);
+    const displayProgram = makeProgram(vertexShader, displayShader);
+
+    function bindQuad(program) {
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    }
+
+    function makeTexture() {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, SIZE, SIZE, 0, gl.RGBA, gl.FLOAT, null);
+      return tex;
+    }
+
+    function makePair() {
+      const tex0 = makeTexture();
+      const tex1 = makeTexture();
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex0, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, tex1, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error("Framebuffer incomplete");
+      return { fb, tex0, tex1 };
+    }
+
+    let ping = makePair();
+    let pong = makePair();
+
+    function clearPair(pair) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pair.fb);
+      gl.viewport(0, 0, SIZE, SIZE);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.clearBufferfv(gl.COLOR, 0, new Float32Array([0, 0, 0, 0]));
+      gl.clearBufferfv(gl.COLOR, 1, new Float32Array([0, 0, 0, 0]));
+    }
+
+    function swap() {
+      const tmp = ping;
+      ping = pong;
+      pong = tmp;
+    }
+
+    function bindReadTextures(program) {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, ping.tex0);
+      gl.uniform1i(gl.getUniformLocation(program, "uState0"), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, ping.tex1);
+      gl.uniform1i(gl.getUniformLocation(program, "uState1"), 1);
+    }
+
+    function simStep(now) {
+      const species = SPECIES[currentSpeciesKey];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pong.fb);
+      gl.viewport(0, 0, SIZE, SIZE);
+      bindQuad(simProgram);
+      bindReadTextures(simProgram);
+      gl.uniform2f(gl.getUniformLocation(simProgram, "uTexel"), 1 / SIZE, 1 / SIZE);
+      gl.uniform2f(gl.getUniformLocation(simProgram, "uBirth"), species.birth[0], species.birth[1]);
+      gl.uniform2f(gl.getUniformLocation(simProgram, "uDeath"), species.death[0], species.death[1]);
+      gl.uniform3f(gl.getUniformLocation(simProgram, "uTint"), species.tint[0], species.tint[1], species.tint[2]);
+      gl.uniform1f(gl.getUniformLocation(simProgram, "uFlow"), species.flow);
+      gl.uniform1f(gl.getUniformLocation(simProgram, "uRecover"), species.recover);
+      gl.uniform1f(gl.getUniformLocation(simProgram, "uTime"), now);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      swap();
+      stepCount += 1;
+    }
+
+    function applyBrush(mode, uv, radiusPx) {
+      const species = SPECIES[currentSpeciesKey];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pong.fb);
+      gl.viewport(0, 0, SIZE, SIZE);
+      bindQuad(brushProgram);
+      bindReadTextures(brushProgram);
+      gl.uniform2f(gl.getUniformLocation(brushProgram, "uBrush"), uv[0], uv[1]);
+      gl.uniform1f(gl.getUniformLocation(brushProgram, "uRadius"), radiusPx / SIZE);
+      gl.uniform1i(gl.getUniformLocation(brushProgram, "uMode"), mode === "seed" ? 0 : 1);
+      gl.uniform3f(gl.getUniformLocation(brushProgram, "uSeedColor"), species.seedColor[0], species.seedColor[1], species.seedColor[2]);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      swap();
+    }
+
+    function draw(now) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      bindQuad(displayProgram);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, ping.tex0);
+      gl.uniform1i(gl.getUniformLocation(displayProgram, "uState0"), 0);
+      gl.uniform2f(gl.getUniformLocation(displayProgram, "uErase"), eraseEvent.x, eraseEvent.y);
+      gl.uniform1f(gl.getUniformLocation(displayProgram, "uEraseAge"), now - eraseEvent.time);
+      gl.uniform1f(gl.getUniformLocation(displayProgram, "uEraseRadius"), eraseEvent.radius);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      stepCounter.textContent = `Step ${stepCount.toLocaleString()}`;
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    }
+
+    function setBrushMode(mode) {
+      brushMode = mode;
+      brushButtons.forEach((button) => button.classList.toggle("active", button.dataset.brush === mode));
+    }
+
+    function seedCluster(x, y, radiusPx) {
+      applyBrush("seed", [x, y], radiusPx);
+      applyBrush("seed", [x, y], radiusPx * 0.65);
+    }
+
+    function showIntro() {
+      intro.style.opacity = "1";
+      clearTimeout(showIntro.timeout);
+      showIntro.timeout = setTimeout(() => { intro.style.opacity = "0"; }, 1700);
+    }
+
+    function resetSimulation() {
+      stepCount = 0;
+      clearPair(ping);
+      clearPair(pong);
+      seedCluster(0.50, 0.50, 28);
+      seedCluster(0.36, 0.40, 18);
+      seedCluster(0.61, 0.58, 20);
+      eraseEvent = { x: -10, y: -10, time: -1000, radius: 0.06 };
+      showIntro();
+    }
+
+    function pointerToUV(event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = 1 - (event.clientY - rect.top) / rect.height;
+      return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+    }
+
+    function paintFromEvent(event) {
+      pointerUV = pointerToUV(event);
+      const radiusPx = Number(brushSlider.value);
+      applyBrush(brushMode, pointerUV, radiusPx);
+      if (brushMode === "erase") eraseEvent = { x: pointerUV[0], y: pointerUV[1], time: performance.now(), radius: radiusPx / SIZE };
+    }
+
+    Object.entries(SPECIES).forEach(([key, species]) => {
+      const button = document.createElement("button");
+      button.textContent = species.name;
+      button.dataset.species = key;
+      button.classList.toggle("active", key === currentSpeciesKey);
+      button.addEventListener("click", () => {
+        currentSpeciesKey = key;
+        document.documentElement.style.setProperty("--accent", species.accent);
+        [...speciesGrid.children].forEach((child) => child.classList.toggle("active", child.dataset.species === key));
+        resetSimulation();
+      });
+      speciesGrid.appendChild(button);
+    });
+    document.documentElement.style.setProperty("--accent", SPECIES[currentSpeciesKey].accent);
+
+    brushButtons.forEach((button) => button.addEventListener("click", () => setBrushMode(button.dataset.brush)));
+    brushSlider.addEventListener("input", () => brushValue.textContent = `${brushSlider.value}px`);
+    stepsSlider.addEventListener("input", () => stepsValue.textContent = stepsSlider.value);
+    playPauseButton.addEventListener("click", () => {
+      playing = !playing;
+      playPauseButton.textContent = playing ? "Pause" : "Play";
+    });
+    resetButton.addEventListener("click", resetSimulation);
+
+    canvas.addEventListener("pointerdown", (event) => {
+      pointerDown = true;
+      if (event.button === 2) setBrushMode("erase");
+      paintFromEvent(event);
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      pointerUV = pointerToUV(event);
+      if (pointerDown) paintFromEvent(event);
+    });
+    canvas.addEventListener("pointerup", () => { pointerDown = false; });
+    canvas.addEventListener("pointerleave", () => { pointerDown = false; });
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+    brushValue.textContent = `${brushSlider.value}px`;
+    stepsValue.textContent = stepsSlider.value;
+    resetSimulation();
+
+    function frame(now) {
+      const dt = Math.min(32, now - lastNow);
+      lastNow = now;
+      if (playing) {
+        const steps = Number(stepsSlider.value);
+        for (let i = 0; i < steps; i++) simStep(now * 0.001 + i * 0.013 + dt * 0.0001);
+      }
+      draw(now);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>

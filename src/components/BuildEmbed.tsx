@@ -20,8 +20,8 @@ export function BuildEmbed({ slug }: { slug: string }) {
         </button>
       </div>
       <iframe
-        src={`/builds/${slug}/index.html`}
-        className={`w-full border-0 ${expanded ? 'h-[calc(100%-36px)]' : 'h-[500px]'}`}
+        src={`/builds/${slug}`}
+        className={`w-full border-0 ${expanded ? 'h-[calc(100%-36px)]' : 'h-[500px] sm:h-[560px]'}`}
         title="Interactive build"
         sandbox="allow-scripts allow-same-origin"
       />
