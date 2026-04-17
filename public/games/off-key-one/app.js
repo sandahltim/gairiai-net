@@ -6,7 +6,7 @@ import {
   serializeProgress,
   hydrateProgress,
   listUnlocks,
-} from './game.mjs';
+} from '/games/off-key-one/game.mjs';
 
 const SAVE_KEY = 'gf-off-key-one';
 const STAGES = ['briefing', 'rehearsal', 'evidence', 'vote', 'result'];
