@@ -9,7 +9,8 @@ import {
 } from '/games/off-key-one/game.mjs';
 
 const SAVE_KEY = 'gf-off-key-one';
-const STAGES = ['briefing', 'rehearsal', 'evidence', 'vote', 'result'];
+const STAGES = ['load', 'hear', 'solo', 'choose', 'resolve'];
+const SEAT_INTERVALS = { S: 12, A: 5, T: 0, B: -7, Lead: 16, Swing: 9 };
 
 const els = {
   scoreValue: document.getElementById('scoreValue'),
@@ -18,25 +19,19 @@ const els = {
   unlockValue: document.getElementById('unlockValue'),
   nextRoundBtn: document.getElementById('nextRoundBtn'),
   howToBtn: document.getElementById('howToBtn'),
+  howToCopy: document.getElementById('howToCopy'),
   resetBtn: document.getElementById('resetBtn'),
-  onboardingPanel: document.getElementById('onboardingPanel'),
-  modeRow: document.getElementById('modeRow'),
-  secretScreen: document.getElementById('secretScreen'),
-  secretTitle: document.getElementById('secretTitle'),
-  secretCopy: document.getElementById('secretCopy'),
   stageStrip: document.getElementById('stageStrip'),
+  hearRoomBtn: document.getElementById('hearRoomBtn'),
+  revealSecretBtn: document.getElementById('revealSecretBtn'),
   focusBadge: document.getElementById('focusBadge'),
   briefingCopy: document.getElementById('briefingCopy'),
   venueCopy: document.getElementById('venueCopy'),
-  revealSecretBtn: document.getElementById('revealSecretBtn'),
-  advanceStageBtn: document.getElementById('advanceStageBtn'),
-  evidenceList: document.getElementById('evidenceList'),
   suspectList: document.getElementById('suspectList'),
   voteBtn: document.getElementById('voteBtn'),
-  resultPanel: document.getElementById('resultPanel'),
-  resultCopy: document.getElementById('resultCopy'),
   continueBtn: document.getElementById('continueBtn'),
   replayBtn: document.getElementById('replayBtn'),
+  resultCopy: document.getElementById('resultCopy'),
   unlockList: document.getElementById('unlockList'),
 };
 
@@ -44,10 +39,10 @@ const state = {
   progress: loadProgress(),
   round: null,
   selectedSuspectId: null,
-  currentStage: 'briefing',
+  currentStage: 'load',
   resolution: null,
   audioContext: null,
-  secretRevealed: false,
+  isPlaying: false,
 };
 
 function loadProgress() {
@@ -77,12 +72,11 @@ function saveProgress() {
 }
 
 function newRound(seed = Date.now()) {
-  const gameState = createGameState({ ...state.progress, seed });
+  const gameState = createGameState({ ...state.progress, seed, mode: 'solo' });
   state.round = createRound(gameState);
   state.selectedSuspectId = null;
-  state.currentStage = 'briefing';
+  state.currentStage = 'hear';
   state.resolution = null;
-  state.secretRevealed = false;
   render();
 }
 
@@ -91,8 +85,8 @@ function restartRun() {
     ...state.progress,
     score: 0,
     streak: 0,
-    mode: state.progress.mode,
     round: 1,
+    mode: 'solo',
   };
   saveProgress();
   newRound(Date.now());
@@ -100,10 +94,8 @@ function restartRun() {
 
 function render() {
   renderStats();
-  renderModes();
-  renderStageStrip();
-  renderBriefing();
-  renderEvidence();
+  renderStages();
+  renderRound();
   renderSuspects();
   renderResult();
   renderUnlocks();
@@ -116,158 +108,84 @@ function renderStats() {
   els.unlockValue.textContent = String(state.progress.unlockTier);
 }
 
-function renderModes() {
-  [...els.modeRow.querySelectorAll('[data-mode]')].forEach((button) => {
-    button.dataset.active = String(button.dataset.mode === state.progress.mode);
-  });
-
-  if (!state.round) {
-    els.secretTitle.textContent = 'Local multiplayer secret brief';
-    els.secretCopy.textContent = state.progress.mode === 'pass-play'
-      ? 'Start a rehearsal, reveal the secret sabotage assignment for Player 1, then hand the phone over.'
-      : 'Solo conductor is the default launch path. Switch to Pass & Play for the couch-test build.';
-    els.secretScreen.classList.remove('revealed');
-    return;
-  }
-
-  if (state.progress.mode === 'pass-play') {
-    els.secretTitle.textContent = state.secretRevealed ? 'Hand the phone over' : 'Player 1 secret brief';
-    els.secretCopy.textContent = state.secretRevealed
-      ? `${saboteur().name} is the hidden saboteur. Pass the device. Everyone else should hunt based on the room, not this screen.`
-      : 'Reveal the secret brief only when the saboteur is holding the phone.';
-    els.secretScreen.classList.toggle('revealed', state.secretRevealed);
-  } else {
-    els.secretTitle.textContent = 'Solo conductor rollout';
-    els.secretCopy.textContent = 'No hidden player here. You are the conductor, reading the room and calling out the saboteur yourself.';
-    els.secretScreen.classList.remove('revealed');
-  }
-}
-
-function renderStageStrip() {
+function renderStages() {
   els.stageStrip.innerHTML = '';
   const currentIndex = STAGES.indexOf(state.currentStage);
   STAGES.forEach((stage, index) => {
-    const pill = document.createElement('div');
-    pill.className = 'stage-pill';
-    pill.dataset.active = index === currentIndex ? 'true' : index < currentIndex ? 'preview' : 'false';
-    pill.textContent = stage;
-    els.stageStrip.appendChild(pill);
+    const chip = document.createElement('div');
+    chip.className = `chip${index === currentIndex ? ' active' : ''}`;
+    chip.textContent = stage;
+    els.stageStrip.appendChild(chip);
   });
 }
 
-function renderBriefing() {
+function renderRound() {
   if (!state.round) {
     els.focusBadge.textContent = 'waiting';
-    els.briefingCopy.textContent = 'Tap Start rehearsal to generate a cast, venue, and sabotage pattern.';
-    els.venueCopy.textContent = 'The room will fill in here.';
+    els.briefingCopy.textContent = 'Tap start. Then trust your ears.';
+    els.venueCopy.textContent = 'The saboteur will bend rhythm, pitch, or blend.';
+    els.hearRoomBtn.disabled = true;
+    els.revealSecretBtn.disabled = true;
     return;
   }
-  els.focusBadge.textContent = state.round.focus;
-  els.briefingCopy.textContent = `${state.round.ensemble} is rehearsing at ${state.round.venue}. Watch the ${state.round.focus}. Round ${state.round.roundNumber} raises the pressure to ${state.round.difficulty}/7.`;
-  els.venueCopy.textContent = state.progress.mode === 'pass-play'
-    ? `In pass & play, reveal the secret brief before you advance. Then everyone uses the same ${state.round.evidence.length}-clue set and ${state.round.suspects.length}-singer suspect board.`
-    : `Sabotage flavor tonight: ${state.round.sabotageLabel}. ${state.round.evidence.length} clues are on the stand, and ${state.round.suspects.length} singers could have poisoned the blend.`;
 
-  els.revealSecretBtn.textContent = state.progress.mode === 'pass-play'
-    ? state.secretRevealed ? 'Hide secret brief' : 'Reveal secret brief'
-    : 'Solo mode: no secret brief';
-  els.revealSecretBtn.disabled = state.progress.mode !== 'pass-play';
-  els.advanceStageBtn.textContent = state.resolution ? 'Result locked' : nextStageLabel();
-  els.advanceStageBtn.disabled = Boolean(state.resolution);
-}
-
-function renderEvidence() {
-  els.evidenceList.innerHTML = '';
-  const evidence = state.round?.evidence ?? [];
-  evidence.forEach((clue) => {
-    const card = document.createElement('article');
-    card.className = 'evidence-card';
-    card.innerHTML = `
-      <div class="evidence-top">
-        <div>
-          <div class="pill">${clue.label}</div>
-          <h3 class="section-title">${clue.actorName}</h3>
-        </div>
-        <div class="intensity">Intensity ${clue.intensity}</div>
-      </div>
-      <p class="section-copy">${clue.clueText}</p>
-      <div class="controls">
-        <button class="btn-secondary" data-play-clue="${clue.id}">Play cue</button>
-        <button class="btn-secondary" data-read-clue="${clue.id}">Spotlight</button>
-      </div>
-    `;
-    els.evidenceList.appendChild(card);
-  });
+  els.focusBadge.textContent = `${state.round.focus} focus`;
+  els.briefingCopy.textContent = `${state.round.ensemble} • Round ${state.round.roundNumber}`;
+  els.venueCopy.textContent = `${state.round.venue}. ${state.round.suspects.length} singers. ${state.round.evidence.length} clues. One of them is wrong.`;
+  els.hearRoomBtn.disabled = state.isPlaying;
+  els.revealSecretBtn.disabled = state.isPlaying;
+  els.revealSecretBtn.textContent = state.round.focus === 'pitch' ? 'Hear pure chord' : state.round.focus === 'rhythm' ? 'Hear click grid' : 'Hear clean blend';
 }
 
 function renderSuspects() {
   els.suspectList.innerHTML = '';
-  const suspects = state.round?.suspects ?? [];
-  suspects.forEach((suspect) => {
+  if (!state.round) {
+    els.voteBtn.disabled = true;
+    return;
+  }
+
+  state.round.suspects.forEach((suspect) => {
     const card = document.createElement('article');
-    card.className = 'suspect-card';
-    card.dataset.selected = String(state.selectedSuspectId === suspect.id);
+    card.className = `suspect-card${state.selectedSuspectId === suspect.id ? ' selected' : ''}`;
     card.innerHTML = `
       <div class="suspect-top">
         <div>
-          <div class="pill">${suspect.seat} section</div>
-          <h3 class="section-title">${suspect.name}</h3>
+          <div class="suspect-seat">${suspect.seat}</div>
+          <div class="suspect-name">${suspect.name}</div>
         </div>
-        <div class="intensity">Nerve ${suspect.confidence}</div>
+        <div class="chip">nerve ${suspect.confidence}</div>
       </div>
-      <div class="suspect-meta">
-        <span>${state.round?.ensemble ?? 'Ensemble'}</span>
-        <span>${state.round?.focus ?? 'focus'} pressure</span>
+      <div class="suspect-actions">
+        <button class="listen-btn" data-listen="${suspect.id}">Listen</button>
+        <button class="select-btn" data-select="${suspect.id}">${state.selectedSuspectId === suspect.id ? 'Chosen' : 'Pick'}</button>
       </div>
-      <ul class="suspect-tells">
-        ${suspect.tells.map((tell) => `<li>${tell}</li>`).join('')}
-      </ul>
-      <button class="btn-secondary" data-select-suspect="${suspect.id}">${state.selectedSuspectId === suspect.id ? 'Selected' : 'Suspect this singer'}</button>
     `;
     els.suspectList.appendChild(card);
   });
-  els.voteBtn.disabled = !state.selectedSuspectId || !state.round;
+
+  els.voteBtn.disabled = !state.selectedSuspectId || state.isPlaying;
 }
 
 function renderResult() {
   if (!state.resolution) {
-    els.resultCopy.textContent = 'No accusation locked yet. Listen, read, then make the call.';
+    els.resultCopy.textContent = 'Hear the room, audition suspects, then call it.';
     els.continueBtn.disabled = true;
     return;
   }
-  const culpritName = saboteur().name;
-  const verdict = state.resolution.correct ? 'Choir holds.' : 'Harmony breaks.';
-  els.resultCopy.textContent = `${verdict} ${state.resolution.summary} ${state.resolution.correct ? `+${state.resolution.scoreDelta}` : `${state.resolution.scoreDelta}`} score. The saboteur was ${culpritName}.`;
+
+  const verdict = state.resolution.correct ? 'Nailed it.' : 'Missed it.';
+  els.resultCopy.textContent = `${verdict} ${state.resolution.correct ? `+${state.resolution.scoreDelta}` : `${state.resolution.scoreDelta}`} — ${state.resolution.culpritName} was the saboteur.`;
   els.continueBtn.disabled = false;
 }
 
 function renderUnlocks() {
   const unlocks = listUnlocks(state.progress.unlockTier);
-  els.unlockList.innerHTML = '';
-  [
-    { title: 'Venues', values: unlocks.venues },
-    { title: 'Ensembles', values: unlocks.ensembles },
-    { title: 'Sabotage lanes', values: unlocks.sabotageTypes },
-  ].forEach((item) => {
-    const card = document.createElement('article');
-    card.className = 'unlock-card';
-    card.innerHTML = `
-      <h3 class="section-title">${item.title}</h3>
-      <p class="section-copy">${item.values.join(' • ')}</p>
-    `;
-    els.unlockList.appendChild(card);
-  });
+  els.unlockList.textContent = `Unlocked: ${unlocks.venues.join(' • ')}`;
 }
 
-function nextStageLabel() {
-  if (!state.round) return 'Advance';
-  const currentIndex = STAGES.indexOf(state.currentStage);
-  if (currentIndex === -1 || currentIndex === STAGES.length - 1) return 'Move to result';
-  return `Advance to ${STAGES[currentIndex + 1]}`;
-}
-
-function saboteur() {
-  return state.round.suspects.find((suspect) => suspect.isSaboteur) ?? state.round.suspects[0];
+function setStage(stage) {
+  state.currentStage = stage;
+  renderStages();
 }
 
 async function ensureAudio() {
@@ -282,93 +200,177 @@ async function ensureAudio() {
   return state.audioContext;
 }
 
-async function playCue(clue) {
+function noteFrequency(interval, root = 220) {
+  return root * Math.pow(2, interval / 12);
+}
+
+function envelope(gainNode, start, attack = 0.02, sustain = 0.14, level = 0.12) {
+  gainNode.gain.setValueAtTime(0.0001, start);
+  gainNode.gain.exponentialRampToValueAtTime(level, start + attack);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, start + attack + sustain);
+}
+
+async function playChord(intervals, options = {}) {
   const ctx = await ensureAudio();
   if (!ctx) return;
   const now = ctx.currentTime + 0.02;
-  const root = 220 + clue.intensity * 24;
-  const gain = ctx.createGain();
-  gain.gain.value = 0.0001;
-  gain.connect(ctx.destination);
-  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+  const root = options.root ?? 196;
+  const waveform = options.waveform ?? 'triangle';
+  const detune = options.detune ?? 0;
+  const duration = options.duration ?? 0.6;
 
-  if (clue.cue.family === 'rhythm') {
-    clue.cue.pattern.forEach((pulse, index) => {
-      const osc = ctx.createOscillator();
-      const oscGain = ctx.createGain();
-      osc.type = clue.isSabotaged ? 'square' : 'triangle';
-      osc.frequency.setValueAtTime(root * pulse, now + index * 0.22);
-      osc.detune.value = clue.cue.detune;
-      oscGain.gain.setValueAtTime(0.0001, now + index * 0.22);
-      oscGain.gain.exponentialRampToValueAtTime(0.12, now + index * 0.22 + 0.01);
-      oscGain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.22 + 0.14);
-      osc.connect(oscGain).connect(gain);
-      osc.start(now + index * 0.22);
-      osc.stop(now + index * 0.22 + 0.16);
-    });
-  } else {
-    const intervals = clue.cue.intervals;
-    intervals.forEach((interval, index) => {
-      const osc = ctx.createOscillator();
-      const oscGain = ctx.createGain();
-      const freq = root * Math.pow(2, interval / 12);
-      osc.type = clue.isSabotaged ? 'sawtooth' : index === 0 ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-      osc.detune.value = clue.cue.detune;
-      oscGain.gain.setValueAtTime(0.0001, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.09, now + 0.05);
-      oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
-      osc.connect(oscGain).connect(gain);
-      osc.start(now + index * 0.02);
-      osc.stop(now + 1);
-    });
-  }
-}
-
-async function playResultSting(correct) {
-  const ctx = await ensureAudio();
-  if (!ctx) return;
-  const now = ctx.currentTime + 0.03;
-  const intervals = correct ? [0, 4, 7, 12] : [0, 3, 6, 10];
   intervals.forEach((interval, index) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = correct ? 'triangle' : 'square';
-    osc.frequency.value = 280 * Math.pow(2, interval / 12);
-    gain.gain.setValueAtTime(0.0001, now + index * 0.04);
-    gain.gain.exponentialRampToValueAtTime(0.12, now + index * 0.04 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55 + index * 0.03);
+    osc.type = waveform;
+    osc.frequency.setValueAtTime(noteFrequency(interval, root), now);
+    osc.detune.setValueAtTime(detune + index * 3, now);
+    envelope(gain, now, 0.02, Math.max(0.16, duration - 0.08), 0.08);
     osc.connect(gain).connect(ctx.destination);
-    osc.start(now + index * 0.04);
-    osc.stop(now + 0.7 + index * 0.03);
+    osc.start(now + index * 0.01);
+    osc.stop(now + duration);
   });
 }
 
-function advanceStage() {
-  if (!state.round) return;
-  const currentIndex = STAGES.indexOf(state.currentStage);
-  if (currentIndex < STAGES.length - 1) {
-    state.currentStage = STAGES[currentIndex + 1];
-  }
-  render();
+async function playPulse(pattern, options = {}) {
+  const ctx = await ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime + 0.02;
+  const root = options.root ?? 220;
+  const waveform = options.waveform ?? 'triangle';
+  const detune = options.detune ?? 0;
+
+  pattern.forEach((pulse, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = waveform;
+    osc.frequency.setValueAtTime(root * pulse, now + index * 0.19);
+    osc.detune.setValueAtTime(detune, now + index * 0.19);
+    envelope(gain, now + index * 0.19, 0.01, 0.08, 0.11);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + index * 0.19);
+    osc.stop(now + index * 0.19 + 0.12);
+  });
 }
 
-function lockVote() {
-  if (!state.round || !state.selectedSuspectId) return;
+async function playClue(clue) {
+  if (clue.cue.family === 'rhythm') {
+    await playPulse(clue.cue.pattern, {
+      root: 190 + clue.intensity * 18,
+      waveform: clue.isSabotaged ? 'square' : 'triangle',
+      detune: clue.cue.detune,
+    });
+    return;
+  }
+
+  await playChord(clue.cue.intervals, {
+    root: 180 + clue.intensity * 14,
+    waveform: clue.isSabotaged ? 'sawtooth' : 'triangle',
+    detune: clue.cue.detune,
+    duration: 0.72,
+  });
+}
+
+async function playReference() {
+  if (!state.round || state.isPlaying) return;
+  const focus = state.round.focus;
+  setStage('hear');
+  state.isPlaying = true;
+  renderRound();
+  if (focus === 'rhythm') {
+    await playPulse([1, 1, 1, 1], { root: 210, waveform: 'triangle', detune: 0 });
+  } else if (focus === 'pitch') {
+    await playChord([0, 4, 7], { root: 210, waveform: 'sine', detune: 0, duration: 0.8 });
+  } else {
+    await playChord([0, 4, 9], { root: 200, waveform: 'triangle', detune: 0, duration: 0.8 });
+  }
+  setTimeout(() => {
+    state.isPlaying = false;
+    renderRound();
+    renderSuspects();
+  }, 860);
+}
+
+async function playRoomMix() {
+  if (!state.round || state.isPlaying) return;
+  setStage('hear');
+  state.isPlaying = true;
+  renderRound();
+  renderSuspects();
+
+  const cues = [...state.round.evidence];
+  for (const clue of cues) {
+    await playClue(clue);
+    await wait(420);
+  }
+
+  state.isPlaying = false;
+  setStage('solo');
+  renderRound();
+  renderSuspects();
+}
+
+function clueForSuspect(suspect) {
+  const direct = state.round.evidence.find((clue) => clue.actorId === suspect.id);
+  if (direct) return direct;
+  const fallback = state.round.evidence.find((clue) => clue.isSabotaged === suspect.isSaboteur);
+  return fallback ?? state.round.evidence[0];
+}
+
+async function playSuspect(suspectId) {
+  if (!state.round || state.isPlaying) return;
+  const suspect = state.round.suspects.find((item) => item.id === suspectId);
+  if (!suspect) return;
+  setStage('solo');
+  state.isPlaying = true;
+  renderRound();
+  renderSuspects();
+
+  const clue = clueForSuspect(suspect);
+  const seatOffset = SEAT_INTERVALS[suspect.seat] ?? 0;
+  const syntheticClue = {
+    ...clue,
+    cue: clue.cue.family === 'rhythm'
+      ? { ...clue.cue, pattern: suspect.isSaboteur ? [1, 0.78, 1.28, 0.84] : [1, 1, 1, 1] }
+      : { ...clue.cue, intervals: (clue.cue.intervals ?? [0, 4, 7]).map((i) => i + Math.round(seatOffset / 12)) },
+    intensity: Math.max(1, Math.min(5, clue.intensity + Math.floor(suspect.confidence / 3))),
+  };
+
+  await playClue(syntheticClue);
+  await wait(360);
+  state.isPlaying = false;
+  renderRound();
+  renderSuspects();
+}
+
+function chooseSuspect(suspectId) {
+  state.selectedSuspectId = suspectId;
+  setStage('choose');
+  renderSuspects();
+}
+
+async function lockVote() {
+  if (!state.round || !state.selectedSuspectId || state.isPlaying) return;
   state.resolution = resolveVote(state.progress, state.round, state.selectedSuspectId);
   state.progress = advanceProgress(state.progress, state.resolution);
-  state.currentStage = 'result';
   saveProgress();
-  render();
-  playResultSting(state.resolution.correct);
+  setStage('resolve');
+  renderStats();
+  renderResult();
+  renderUnlocks();
+  await playVerdict(state.resolution.correct);
 }
 
-function spotlightClue(clue) {
-  els.briefingCopy.textContent = `${clue.label}: ${clue.clueText}`;
-  els.venueCopy.textContent = clue.isSabotaged
-    ? 'That clue carries dissonance. Maybe obvious. Maybe bait.'
-    : 'That clue resolves cleanly. Trust it, but not too much.';
+async function playVerdict(correct) {
+  if (correct) {
+    await playChord([0, 4, 7, 12], { root: 230, waveform: 'triangle', duration: 0.72 });
+    return;
+  }
+  await playChord([0, 3, 6, 10], { root: 180, waveform: 'square', detune: -12, duration: 0.72 });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function bindEvents() {
@@ -378,7 +380,7 @@ function bindEvents() {
   });
 
   els.howToBtn.addEventListener('click', () => {
-    els.onboardingPanel.classList.toggle('hidden');
+    els.howToCopy.classList.toggle('hidden');
   });
 
   els.resetBtn.addEventListener('click', () => {
@@ -387,50 +389,19 @@ function bindEvents() {
     newRound(Date.now());
   });
 
-  els.modeRow.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-mode]');
-    if (!button) return;
-    state.progress.mode = button.dataset.mode === 'pass-play' ? 'pass-play' : 'solo';
-    saveProgress();
-    render();
-  });
-
-  els.revealSecretBtn.addEventListener('click', () => {
-    if (state.progress.mode !== 'pass-play' || !state.round) return;
-    state.secretRevealed = !state.secretRevealed;
-    render();
-  });
-
-  els.advanceStageBtn.addEventListener('click', () => {
-    if (!state.round) return;
-    advanceStage();
-  });
-
-  els.evidenceList.addEventListener('click', (event) => {
-    const playId = event.target.closest('[data-play-clue]')?.dataset.playClue;
-    const readId = event.target.closest('[data-read-clue]')?.dataset.readClue;
-    if (!state.round) return;
-    const clue = state.round.evidence.find((item) => item.id === playId || item.id === readId);
-    if (!clue) return;
-    if (playId) {
-      playCue(clue);
-      if (STAGES.indexOf(state.currentStage) < 2) {
-        state.currentStage = 'evidence';
-        renderStageStrip();
-      }
-      return;
-    }
-    spotlightClue(clue);
-  });
+  els.hearRoomBtn.addEventListener('click', playRoomMix);
+  els.revealSecretBtn.addEventListener('click', playReference);
 
   els.suspectList.addEventListener('click', (event) => {
-    const suspectId = event.target.closest('[data-select-suspect]')?.dataset.selectSuspect;
-    if (!suspectId) return;
-    state.selectedSuspectId = suspectId;
-    if (STAGES.indexOf(state.currentStage) < 3) {
-      state.currentStage = 'vote';
+    const listenId = event.target.closest('[data-listen]')?.dataset.listen;
+    const selectId = event.target.closest('[data-select]')?.dataset.select;
+    if (listenId) {
+      playSuspect(listenId);
+      return;
     }
-    render();
+    if (selectId) {
+      chooseSuspect(selectId);
+    }
   });
 
   els.voteBtn.addEventListener('click', lockVote);
@@ -439,4 +410,4 @@ function bindEvents() {
 }
 
 bindEvents();
-newRound(Date.now());
+render();
