@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Off-Key One</title>
+  <style>
+    :root {
+      --bg: #0a0c16;
+      --bg-2: #12192f;
+      --panel: rgba(17, 23, 43, 0.9);
+      --panel-strong: rgba(20, 28, 52, 0.96);
+      --border: rgba(149, 172, 255, 0.2);
+      --text: #f6f8ff;
+      --muted: #b4bed8;
+      --soft: #7e8db2;
+      --accent: #7cf6d7;
+      --accent-2: #a98eff;
+      --danger: #ff7b9b;
+      --gold: #ffd970;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(124, 246, 215, 0.14), transparent 26%),
+        radial-gradient(circle at bottom, rgba(169, 142, 255, 0.13), transparent 28%),
+        linear-gradient(180deg, var(--bg), #080910 72%);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overscroll-behavior-y: contain;
+    }
+
+    body {
+      padding: 16px;
+    }
+
+    .app {
+      width: min(100%, 720px);
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+      padding-bottom: 48px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.9rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 8vw, 3rem);
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+    }
+
+    .tagline {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+      max-width: 34ch;
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .stat {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      padding: 12px;
+      min-height: 74px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+    }
+
+    .stat-label {
+      color: var(--soft);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+
+    .controls,
+    .mode-row,
+    .stage-strip,
+    .briefing-actions,
+    .result-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      min-height: 48px;
+      border-radius: 16px;
+      padding: 12px 16px;
+      font: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    button:focus-visible {
+      outline: 3px solid rgba(124, 246, 215, 0.6);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #59bff8);
+      color: #05111e;
+      box-shadow: 0 18px 30px rgba(92, 195, 255, 0.22);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #ff8ea2, #ff6a77);
+      color: #28050d;
+    }
+
+    .btn-gold {
+      background: linear-gradient(135deg, #ffe68a, #ffbb6b);
+      color: #2a1700;
+    }
+
+    .mode-chip,
+    .stage-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,0.07);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .mode-chip[data-active='true'],
+    .stage-pill[data-active='true'] {
+      color: #07141f;
+      background: linear-gradient(135deg, #f7fbff, var(--accent));
+      border-color: transparent;
+    }
+
+    .mode-chip[data-active='preview'],
+    .stage-pill[data-active='preview'] {
+      color: var(--gold);
+      border-color: rgba(255, 217, 112, 0.35);
+      background: rgba(255, 217, 112, 0.08);
+    }
+
+    .section {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+    }
+
+    .section-copy,
+    .subtle-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.98rem;
+    }
+
+    .focus-line {
+      display: grid;
+      gap: 8px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .focus-badge {
+      display: inline-flex;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(169, 142, 255, 0.18);
+      color: #ebdeff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+
+    .evidence-list,
+    .suspect-list,
+    .unlock-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .evidence-card,
+    .suspect-card,
+    .unlock-card,
+    .result-card,
+    .onboarding-card {
+      border-radius: 20px;
+      padding: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: grid;
+      gap: 10px;
+    }
+
+    .evidence-top,
+    .suspect-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(124, 246, 215, 0.12);
+      color: var(--accent);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: capitalize;
+      width: fit-content;
+    }
+
+    .intensity {
+      color: var(--gold);
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+
+    .suspect-card[data-selected='true'] {
+      border-color: rgba(124, 246, 215, 0.7);
+      box-shadow: 0 0 0 1px rgba(124, 246, 215, 0.36) inset;
+    }
+
+    .suspect-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--soft);
+      font-size: 0.92rem;
+    }
+
+    .suspect-tells {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+
+    .mode-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .secret-screen {
+      min-height: 180px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 16px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+      border: 1px dashed rgba(255,255,255,0.16);
+    }
+
+    .secret-screen.revealed {
+      background: linear-gradient(180deg, rgba(255,123,155,0.16), rgba(255,123,155,0.05));
+      border-style: solid;
+      border-color: rgba(255,123,155,0.34);
+    }
+
+    .footer-note {
+      color: var(--soft);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (min-width: 720px) {
+      body { padding: 24px; }
+      .hero-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .evidence-list,
+      .unlock-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel hero">
+      <div>
+        <div class="eyebrow">social deduction • rhythm thriller</div>
+        <h1>Off-Key One</h1>
+        <p class="tagline">Find the singer poisoning the harmony before the whole room goes dissonant.</p>
+      </div>
+      <div class="hero-grid">
+        <div class="stat"><div class="stat-label">Score</div><div class="stat-value" id="scoreValue">0</div></div>
+        <div class="stat"><div class="stat-label">Streak</div><div class="stat-value" id="streakValue">0</div></div>
+        <div class="stat"><div class="stat-label">Best</div><div class="stat-value" id="bestValue">0</div></div>
+        <div class="stat"><div class="stat-label">Unlock Tier</div><div class="stat-value" id="unlockValue">1</div></div>
+      </div>
+      <div class="controls">
+        <button class="btn-primary" id="nextRoundBtn">Start rehearsal</button>
+        <button class="btn-secondary" id="howToBtn">How it works</button>
+        <button class="btn-secondary" id="resetBtn">Reset save</button>
+      </div>
+    </section>
+
+    <section class="panel section onboarding-card" id="onboardingPanel">
+      <h2 class="section-title">The loop</h2>
+      <p class="section-copy">Brief the room. Listen for what sounds wrong. Read the tells. Accuse one suspect. Keep a streak alive long enough to unlock weirder venues, bigger suspect pools, and nastier sabotage.</p>
+      <div class="unlock-list">
+        <div class="unlock-card"><strong>Solo conductor</strong><span class="subtle-copy">You hear the evidence and hunt the saboteur against increasingly sneaky AI singers.</span></div>
+        <div class="unlock-card"><strong>Pass &amp; play POC</strong><span class="subtle-copy">One player secretly sees the sabotage brief, then hands the phone over for the shared accusation phase.</span></div>
+      </div>
+      <p class="footer-note">Good clues resolve like a major chord. Bad clues lean sharp, flat, or early. Use your ears.</p>
+    </section>
+
+    <section class="panel section mode-panel">
+      <div>
+        <h2 class="section-title">Rollout mode</h2>
+        <p class="section-copy">We’re shipping the full vertical slice now, but the multiplayer side is intentionally a slow-rollout rehearsal room instead of full netcode.</p>
+      </div>
+      <div class="mode-row" id="modeRow">
+        <button class="mode-chip" data-mode="solo">Solo conductor</button>
+        <button class="mode-chip" data-mode="pass-play">Pass &amp; play POC</button>
+      </div>
+      <div class="secret-screen" id="secretScreen">
+        <div>
+          <h3 class="section-title" id="secretTitle">Local multiplayer secret brief</h3>
+          <p class="section-copy" id="secretCopy">Choose Pass &amp; Play, then reveal the saboteur brief for Player 1 only.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div>
+        <h2 class="section-title">Stage progression</h2>
+        <p class="section-copy">This should breathe like an arrangement: setup, tension, suspicion, release.</p>
+      </div>
+      <div class="stage-strip" id="stageStrip"></div>
+      <div class="focus-line">
+        <span class="focus-badge" id="focusBadge">rhythm</span>
+        <p class="section-copy" id="briefingCopy">Start a round to generate the room.</p>
+        <p class="subtle-copy" id="venueCopy">Venue and ensemble details appear here.</p>
+      </div>
+      <div class="briefing-actions">
+        <button class="btn-secondary" id="revealSecretBtn">Reveal secret brief</button>
+        <button class="btn-primary" id="advanceStageBtn">Advance to rehearsal</button>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div>
+        <h2 class="section-title">Evidence</h2>
+        <p class="section-copy">Tap each clue. The clean takes should feel resolved. The sabotage should rub.</p>
+      </div>
+      <div class="evidence-list" id="evidenceList"></div>
+    </section>
+
+    <section class="panel section">
+      <div>
+        <h2 class="section-title">Suspects</h2>
+        <p class="section-copy">Nobody looks guilty for free. The fun is in the tiny cracks in the blend.</p>
+      </div>
+      <div class="suspect-list" id="suspectList"></div>
+      <button class="btn-danger" id="voteBtn">Lock accusation</button>
+    </section>
+
+    <section class="panel section result-card" id="resultPanel">
+      <div>
+        <h2 class="section-title">Result</h2>
+        <p class="section-copy" id="resultCopy">No vote yet.</p>
+      </div>
+      <div class="result-actions">
+        <button class="btn-primary" id="continueBtn">Next round</button>
+        <button class="btn-gold" id="replayBtn">One more round</button>
+      </div>
+    </section>
+
+    <section class="panel section">
+      <div>
+        <h2 class="section-title">Unlocked so far</h2>
+        <p class="section-copy">The streak is the hook. Keep catching the off-key one and the room gets stranger.</p>
+      </div>
+      <div class="unlock-list" id="unlockList"></div>
+      <p class="footer-note">Built for phone screens first. Audio starts on touch. Save data lives in this browser.</p>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
