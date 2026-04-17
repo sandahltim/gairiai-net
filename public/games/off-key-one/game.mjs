@@ -235,20 +235,33 @@ function clueCue(type, isSabotaged) {
     : { family: 'blend', intervals: [0, 4, 9], detune: 0 };
 }
 
-export function resolveVote(state, round, suspectId) {
+export function getRoundTimeLimit(difficulty) {
+  const level = Math.max(1, Math.min(7, normalizeInteger(difficulty, 1)));
+  return Math.max(9000, 12500 - level * 500);
+}
+
+export function resolveVote(state, round, suspectId, timing = {}) {
   const chosen = round.suspects.find((suspect) => suspect.id === suspectId) ?? round.suspects[0];
   const culprit = round.suspects.find((suspect) => suspect.isSaboteur) ?? round.suspects[0];
   const correct = chosen.id === culprit.id;
-  const scoreDelta = correct ? 30 + round.difficulty * 10 + state.streak * 5 : -15 - Math.max(0, round.difficulty - 2) * 5;
+  const roundDurationMs = Math.max(1, normalizeInteger(timing.roundDurationMs, getRoundTimeLimit(round.difficulty)));
+  const timeRemainingMs = Math.max(0, Math.min(roundDurationMs, normalizeInteger(timing.timeRemainingMs, Math.floor(roundDurationMs * 0.35))));
+  const timeRatio = timeRemainingMs / roundDurationMs;
+  const timeBonus = correct ? Math.round(timeRatio * 24) : 0;
+  const baseScore = 30 + round.difficulty * 10 + state.streak * 5;
+  const scoreDelta = correct
+    ? baseScore + timeBonus
+    : -15 - Math.max(0, round.difficulty - 2) * 5;
   return {
     correct,
     culpritId: culprit.id,
     culpritName: culprit.name,
     chosenId: chosen.id,
     scoreDelta,
+    timeBonus,
     nextRound: state.round + 1,
     summary: correct
-      ? `You caught ${culprit.name}. The ensemble resolves instead of collapsing.`
+      ? `Fast catch. ${culprit.name} folds before the room can split.`
       : `${chosen.name} was innocent. ${culprit.name} slips through the harmony.`
   };
 }

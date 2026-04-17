@@ -5,6 +5,7 @@ import {
   createGameState,
   createRound,
   buildEvidenceSet,
+  getRoundTimeLimit,
   resolveVote,
   advanceProgress,
   serializeProgress,
@@ -42,20 +43,31 @@ test('higher difficulty rounds add more suspects and late clues', () => {
   assert.ok(round.evidence.filter((clue) => clue.isSabotaged).length >= 2);
 });
 
-test('resolveVote rewards correct accusations and penalizes misses', () => {
-  const state = createGameState({ mode: 'solo', seed: 4, round: 2 });
+test('getRoundTimeLimit shortens the clock as difficulty rises but keeps a floor', () => {
+  assert.equal(getRoundTimeLimit(1), 12000);
+  assert.equal(getRoundTimeLimit(4), 10500);
+  assert.equal(getRoundTimeLimit(7), 9000);
+  assert.equal(getRoundTimeLimit(99), 9000);
+});
+
+test('resolveVote rewards faster correct accusations and penalizes misses', () => {
+  const state = createGameState({ mode: 'solo', seed: 4, round: 2, streak: 2 });
   const round = createRound(state);
   const culprit = round.suspects.find((suspect) => suspect.isSaboteur);
   const innocent = round.suspects.find((suspect) => !suspect.isSaboteur);
+  const clock = getRoundTimeLimit(round.difficulty);
 
-  const win = resolveVote(state, round, culprit.id);
-  const loss = resolveVote(state, round, innocent.id);
+  const fastWin = resolveVote(state, round, culprit.id, { timeRemainingMs: clock * 0.75, roundDurationMs: clock });
+  const slowWin = resolveVote(state, round, culprit.id, { timeRemainingMs: clock * 0.1, roundDurationMs: clock });
+  const loss = resolveVote(state, round, innocent.id, { timeRemainingMs: clock * 0.25, roundDurationMs: clock });
 
-  assert.equal(win.correct, true);
+  assert.equal(fastWin.correct, true);
   assert.equal(loss.correct, false);
-  assert.ok(win.scoreDelta > 0);
+  assert.ok(fastWin.scoreDelta > slowWin.scoreDelta);
+  assert.ok(fastWin.timeBonus > slowWin.timeBonus);
   assert.ok(loss.scoreDelta < 0);
-  assert.ok(win.summary.includes(culprit.name));
+  assert.ok(fastWin.summary.includes('Fast catch'));
+  assert.ok(loss.summary.includes(culprit.name));
 });
 
 test('advanceProgress grows streaks, unlock tier, and best score', () => {

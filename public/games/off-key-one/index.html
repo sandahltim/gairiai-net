@@ -15,6 +15,7 @@
       --accent: #77f7d1;
       --accent-2: #6bb7ff;
       --danger: #ff6e92;
+      --danger-2: #ff8b6a;
       --gold: #ffd36b;
       --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
     }
@@ -31,9 +32,7 @@
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
-    body {
-      padding: 14px;
-    }
+    body { padding: 14px; }
 
     .app {
       width: min(100%, 760px);
@@ -66,9 +65,7 @@
       font-weight: 800;
     }
 
-    h1, h2, h3, p {
-      margin: 0;
-    }
+    h1, h2, p { margin: 0; }
 
     h1 {
       font-size: clamp(2.2rem, 10vw, 3.4rem);
@@ -76,11 +73,16 @@
       letter-spacing: -0.06em;
     }
 
+    h2 {
+      font-size: 1.25rem;
+      letter-spacing: -0.03em;
+    }
+
     .tagline {
       color: var(--muted);
       font-size: 1rem;
       line-height: 1.35;
-      max-width: 28ch;
+      max-width: 26ch;
     }
 
     .hud {
@@ -115,7 +117,8 @@
 
     .controls,
     .chip-row,
-    .result-actions {
+    .result-actions,
+    .mix-actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
@@ -163,26 +166,82 @@
     .mix-pad {
       border-radius: 24px;
       padding: 16px;
-      min-height: 140px;
+      min-height: 168px;
       background:
         radial-gradient(circle at 20% 18%, rgba(119,247,209,0.22), transparent 26%),
         linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
       border: 1px solid rgba(255,255,255,0.08);
       display: grid;
-      gap: 10px;
+      gap: 12px;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .mix-pad.urgent {
+      border-color: rgba(255, 110, 146, 0.5);
+      box-shadow: 0 0 0 1px rgba(255, 110, 146, 0.14) inset;
+    }
+
+    .mix-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .callout {
+      color: var(--gold);
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .timer {
+      min-width: 86px;
+      text-align: right;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
     }
 
     .mix-title {
-      font-size: 1.35rem;
+      font-size: 1.45rem;
       font-weight: 900;
-      letter-spacing: -0.04em;
+      letter-spacing: -0.05em;
+      line-height: 1.02;
     }
 
     .mix-copy,
-    .subtle {
+    .subtle,
+    .tiny-help,
+    .action-copy {
       color: var(--muted);
       font-size: 0.95rem;
       line-height: 1.4;
+    }
+
+    .action-copy {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .pressure-track {
+      width: 100%;
+      height: 14px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .pressure-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--danger), var(--danger-2), var(--accent));
+      transform-origin: left center;
+      transition: transform 140ms linear, filter 140ms linear;
     }
 
     .chip {
@@ -219,11 +278,13 @@
       border: 1px solid rgba(255,255,255,0.08);
       display: grid;
       gap: 12px;
+      transition: transform 140ms ease, border-color 140ms ease;
     }
 
     .suspect-card.selected {
       border-color: rgba(119,247,209,0.72);
       box-shadow: 0 0 0 1px rgba(119,247,209,0.3) inset;
+      transform: translateY(-1px);
     }
 
     .suspect-top {
@@ -261,7 +322,7 @@
     }
 
     .select-btn {
-      min-width: 110px;
+      min-width: 116px;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.08);
     }
@@ -271,38 +332,24 @@
       grid-template-columns: repeat(8, 1fr);
       gap: 6px;
       align-items: end;
-      height: 42px;
+      height: 46px;
     }
 
     .bar {
       border-radius: 999px;
       background: linear-gradient(180deg, var(--accent), var(--accent-2));
-      opacity: 0.9;
+      opacity: 0.92;
+      min-height: 18%;
+      transition: height 120ms ease;
     }
 
-    .callout {
-      color: var(--gold);
-      font-size: 0.9rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .result-panel {
-      display: grid;
-      gap: 12px;
-    }
+    .result-panel { display: grid; gap: 12px; }
 
     .result-big {
       font-size: 1.35rem;
       font-weight: 900;
       letter-spacing: -0.03em;
-    }
-
-    .tiny-help {
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.35;
+      line-height: 1.1;
     }
 
     .hidden { display: none !important; }
@@ -316,10 +363,10 @@
 <body>
   <main class="app">
     <section class="panel hero">
-      <div class="eyebrow">audio deduction</div>
+      <div class="eyebrow">ear arcade</div>
       <div>
         <h1>Off-Key One</h1>
-        <p class="tagline">Hear the room. Solo the suspects. Nail the saboteur.</p>
+        <p class="tagline">Hear once. Solo fast. Lock in.</p>
       </div>
       <div class="hud">
         <div class="stat"><div class="stat-label">Score</div><div class="stat-value" id="scoreValue">0</div></div>
@@ -328,32 +375,37 @@
         <div class="stat"><div class="stat-label">Tier</div><div class="stat-value" id="unlockValue">1</div></div>
       </div>
       <div class="controls">
-        <button class="btn-primary" id="nextRoundBtn">Start round</button>
-        <button class="btn-secondary" id="howToBtn">How to play</button>
+        <button class="btn-primary" id="nextRoundBtn">Drop in</button>
+        <button class="btn-secondary" id="howToBtn">Show rules</button>
         <button class="btn-secondary" id="resetBtn">Reset</button>
       </div>
-      <p class="tiny-help hidden" id="howToCopy">1. Hear the room. 2. Tap singers to solo them. 3. Select one and lock the accusation.</p>
+      <p class="tiny-help hidden" id="howToCopy">Hear the full room. Solo suspects. Lock before the bar empties for max points.</p>
     </section>
 
     <section class="panel section mix-stage">
       <div class="chip-row" id="stageStrip"></div>
-      <div class="mix-pad">
-        <div class="callout" id="focusBadge">waiting</div>
-        <div class="mix-title" id="briefingCopy">Tap start. Then trust your ears.</div>
-        <p class="mix-copy" id="venueCopy">The saboteur will bend rhythm, pitch, or blend. Clean singers resolve. Guilty singers rub.</p>
-        <div class="bars" aria-hidden="true">
-          <div class="bar" style="height:38%"></div>
-          <div class="bar" style="height:74%"></div>
-          <div class="bar" style="height:52%"></div>
-          <div class="bar" style="height:88%"></div>
-          <div class="bar" style="height:66%"></div>
-          <div class="bar" style="height:94%"></div>
-          <div class="bar" style="height:49%"></div>
-          <div class="bar" style="height:72%"></div>
+      <div class="mix-pad" id="mixPad">
+        <div class="mix-top">
+          <div class="callout" id="focusBadge">waiting</div>
+          <div class="timer" id="timerValue">--.-s</div>
         </div>
-        <div class="controls">
+        <div class="mix-title" id="briefingCopy">Tap drop in. Then trust your ears.</div>
+        <p class="action-copy" id="actionCopy">Wrong voice, fast verdict.</p>
+        <div class="pressure-track" aria-hidden="true"><div class="pressure-fill" id="pressureFill"></div></div>
+        <p class="mix-copy" id="venueCopy">The saboteur bends rhythm, pitch, or blend. Clean singers resolve. Guilty singers rub.</p>
+        <div class="bars" aria-hidden="true" id="bars">
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+          <div class="bar"></div>
+        </div>
+        <div class="mix-actions">
           <button class="btn-primary" id="hearRoomBtn">Hear the room</button>
-          <button class="btn-secondary" id="revealSecretBtn">Solo focus</button>
+          <button class="btn-secondary" id="revealSecretBtn">Hear clean anchor</button>
         </div>
       </div>
     </section>
@@ -361,19 +413,19 @@
     <section class="panel section">
       <div>
         <h2>Suspects</h2>
-        <p class="subtle">Tap Listen to audition one singer. Pick your culprit fast.</p>
+        <p class="subtle">Solo anybody. Pick the voice that clashes.</p>
       </div>
       <div class="suspect-grid" id="suspectList"></div>
       <button class="btn-danger" id="voteBtn">Lock accusation</button>
     </section>
 
     <section class="panel section result-panel">
-      <div class="result-big" id="resultCopy">No accusation locked.</div>
+      <div class="result-big" id="resultCopy">No round yet.</div>
       <div class="result-actions">
         <button class="btn-primary" id="continueBtn">Next round</button>
         <button class="btn-secondary" id="replayBtn">Restart run</button>
       </div>
-      <div class="subtle" id="unlockList">Climb the streak to thicken the room.</div>
+      <div class="subtle" id="unlockList">Climb the streak. Thin rooms become crowded rooms.</div>
     </section>
   </main>
 

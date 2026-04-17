@@ -34,6 +34,15 @@ for (const target of targets) {
     await expect(page.locator('#nextRoundBtn')).toBeVisible();
     await expect(page.locator('#voteBtn')).toBeVisible();
 
+    await page.locator('#nextRoundBtn').click();
+    await expect(page.locator('#focusBadge')).not.toHaveText('waiting');
+    await page.waitForTimeout(1400);
+    await page.locator('[data-listen]').first().click();
+    await page.waitForTimeout(500);
+    await page.locator('[data-select]').nth(1).click();
+    await page.locator('#voteBtn').click();
+    await expect(page.locator('#continueBtn')).toBeEnabled();
+
     const metrics = await page.evaluate(() => ({
       bodyScrollWidth: document.body.scrollWidth,
       bodyClientWidth: document.body.clientWidth,
