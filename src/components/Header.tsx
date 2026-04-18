@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, Newspaper, GraduationCap, Wrench, Info, Menu, X } from 'lucide-react';
+import { Sparkles, Newspaper, GraduationCap, Wrench, Info, Flame, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 const nav = [
   { href: '/daily', label: 'Daily Builds', icon: Sparkles },
   { href: '/feed', label: 'Feed', icon: Newspaper },
   { href: '/little-learners', label: 'Little Learners', icon: GraduationCap },
+  { href: '/pitboss', label: 'Pitboss', icon: Flame },
   { href: '/tools', label: 'Tools', icon: Wrench },
   { href: '/about', label: 'About', icon: Info },
 ];
