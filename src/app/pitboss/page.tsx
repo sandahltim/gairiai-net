@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { Users, Bot, HardDrive, ArrowRight, Mail, Github, Flame } from 'lucide-react';
+import { Users, Bot, HardDrive, ArrowRight, Mail, Flame } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Pitboss — Employee Incentives That Work | gairiai',
@@ -41,16 +41,8 @@ export default function PitbossPage() {
                 href="mailto:tim@gairiai.net?subject=Pitboss%20Demo"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 text-white text-sm font-semibold hover:from-amber-500 hover:to-orange-500 transition-all shadow-lg shadow-amber-900/20"
               >
-                <Mail size={16} /> Book a Demo
-              </a>
-              <a
-                href="https://github.com/sandahltim/incent-A1"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border-glow text-zinc-400 text-sm font-medium hover:text-zinc-200 hover:border-zinc-500 transition-all"
-              >
-                <Github size={16} /> View on GitHub
-              </a>
+              <Mail size={16} /> Book a Demo
+             </a>
             </div>
           </div>
         </div>
