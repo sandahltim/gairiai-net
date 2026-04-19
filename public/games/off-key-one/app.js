@@ -39,6 +39,7 @@ const els = {
   continueBtn: document.getElementById('continueBtn'),
   replayBtn: document.getElementById('replayBtn'),
   resultCopy: document.getElementById('resultCopy'),
+  replayHook: document.getElementById('replayHook'),
   unlockList: document.getElementById('unlockList'),
 };
 
@@ -56,6 +57,7 @@ const state = {
   barInterval: null,
   lastWarningSecond: null,
   barPhase: 0,
+  replayState: null,
 };
 
 function loadProgress() {
@@ -102,6 +104,7 @@ function setStage(stage) {
 
 function startRound(seed = Date.now(), options = {}) {
   clearRoundTimers();
+  state.replayState = null;
   const gameState = createGameState({ ...state.progress, seed, mode: 'solo' });
   state.round = createRound(gameState);
   state.selectedSuspectId = null;
@@ -123,6 +126,7 @@ function startRound(seed = Date.now(), options = {}) {
 
 function restartRun() {
   clearRoundTimers();
+  state.replayState = null;
   state.progress = {
     ...state.progress,
     score: 0,
@@ -269,6 +273,10 @@ function renderSuspects() {
 function renderResult() {
   if (!state.resolution) {
     els.resultCopy.textContent = state.round ? 'Catch the off voice.' : 'No round yet.';
+    els.replayHook.textContent = state.round
+      ? 'String clean reads together to climb the streak.'
+      : 'Build a streak, beat your best, then dive right back in.';
+    els.replayHook.classList.remove('celebrate');
     els.continueBtn.disabled = true;
     return;
   }
@@ -279,6 +287,25 @@ function renderResult() {
   } else {
     els.resultCopy.textContent = `${state.resolution.scoreDelta} • ${state.resolution.culpritName} got away.`;
   }
+
+  const replayState = state.replayState;
+  if (replayState?.isNewBestScore) {
+    els.replayHook.textContent = `New high score! Best now ${state.progress.bestScore} • streak ${state.progress.streak}. Run it back.`;
+    els.replayHook.classList.add('celebrate');
+  } else if (replayState?.isNewBestStreak) {
+    els.replayHook.textContent = `Best run extended to ${state.progress.longestStreak} in a row. Keep the room alive.`;
+    els.replayHook.classList.add('celebrate');
+  } else if (!state.resolution.correct) {
+    const runText = replayState?.runEndedStreak
+      ? `Run broke at ${replayState.runEndedStreak}. Best is ${state.progress.longestStreak}.`
+      : `Best stays ${state.progress.bestScore}.`;
+    els.replayHook.textContent = `${runText} Hit restart or chase the next clean read.`;
+    els.replayHook.classList.remove('celebrate');
+  } else {
+    els.replayHook.textContent = `Best ${state.progress.bestScore} • longest streak ${state.progress.longestStreak}. Keep pressing.`;
+    els.replayHook.classList.remove('celebrate');
+  }
+
   els.continueBtn.disabled = false;
 }
 
@@ -480,18 +507,27 @@ async function playSuspect(suspectId) {
 function chooseSuspect(suspectId) {
   if (!state.round || state.isPlaying) return;
   state.selectedSuspectId = suspectId;
+  playMarkSound(true).catch(() => {});
   setStage('pick');
   renderSuspects();
 }
 
 async function lockVote() {
   if (!state.round || !state.selectedSuspectId || state.isPlaying) return;
+  const previousBestScore = state.progress.bestScore;
+  const previousLongestStreak = state.progress.longestStreak;
+  const runEndedStreak = state.progress.streak;
   const timeRemainingMs = remainingMs();
   state.resolution = resolveVote(state.progress, state.round, state.selectedSuspectId, {
     timeRemainingMs,
     roundDurationMs: state.roundDurationMs,
   });
   state.progress = advanceProgress(state.progress, state.resolution);
+  state.replayState = {
+    isNewBestScore: state.progress.bestScore > previousBestScore,
+    isNewBestStreak: state.progress.longestStreak > previousLongestStreak,
+    runEndedStreak: state.resolution.correct ? 0 : runEndedStreak,
+  };
   saveProgress();
   clearRoundTimers();
   setStage('resolve');
@@ -503,12 +539,22 @@ async function lockVote() {
   await playVerdict(state.resolution.correct);
 }
 
+async function playMarkSound(lockedIn = false) {
+  const intervals = lockedIn ? [0, 7, 12] : [0, 7];
+  await playChord(intervals, { root: lockedIn ? 294 : 246, waveform: 'triangle', duration: lockedIn ? 0.28 : 0.18, level: 0.05 });
+}
+
 async function playVerdict(correct) {
   if (correct) {
-    await playChord([0, 4, 7, 12], { root: 230, waveform: 'triangle', duration: 0.72, level: 0.08 });
+    const replayState = state.replayState;
+    if (replayState?.isNewBestScore || replayState?.isNewBestStreak) {
+      await playChord([0, 7, 12, 19], { root: 220, waveform: 'triangle', duration: 0.92, level: 0.085 });
+      return;
+    }
+    await playChord([0, 7, 12], { root: 230, waveform: 'triangle', duration: 0.72, level: 0.08 });
     return;
   }
-  await playChord([0, 3, 6, 10], { root: 180, waveform: 'square', detune: -12, duration: 0.72, level: 0.09 });
+  await playChord([0, 6, 10], { root: 180, waveform: 'square', detune: -12, duration: 0.72, level: 0.09 });
 }
 
 function wait(ms) {
@@ -517,6 +563,7 @@ function wait(ms) {
 
 async function startInteractiveRound() {
   await ensureAudio();
+  await playMarkSound();
   startRound(Date.now(), { autoplay: true });
 }
 
